@@ -22,7 +22,7 @@ class DashboardController extends BcAdminAppController {
      */
     public function index() {
         // TODO 未実装
-        $this->set('title', __d('baser', 'ダッシュボード'));
+        $this->setTitle( __d('baser', 'ダッシュボード'));
     }
 
 }
