@@ -9,15 +9,13 @@
  * @license       http://basercms.net/license/index.html MIT License
  */
 
-namespace BaserCore\Mailer;
-
-use Cake\Mailer\Mailer;
+namespace BaserCore\Model\Table;
+use Cake\ORM\Table;
 
 /**
- * Class BcMailer
- * @package BaserCore\Mailer
+ * Class ContentsTable
  */
-class BcMailer extends Mailer
+class ContentsTable extends Table
 {
 
 }
