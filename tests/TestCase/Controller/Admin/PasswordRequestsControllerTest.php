@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Test\TestCase\Controller\Admin;
@@ -33,7 +33,10 @@ class PasswordRequestsControllerTest extends BcTestCase
     protected $fixtures = [
         'plugin.BaserCore.PasswordRequests',
         'plugin.BaserCore.Users',
-        'plugin.BaserCore.LoginStores'
+        'plugin.BaserCore.LoginStores',
+        'plugin.BaserCore.Sites',
+        'plugin.BaserCore.Dblogs',
+        'plugin.BaserCore.SiteConfigs'
     ];
 
     /**
@@ -91,7 +94,7 @@ class PasswordRequestsControllerTest extends BcTestCase
     public function testApply()
     {
         $this->get('/baser/admin/baser-core/password_requests/apply');
-        $this->assertResponseFailure();
+        $this->assertResponseCode(404);
     }
 
     /**

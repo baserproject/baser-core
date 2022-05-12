@@ -1,24 +1,24 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Test\TestCase\Utility;
 
-use BaserCore\TestSuite\BcTestCase;
-use BaserCore\Utility\BcUtil;
 use Cake\Core\App;
-use Cake\Core\Configure;
+use Cake\Cache\Cache;
 use Cake\Core\Plugin;
+use Cake\Core\Configure;
 use Cake\Filesystem\File;
 use Cake\Filesystem\Folder;
-use Cake\Cache\Cache;
+use BaserCore\Utility\BcUtil;
+use BaserCore\TestSuite\BcTestCase;
 
 /**
  * TODO: $this->getRequest();などをsetupに統一する
@@ -37,6 +37,9 @@ class BcUtilTest extends BcTestCase
         'plugin.BaserCore.UserGroups',
         'plugin.BaserCore.UsersUserGroups',
         'plugin.BaserCore.Plugins',
+        'plugin.BaserCore.Sites',
+        'plugin.BaserCore.Contents',
+        'plugin.BaserCore.ContentFolders',
     ];
 
     /**
@@ -55,9 +58,6 @@ class BcUtilTest extends BcTestCase
      */
     public function tearDown(): void
     {
-        Cache::drop('_bc_env_');
-        Cache::drop('_cake_core_');
-        Cache::drop('_cake_model_');
         parent::tearDown();
     }
 
@@ -69,7 +69,7 @@ class BcUtilTest extends BcTestCase
     public function testLoginUser($isLogin, $expects): void
     {
         if ($isLogin) {
-            $this->loginAdmin();
+            $this->loginAdmin($this->getRequest());
         }
         $result = BcUtil::loginUser();
         if ($result) {
@@ -84,8 +84,18 @@ class BcUtilTest extends BcTestCase
             // ログインしている状況
             [true, 1],
             // ログインしていない状況
-            [false, null]
+            [false, false]
         ];
+    }
+
+    /**
+     * test loginUserFromSession
+     */
+    public function testLoginUserFromSession()
+    {
+        $this->assertFalse(BcUtil::loginUserFromSession());
+        $this->loginAdmin($this->getRequest('/baser/admin'));
+        $this->assertEquals('baser admin', BcUtil::loginUserFromSession()->name);
     }
 
     /**
@@ -96,7 +106,7 @@ class BcUtilTest extends BcTestCase
     public function testIsSuperUser($id, $expects): void
     {
         if ($id) {
-            $this->loginAdmin($id);
+            $this->loginAdmin($this->getRequest(), $id);
         }
         $result = BcUtil::isSuperUser();
         $this->assertEquals($expects, $result);
@@ -123,7 +133,7 @@ class BcUtilTest extends BcTestCase
     {
 
         if ($id) {
-            $user = $this->loginAdmin($id);
+            $user = $this->loginAdmin($this->getRequest('/baser/admin'), $id);
             $session = $this->request->getSession();
             $session->write('AuthAgent.User', $user);
         }
@@ -158,9 +168,9 @@ class BcUtilTest extends BcTestCase
     {
         return [
             // インストールモード On
-            [true, true],
+            ["true", true],
             // インストールモード Off
-            [false, false],
+            ["false", false],
         ];
     }
 
@@ -215,7 +225,7 @@ class BcUtilTest extends BcTestCase
      */
     public function testGetEnablePlugins(): void
     {
-        $expects = ['BcBlog', 'BcMail'];
+        $expects = ['BcBlog', 'BcMail', 'BcUploader'];
         $result = BcUtil::getEnablePlugins();
         foreach($result as $key => $value) {
             $result[$key] = $value->name;
@@ -288,11 +298,7 @@ class BcUtilTest extends BcTestCase
      */
     public function testIsAdminSystem($url, $expect)
     {
-        // TODO ucmitz移行時に未実装のため代替措置
-        // >>>
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        // <<<
-        $this->_getRequest($url);
+        $this->getRequest($url);
         $result = BcUtil::isAdminSystem();
         $this->assertEquals($expect, $result, '正しく管理システムかチェックできません');
     }
@@ -305,10 +311,10 @@ class BcUtilTest extends BcTestCase
     public function isAdminSystemDataProvider()
     {
         return [
-            ['admin', true],
-            ['admin/hoge', true],
-            ['/admin/hoge', true],
-            ['admin/', true],
+            ['baser/admin', true],
+            ['baser/admin/hoge', true],
+            ['/baser/admin/hoge', true],
+            ['baser/admin/', true],
             ['hoge', false],
             ['hoge/', false],
         ];
@@ -328,6 +334,9 @@ class BcUtilTest extends BcTestCase
         $session = $this->request->getSession();
         $user = $this->getUser($id);
         $session->write($sessionKey, $user);
+        if ($expect) {
+            $this->loginAdmin($this->getRequest(), $id);
+        }
         $result = BcUtil::isAdminUser();
         $this->assertEquals($expect, $result);
     }
@@ -349,10 +358,42 @@ class BcUtilTest extends BcTestCase
 
     /**
      * 現在ログインしているユーザーのユーザーグループ情報を取得する
+     * @param string $id ユーザーid
+     * @param bool $expect 期待値
+     * @return void
+     * @dataProvider loginUserGroupDataProvider
      */
-    public function testLoginUserGroup()
+    public function testLoginUserGroup($id, $expect): void
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
+        $sessionKey = Configure::read('BcPrefixAuth.Admin.sessionKey');
+        $session = $this->request->getSession();
+        $user = $this->getUser($id);
+        $session->write($sessionKey, $user);
+        if ($expect) {
+            $this->loginAdmin($this->getRequest(), $id);
+        }
+        $result = BcUtil::loginUserGroup();
+
+        if($result === false){
+            $result = [];
+        }
+
+        $this->assertCount($expect, $result);
+    }
+
+    /**
+     * isAdminUser用データプロバイダ
+     *
+     * @return array
+     */
+    public function loginUserGroupDataProvider()
+    {
+        return [
+            // ログイン
+            [1, 1],
+            // 非ログイン
+            [0, 0],
+        ];
     }
 
     /**
@@ -381,29 +422,8 @@ class BcUtilTest extends BcTestCase
      */
     public function testAuthSessionKey()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
+        $this->assertEquals('AuthAdmin', BcUtil::authSessionKey());
     }
-
-    /**
-     * ログインしているユーザーのセッションキーを取得
-     */
-    public function testGetLoginUserSessionKey()
-    {
-        // TODO ucmitz移行時に未実装のため代替措置
-        // >>>
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        // <<<
-
-        // セッションキーを未設定の場合
-        $result = BcUtil::getLoginUserSessionKey();
-        $this->assertEquals('User', $result, 'セッションキーを取得を正しく取得できません');
-
-        // セッションキーを設定した場合
-        BcAuthComponent::$sessionKey = 'Auth.Hoge';
-        $result = BcUtil::getLoginUserSessionKey();
-        $this->assertEquals($result, 'Hoge', 'セッションキーを取得を正しく取得できません');
-    }
-
 
     /**
      * テーマ梱包プラグインのリストを取得する
@@ -475,7 +495,7 @@ class BcUtilTest extends BcTestCase
         $this->assertEquals(BASER_CONFIGS . 'Schema', $result, 'Coreのスキーマ情報のパスを正しく取得できません');
 
         // Blog
-        $result = BcUtil::getSchemaPath('Blog');
+        $result = BcUtil::getSchemaPath('BcBlog');
         $this->assertEquals(BASER_PLUGINS . 'Blog/Config/Schema', $result, 'プラグインのスキーマ情報のパスを正しく取得できません');
     }
 
@@ -543,9 +563,9 @@ class BcUtilTest extends BcTestCase
             [null, null, null, BASER_CONFIGS . 'data/default'],
             [null, 'nada-icons', null, BASER_THEMES . 'nada-icons/Config/data/default'],
             [null, 'nada-icons', 'not_default', BASER_THEMES . 'nada-icons/Config/data/not_default'],
-            ['Blog', null, null, BASER_PLUGINS . 'Blog/Config/data/default'],
-            ['Blog', 'nada-icons', null, BASER_THEMES . 'nada-icons/Config/data/default/Blog'],
-            ['Blog', 'nada-icons', 'not_default', BASER_THEMES . 'nada-icons/Config/data/not_default/Blog'],
+            ['BcBlog', null, null, BASER_PLUGINS . 'Blog/Config/data/default'],
+            ['BcBlog', 'nada-icons', null, BASER_THEMES . 'nada-icons/Config/data/default/Blog'],
+            ['BcBlog', 'nada-icons', 'not_default', BASER_THEMES . 'nada-icons/Config/data/not_default/Blog'],
         ];
     }
 
@@ -554,12 +574,6 @@ class BcUtilTest extends BcTestCase
      */
     public function testSerialize()
     {
-
-        // TODO ucmitz移行時に未実装のため代替措置
-        // >>>
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        // <<<
-
         // BcUtil::serialize()でシリアライズした場合
         $serialized = BcUtil::serialize('hoge');
         $result = BcUtil::unserialize($serialized);
@@ -569,7 +583,6 @@ class BcUtilTest extends BcTestCase
         $serialized = serialize('hoge');
         $result = BcUtil::unserialize($serialized);
         $this->assertEquals('hoge', $result, 'serializeのみで正しくシリアライズ/アンシリアライズできません');
-
     }
 
     /**
@@ -582,24 +595,14 @@ class BcUtilTest extends BcTestCase
     }
 
     /**
-     * URL用に文字列を変換する
-     *
-     * できるだけ可読性を高める為、不要な記号は除外する
-     */
-    public function testUrlencode()
-    {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-    }
-
-    /**
      * コンソールから実行されてるかどうかチェックする
-     *
-     *
      */
     public function testIsConsole()
     {
-        // テストはCliから実行するためtrue
         $this->assertTrue(BcUtil::isConsole());
+        $_ENV['IS_CONSOLE'] = false;
+        $this->assertFalse(BcUtil::isConsole());
+        $_ENV['IS_CONSOLE'] = true;
     }
 
     /**
@@ -607,7 +610,11 @@ class BcUtilTest extends BcTestCase
      */
     public function testGetTemplateList()
     {
-        $result = BcUtil::getTemplateList('Admin/element/Dashboard', 'BaserCore', 'BcAdminThird');
+        // プラグインが一つの場合
+        $result = BcUtil::getTemplateList('Pages', 'BcFront');
+        $this->assertEquals(["default" => "default"], $result);
+        // 複数プラグインがある場合
+        $result = BcUtil::getTemplateList('Admin/element/Dashboard', ['BaserCore', 'BcAdminThird']);
         $expected = ['baser_news' => 'baser_news', "contents_info" => "contents_info", "update_log" => "update_log"];
         $this->assertEquals($expected, $result);
     }
@@ -628,15 +635,22 @@ class BcUtilTest extends BcTestCase
      */
     public function testGetAllThemeList()
     {
-
-        // TODO ucmitz移行時に未実装のため代替措置
-        // >>>
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        // <<<
-
+        $themePath = ROOT . DS . 'plugins' . DS . 'TestTheme';
+        $themeConfigPath = $themePath . DS . 'config.php';
+        $folder = new Folder();
+        $folder->create(ROOT . DS . 'plugins' . DS . 'TestTheme');
+        $file = new File($themeConfigPath);
+        $file->write('<?php
+            return [
+                \'type\' => \'Theme\'
+            ];
+        ');
+        $file->close();
         $themes = BcUtil::getAllThemeList();
-        $this->assertTrue(in_array('nada-icons', $themes));
-        $this->assertTrue(in_array('admin-third', $themes));
+        $this->assertTrue(in_array('BcFront', $themes));
+        $this->assertTrue(in_array('BcAdminThird', $themes));
+        $this->assertTrue(in_array('TestTheme', $themes));
+        $folder->delete($themePath);
     }
 
     /**
@@ -644,15 +658,9 @@ class BcUtilTest extends BcTestCase
      */
     public function testGetThemeList()
     {
-
-        // TODO ucmitz移行時に未実装のため代替措置
-        // >>>
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        // <<<
-
         $themes = BcUtil::getThemeList();
-        $this->assertTrue(in_array('nada-icons', $themes));
-        $this->assertFalse(in_array('admin-third', $themes));
+        $this->assertTrue(in_array('BcFront', $themes));
+        $this->assertFalse(in_array('BcAdminThird', $themes));
     }
 
     /**
@@ -660,23 +668,28 @@ class BcUtilTest extends BcTestCase
      */
     public function testGetAdminThemeList()
     {
-
-        // TODO ucmitz移行時に未実装のため代替措置
-        // >>>
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        // <<<
-
         $themes = BcUtil::getAdminThemeList();
-        $this->assertFalse(in_array('nada-icons', $themes));
-        $this->assertTrue(array_key_exists('admin-third', $themes));
+        $this->assertFalse(in_array('BcFront', $themes));
+        $this->assertTrue(array_key_exists('BcAdminThird', $themes));
     }
 
     /**
      * 指定したURLのドメインを取得する
+     * @dataProvider getDomainDataProvider
      */
-    public function testGetDomain()
+    public function testGetDomain($target, $expected)
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
+        $result = BcUtil::getDomain($target);
+        $this->assertEquals($expected, $result);
+    }
+
+    public function getDomainDataProvider()
+    {
+        return [
+            ['http', ''],
+            ['https://localhost/', 'localhost'],
+            ['https://localhost:8000', 'localhost:8000'],
+        ];
     }
 
     /**
@@ -684,7 +697,16 @@ class BcUtilTest extends BcTestCase
      */
     public function testGetMainDomain()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
+        // BcEnv.mainDomainがある場合
+        $domain = "testMainDomain";
+        Configure::write('BcEnv.mainDomain', $domain);
+        $this->assertEquals(BcUtil::getMainDomain(), $domain);
+        Configure::delete('BcEnv.mainDomain');
+        // BcEnv.mainDomainがなく、BcEnv.siteUrlがある場合
+        $siteUrl = "https://example.com:8000";
+        Configure::write('BcEnv.siteUrl', $siteUrl);
+        $this->assertEquals(BcUtil::getMainDomain(), "example.com:8000");
+
     }
 
     /**
@@ -692,7 +714,31 @@ class BcUtilTest extends BcTestCase
      */
     public function testGetAdminPrefix()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
+        $result = BcUtil::getAdminPrefix();
+        $this->assertEquals('admin', $result);
+    }
+
+    /**
+     *
+     * baserコア用のプレフィックスを取得する
+     */
+    public function testGetBaserCorePrefix()
+    {
+        $result = BcUtil::getBaserCorePrefix();
+        $this->assertEquals('baser', $result);
+    }
+
+    /**
+     *
+     * プレフィックス全体を取得する
+     */
+    public function testGetPrefix()
+    {
+        $result = BcUtil::getPrefix();
+        $this->assertEquals('/baser/admin', $result);
+        // $regex = trueの場合
+        $result = BcUtil::getPrefix(true);
+        $this->assertMatchesRegularExpression('/^(|\/)' . $result . '/', '/baser/admin');
     }
 
 
@@ -701,12 +747,6 @@ class BcUtilTest extends BcTestCase
      */
     public function testGetCurrentDomain()
     {
-
-        // TODO ucmitz移行時に未実装のため代替措置
-        // >>>
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        // <<<
-
         $this->assertEmpty(BcUtil::getCurrentDomain(), '$_SERVER[HTTP_HOST] の値が間違っています。');
         Configure::write('BcEnv.host', 'hoge');
         $this->assertEquals('hoge', BcUtil::getCurrentDomain(), 'ホストを変更できません。');
@@ -756,7 +796,7 @@ class BcUtilTest extends BcTestCase
     {
         $this->assertEquals(ROOT . '/plugins/baser-core/', BcUtil::getPluginPath('BaserCore'));
         $this->assertEquals(ROOT . '/plugins/bc-blog/', BcUtil::getPluginPath('BcBlog'));
-        $this->assertEquals(ROOT . '/plugins/BcSample/', BcUtil::getPluginPath('BcSample'));
+        $this->assertEquals(ROOT . '/plugins/BcSpaSample/', BcUtil::getPluginPath('BcSpaSample'));
     }
 
     /**
@@ -766,7 +806,125 @@ class BcUtilTest extends BcTestCase
     {
         $this->assertEquals('baser-core', BcUtil::getPluginDir('BaserCore'));
         $this->assertEquals('bc-blog', BcUtil::getPluginDir('BcBlog'));
-        $this->assertEquals('BcSample', BcUtil::getPluginDir('BcSample'));
+        $this->assertEquals('BcSpaSample', BcUtil::getPluginDir('BcSpaSample'));
     }
 
+    /**
+     * testGetContentsItem
+     *
+     * @return void
+     */
+    public function testGetContentsItem()
+    {
+        $result = BcUtil::getContentsItem();
+        $list = ['Default', 'ContentFolder', 'ContentAlias', 'Page'];
+        foreach($list as $key) {
+            $this->assertArrayHasKey($key, $result);
+        }
+        $this->assertEquals('BaserCore', $result['Default']['plugin']);
+        $this->assertEquals('Default', $result['Default']['type']);
+    }
+
+    /**
+     * Test convertSize
+     *
+     * @return void
+     */
+    public function testConvertSize()
+    {
+        $this->assertEquals(1, BcUtil::convertSize('1B'));
+        $this->assertEquals(1024, BcUtil::convertSize('1K'));
+        $this->assertEquals(1048576, BcUtil::convertSize('1M'));
+        $this->assertEquals(1073741824, BcUtil::convertSize('1G'));
+        $this->assertEquals(1099511627776, BcUtil::convertSize('1T'));
+        $this->assertEquals(1099511627776, BcUtil::convertSize('1T', 'B'));
+        $this->assertEquals(1073741824, BcUtil::convertSize('1T', 'K'));
+        $this->assertEquals(1073741824, BcUtil::convertSize('1', 'K', 'T'));
+        $this->assertEquals(0, BcUtil::convertSize(null));
+    }
+
+    /**
+     * サイトのトップレベルのURLを取得する
+     *
+     * @return void
+     */
+    public function testTopLevelUrl()
+    {
+        if (BcUtil::isConsole()) {
+            $this->assertEquals('https://localhost', BcUtil::topLevelUrl());
+        } else {
+            $this->assertMatchesRegularExpression('/^http:\/\/.*\/$/', BcUtil::topLevelUrl());
+            $this->assertMatchesRegularExpression('/^http:\/\/.*[^\/]$/', BcUtil::topLevelUrl(false));
+
+            // httpsの場合
+            $_SERVER['HTTPS'] = 'on';
+            $this->assertMatchesRegularExpression('/^https:\/\//', BcUtil::topLevelUrl());
+        }
+    }
+
+    /**
+     * サイトの設置URLを取得する
+     */
+    public function testSiteUrl()
+    {
+        if (BcUtil::isConsole()) {
+            $this->assertEquals('https://localhost/', BcUtil::siteUrl());
+        } else {
+            $topLevelUrl = BcUtil::topLevelUrl(false);
+
+            Configure::write('App.baseUrl', '/test/');
+            $this->assertEquals($topLevelUrl . '/test/', BcUtil::siteUrl());
+
+            Configure::write('App.baseUrl', '/test/index.php');
+            $this->assertEquals($topLevelUrl . '/test/', BcUtil::siteUrl());
+
+            Configure::write('App.baseUrl', '/test/hoge/');
+            $this->assertEquals($topLevelUrl . '/test/hoge/', BcUtil::siteUrl());
+        }
+    }
+
+    /**
+     * WebサイトのベースとなるURLを取得する
+     *
+     * @param string $script App.baseUrlの値
+     * @param string $script $_SERVER['SCRIPT_FILENAME']の値
+     * @param string $expect 期待値
+     * @dataProvider baseUrlDataProvider
+     */
+    public function testBaseUrl($baseUrl, $expect)
+    {
+        Configure::write('App.baseUrl', $baseUrl);
+        $_SERVER['SCRIPT_NAME'] = DS . 'webroot' . DS . 'index.php';
+        $_SERVER['SCRIPT_FILENAME'] = ROOT . $_SERVER['SCRIPT_NAME'];
+        $result = BcUtil::baseUrl();
+        $this->assertEquals($expect, $result, 'WebサイトのベースとなるURLを正しく取得できません');
+    }
+
+    public function baseUrlDataProvider()
+    {
+        return [
+            ['/hoge/test', '/hoge/test/'],
+            [null, '/'],
+            ['/hoge/test', '/hoge/test/'],
+            [null, '/'],
+        ];
+    }
+
+    /**
+     * ドキュメントルートを取得する
+     */
+    public function testDocRoot()
+    {
+        $_SERVER['SCRIPT_NAME'] = DS . 'webroot' . DS . 'index.php';
+        $_SERVER['SCRIPT_FILENAME'] = ROOT . $_SERVER['SCRIPT_NAME'];
+        $path = explode('/', $_SERVER['SCRIPT_NAME']);
+        krsort($path);
+        $expected = $_SERVER['SCRIPT_FILENAME'];
+        foreach($path as $value) {
+            $reg = "/\/" . $value . "$/";
+            $expected = preg_replace($reg, '', $expected);
+        }
+        $result = BcUtil::docRoot();
+        $this->assertEquals($expected, $result);
+    }
 }

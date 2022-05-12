@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Test\Fixture;
@@ -34,7 +34,7 @@ class UsersFixture extends TestFixture
             'real_name_1' => 'baser',
             'real_name_2' => 'admin',
             'email' => 'testuser1@example.com',
-            'nickname' => 'Lorem ipsum dolor sit amet',
+            'nickname' => 'ニックネーム1',
             'created' => '2017-05-03 10:57:07',
             'modified' => '2017-05-03 10:57:07'
         ],
@@ -45,7 +45,18 @@ class UsersFixture extends TestFixture
             'real_name_1' => 'baser',
             'real_name_2' => 'operator',
             'email' => 'testuser2@example.com',
-            'nickname' => 'Lorem ipsum dolor sit amet',
+            'nickname' => 'ニックネーム2',
+            'created' => '2017-05-03 10:57:07',
+            'modified' => '2017-05-03 10:57:07'
+        ],
+        [
+            'id' => 3,
+            'name' => 'baser others',
+            'password' => 'Lorem ipsum dolor sit amet',
+            'real_name_1' => 'baser',
+            'real_name_2' => 'others',
+            'email' => 'testuser3@example.com',
+            'nickname' => 'ニックネーム3',
             'created' => '2017-05-03 10:57:07',
             'modified' => '2017-05-03 10:57:07'
         ],

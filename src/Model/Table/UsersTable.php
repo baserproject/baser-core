@@ -1,30 +1,31 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Model\Table;
 
 use ArrayObject;
-use BaserCore\Event\BcEventDispatcherTrait;
-use BaserCore\Model\Entity\User;
-use Cake\Datasource\EntityInterface;
-use Cake\Event\Event;
-use Cake\ORM\Association\BelongsTo;
-use Cake\ORM\Behavior\TimestampBehavior;
 use Cake\ORM\Query;
 use Cake\ORM\Table;
+use Cake\Event\Event;
 use Cake\ORM\TableRegistry;
 use Cake\Validation\Validator;
-use BaserCore\Annotation\UnitTest;
+use BaserCore\Model\Entity\User;
+use BaserCore\View\BcAdminAppView;
+use Cake\ORM\Association\BelongsTo;
+use Cake\Datasource\EntityInterface;
+use Cake\ORM\Behavior\TimestampBehavior;
+use BaserCore\Event\BcEventDispatcherTrait;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
+use BaserCore\Annotation\UnitTest;
 
 /**
  * Class UsersTable
@@ -102,9 +103,9 @@ class UsersTable extends Table
         return true;
         // <<<
 
-        if (isset($this->data[$this->alias]['password'])) {
+        if (isset($this->data[$this->getAlias()]['password'])) {
             App::uses('AuthComponent', 'Controller/Component');
-            $this->data[$this->alias]['password'] = AuthComponent::password($this->data[$this->alias]['password']);
+            $this->data[$this->getAlias()]['password'] = AuthComponent::password($this->data[$this->getAlias()]['password']);
         }
         return true;
     }
@@ -138,16 +139,6 @@ class UsersTable extends Table
         $loginStores->deleteAll([
             'user_id' => $entity->id
         ]);
-
-        // TODO 暫定措置
-        // >>>
-        return;
-        // <<<
-
-        parent::afterSave($created);
-        if ($created && !empty($this->UserGroup)) {
-            $this->applyDefaultFavorites($this->getLastInsertID(), $this->data[$this->alias]['user_group_id']);
-        }
     }
 
     /**
@@ -161,12 +152,15 @@ class UsersTable extends Table
      */
     public function validationDefault(Validator $validator): Validator
     {
+        $validator->setProvider('user', 'BaserCore\Model\Validation\UserValidation');
+
         $validator
             ->integer('id')
             ->allowEmptyString('id', null, 'create');
         $validator
             ->scalar('name')
             ->maxLength('name', 255, __d('baser', 'アカウント名は255文字以内で入力してください。'))
+            ->requirePresence('name', 'create', __d('baser', 'アカウント名を入力してください。'))
             ->notEmptyString('name', __d('baser', 'アカウント名を入力してください。'))
             ->add('name', [
                 'nameUnique' => [
@@ -183,6 +177,7 @@ class UsersTable extends Table
         $validator
             ->scalar('real_name_1')
             ->maxLength('real_name_1', 50, __d('baser', '名前[姓]は50文字以内で入力してください。'))
+            ->requirePresence('real_name_1', 'create', __d('baser', '名前[姓]を入力してください。'))
             ->notEmptyString('real_name_1', __d('baser', '名前[姓]を入力してください。'));
         $validator
             ->scalar('real_name_2')
@@ -193,14 +188,24 @@ class UsersTable extends Table
             ->maxLength('nickname', 255, __d('baser', 'ニックネームは255文字以内で入力してください。'))
             ->allowEmptyString('nickname');
         $validator
+            ->requirePresence('user_groups', 'create', __d('baser', 'グループを選択してください。'))
             ->add('user_groups', [
                 'userGroupsNotEmptyMultiple' => [
                     'rule' => 'notEmptyMultiple',
                     'provider' => 'bc',
                     'message' => __d('baser', 'グループを選択してください。')
                 ]
+            ])
+            ->add('user_groups', [
+                'willChangeSelfGroup' => [
+                    'rule' => 'willChangeSelfGroup',
+                    'provider' => 'user',
+                    'on' => 'update',
+                    'message' => __d('baser', '自分のアカウントのグループは変更できません。')
+                ]
             ]);
         $validator
+            ->requirePresence('email', 'create', __d('baser', 'Eメールを入力してください。'))
             ->scalar('email')
             ->email('email', true, __d('baser', 'Eメールの形式が不正です。'))
             ->maxLength('email', 255, __d('baser', 'Eメールは255文字以内で入力してください。'))
@@ -242,6 +247,7 @@ class UsersTable extends Table
     public function validationNew(Validator $validator): Validator
     {
         $this->validationDefault($validator)
+            ->requirePresence('password', 'create', __d('baser', 'パスワードを入力してください。'))
             ->notEmptyString('password', __d('baser', 'パスワードを入力してください。'));
         return $validator;
     }
@@ -289,6 +295,12 @@ class UsersTable extends Table
     public function getControlSource($field, $options = [])
     {
         switch($field) {
+            case 'id':
+                $controlSources['id'] = $this->find('list', [
+                    'keyField' => 'id',
+                    'valueField' => 'name'
+                ]);
+                break;
             case 'user_group_id':
                 $controlSources['user_group_id'] = $this->UserGroups->find('list', [
                     'keyField' => 'id',
@@ -304,105 +316,30 @@ class UsersTable extends Table
     }
 
     /**
-     * ログイン時のユーザデータを取得する
-     *
-     * @param [type] $id
-     * @return User
-     * @checked
-     * @noTodo
-     * @unitTest
-     */
-    public function getLoginFormatData($id): User
-    {
-        return $this->get($id, [
-            'contain' => ['UserGroups'],
-        ]);
-    }
-
-    /**
      * ユーザーリストを取得する
      * 条件を指定する場合は引数を指定する
      *
      * @param array $conditions 取得条件
      * @return array
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function getUserList($conditions = [])
     {
         $users = $this->find("all", [
             'fields' => ['id', 'real_name_1', 'real_name_2', 'nickname'],
             'conditions' => $conditions,
-            'recursive' => -1
         ]);
         $list = [];
         if ($users) {
-            App::uses('BcBaserHelper', 'View/Helper');
-            $BcBaser = new BcBaserHelper(new View());
-            foreach($users as $key => $user) {
-                $list[$user[$this->alias]['id']] = $BcBaser->getUserName($user);
+            $appView = new BcAdminAppView();
+            $appView->loadHelper('BaserCore.BcBaser');
+            foreach($users as $user) {
+                $list[$user->id] = $appView->BcBaser->getUserName($user);
             }
         }
         return $list;
-    }
-
-    /**
-     * フォームの初期値を設定する
-     *
-     * @return array 初期値データ
-     */
-    public function getDefaultValue()
-    {
-        $data[$this->alias]['user_group_id'] = Configure::read('BcApp.adminGroupId');
-        return $data;
-    }
-
-    /**
-     * ユーザーが許可されている認証プレフィックスを取得する
-     *
-     * @param string $userName ユーザーの名前
-     * @return string
-     */
-    public function getAuthPrefix($userName)
-    {
-        $user = $this->find('first', [
-            'conditions' => ["{$this->alias}.name" => $userName],
-            'recursive' => 1
-        ]);
-
-        if (isset($user['UserGroup']['auth_prefix'])) {
-            return $user['UserGroup']['auth_prefix'];
-        } else {
-            return '';
-        }
-    }
-
-    /**
-     * よく使う項目の初期データをユーザーに適用する
-     *
-     * @param type $userId ユーザーID
-     * @param type $userGroupId ユーザーグループID
-     */
-    public function applyDefaultFavorites($userId, $userGroupId)
-    {
-        $result = true;
-        $defaultFavorites = $this->UserGroup->field('default_favorites', [
-            'UserGroup.id' => $userGroupId
-        ]);
-        if ($defaultFavorites) {
-            $defaultFavorites = BcUtil::unserialize($defaultFavorites);
-            if ($defaultFavorites) {
-                $this->deleteFavorites($userId);
-                $this->Favorite->Behaviors->detach('BcCache');
-                foreach($defaultFavorites as $favorites) {
-                    $favorites['user_id'] = $userId;
-                    $favorites['sort'] = $this->Favorite->getMax('sort', ['Favorite.user_id' => $userId]) + 1;
-                    $this->Favorite->create($favorites);
-                    if (!$this->Favorite->save()) {
-                        $result = false;
-                    }
-                }
-            }
-        }
-        return $result;
     }
 
     /**
@@ -423,7 +360,7 @@ class UsersTable extends Table
      */
     public function findAvailable(Query $query)
     {
-        return $query->where(['status' => true]);
+        return $query->where(['status' => true])->contain('UserGroups');
     }
 
 }

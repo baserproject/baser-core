@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
-"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"PO-Revision-Date: yyyy-mm-DD HH:MM+ZZZZ\n"
 "Last-Translator: NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
 "MIME-Version: 1.0\n"
@@ -7869,7 +7869,7 @@ msgid "ご迷惑をおかけしております。<br />現在メンテナンス�
 msgstr ""
 
 #: View/Pages/admin/form.php:55
-msgid "テーマフォルダ内の、Pages/templates テンプレートを配置する事で、ここでテンプレートを選択できます。"
+msgid "テーマフォルダ内の、templates/Pages テンプレートを配置する事で、ここでテンプレートを選択できます。"
 msgstr ""
 
 #: View/Pages/admin/form.php:71

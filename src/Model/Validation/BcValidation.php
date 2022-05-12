@@ -1,25 +1,26 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Model\Validation;
 
-use Cake\Validation\Validation;
-use Cake\Core\Configure;
 use Cake\Log\Log;
 use Cake\Utility\Hash;
-use BaserCore\Utility\BcUtil;
+use Cake\Core\Configure;
+use Cake\I18n\FrozenTime;
 use BaserCore\Model\AppTable;
-use BaserCore\Annotation\UnitTest;
+use BaserCore\Utility\BcUtil;
+use Cake\Validation\Validation;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
+use BaserCore\Annotation\UnitTest;
 
 /**
  * Class BcValidation
@@ -165,7 +166,7 @@ class BcValidation extends Validation
      * @noTodo
      * @unitTest
      */
-    public function notInList($value, $list)
+    public static function notInList($value, $list)
     {
         return !in_array($value, $list);
     }
@@ -198,7 +199,7 @@ class BcValidation extends Validation
 
         // upload_max_filesizeと$sizeを比較し小さい数値でファイルサイズチェック
         $AppTable = new AppTable();
-        $uploadMaxSize = $AppTable->convertSize(ini_get('upload_max_filesize'));
+        $uploadMaxSize = BcUtil::convertSize(ini_get('upload_max_filesize'));
         $size = min([$size, $uploadMaxSize]);
 
         $fileErrorCode = Hash::get($file, 'error');
@@ -212,11 +213,11 @@ class BcValidation extends Validation
                 case 1:
                     // UPLOAD_ERR_INI_SIZE
                     Log::error('CODE: ' . $fileErrorCode . ' アップロードされたファイルは、php.ini の upload_max_filesize ディレクティブの値を超えています。');
-                    return __('ファイルサイズがオーバーしています。 %s MB以内のファイルをご利用ください。', $AppTable->convertSize($size, 'M'));
+                    return __('ファイルサイズがオーバーしています。 %s MB以内のファイルをご利用ください。', BcUtil::convertSize($size, 'M'));
                 case 2:
                     // UPLOAD_ERR_FORM_SIZE
                     Log::error('CODE: ' . $fileErrorCode . ' アップロードされたファイルは、HTMLで指定された MAX_FILE_SIZE を超えています。');
-                    return __('ファイルサイズがオーバーしています。 %s MB以内のファイルをご利用ください。', $AppTable->convertSize($size, 'M'));
+                    return __('ファイルサイズがオーバーしています。 %s MB以内のファイルをご利用ください。', BcUtil::convertSize($size, 'M'));
                 case 3:
                     // UPLOAD_ERR_PARTIAL
                     Log::error('CODE: ' . $fileErrorCode . ' アップロードされたファイルが不完全です。');
@@ -246,10 +247,10 @@ class BcValidation extends Validation
         if (!empty($file['name'])) {
             // サイズが空の場合は、HTMLのMAX_FILE_SIZEの制限によりサイズオーバー
             if (!$file['size']) {
-                return __('ファイルサイズがオーバーしています。 %s MB以内のファイルをご利用ください。', $AppTable->convertSize($size, 'M'));
+                return __('ファイルサイズがオーバーしています。 %s MB以内のファイルをご利用ください。', BcUtil::convertSize($size, 'M'));
             }
             if ($file['size'] > $size) {
-                return __('ファイルサイズがオーバーしています。 %s MB以内のファイルをご利用ください。', $AppTable->convertSize($size, 'M'));
+                return __('ファイルサイズがオーバーしています。 %s MB以内のファイルをご利用ください。', BcUtil::convertSize($size, 'M'));
             }
         }
         return true;
@@ -420,46 +421,7 @@ class BcValidation extends Validation
      */
     public static function checkDate($value)
     {
-        if (!$value) {
-            return true;
-        }
-        $time = '';
-        if (strpos($value, ' ') !== false) {
-            [$date, $time] = explode(' ', $value);
-        } else {
-            $date = $value;
-        }
-        if (DS != '\\') {
-            if ($time) {
-                if (!strptime($value, '%Y-%m-%d %H:%M')) {
-                    return false;
-                }
-            } else {
-                if (!strptime($value, '%Y-%m-%d')) {
-                    return false;
-                }
-            }
-        }
-        [$Y, $m, $d] = explode('-', $date);
-        if (checkdate($m, $d, $Y) !== true) {
-            return false;
-        }
-        // TODO checktime未実装の為コメントアウト
-        /* >>>
-        if ($time) {
-            if (strpos($value, ':') !== false) {
-                list($H, $i) = explode(':', $time);
-                if (checktime($H, $i) !== true) {
-                    return false;
-                }
-            } else {
-                return false;
-            }
-        }
-        <<< */
-        if (date('Y-m-d H:i:s', strtotime($value)) == '1970-01-01 09:00:00') {
-            return false;
-        }
+        if (!$value instanceOf FrozenTime) return false;
         return true;
     }
 
@@ -491,21 +453,17 @@ class BcValidation extends Validation
     /**
      * 指定した日付よりも新しい日付かどうかチェックする
      *
-     * @param mixed $value 対象となる日付
-     * @param string $field フィールド名
+     * @param FrozenTime $fieldValue 対象となる日付
      * @param array $context
-     * @return boolean
+     * @return bool
      * @checked
      * @noTodo
      * @unitTest
      */
-    public static function checkDateAfterThan($value, $field, $context)
+    public static function checkDateAfterThan($fieldValue, $target, $context)
     {
-        $value = (is_array($value))? current($value) : $value;
-        if ($value && !empty($context['data'][$field])) {
-            if (strtotime($value) <= strtotime($context['data'][$field])) {
-                return false;
-            }
+        if ($fieldValue instanceof FrozenTime && !empty($context['data'][$target])) {
+            return $fieldValue->greaterThan($context['data'][$target]);
         }
         return true;
     }
@@ -515,10 +473,13 @@ class BcValidation extends Validation
      * - 管理グループの場合は無条件に true を返却
      * - 管理グループ以外の場合に許可されている場合は無条件に true を返却
      *
-     * @param array $value
+     * @param string $value
      * @return boolean
+     * @checked
+     * @noTodo
+     * @unitTest
      */
-    public function containsScript($value)
+    public static function containsScript($value)
     {
         $events = ['onclick', 'ondblclick', 'onmousedown', 'onmouseup', 'onmouseover', 'onmousemove',
             'onmouseout', 'onkeypress', 'onkeydown', 'onkeyup', 'onload', 'onunload',
@@ -537,5 +498,4 @@ class BcValidation extends Validation
         }
         return true;
     }
-
 }

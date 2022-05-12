@@ -1,19 +1,18 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Test\TestCase\Controller\Api;
 
 use BaserCore\TestSuite\BcTestCase;
 use Cake\Core\Configure;
-use Cake\Core\Configure\Engine\PhpConfig;
 use Cake\TestSuite\IntegrationTestTrait;
 
 /**
@@ -77,9 +76,18 @@ class UsersControllerTest extends BcTestCase
         $this->assertResponseCode(401);
         $this->post('/baser/api/baser-core/users/login.json', ['email' => 'testuser1@example.com', 'password' => 'password']);
         $this->assertResponseOk();
+        $this->assertFlashMessage('ようこそ、ニックネーム1さん。');
         $body = json_decode($this->_getBodyAsString());
+        $this->assertEquals('/baser/admin', $body->redirect);
         $this->get('/baser/api/baser-core/users/refresh_token.json?token=' . $body->refresh_token);
         $this->assertResponseContains('access_token');
+        $this->post('https://localhost/baser/api/baser-core/users/login.json', [
+            'email' => 'testuser1@example.com',
+            'password' => 'password',
+            'saved' => 1
+        ]);
+        $loginStores = $this->getTableLocator()->get('BaserCore.LoginStores');
+        $this->assertEquals(1, $loginStores->find()->where(['user_id' => 1])->count());
     }
 
     /**
@@ -112,6 +120,9 @@ class UsersControllerTest extends BcTestCase
             'real_name_2' => 'Lorem ipsum dolor sit amet',
             'email' => 'test@example.com',
             'nickname' => 'Lorem ipsum dolor sit amet',
+            'user_groups' => [
+                '_ids' => [1]
+            ],
         ];
         $this->post('/baser/api/baser-core/users/add.json?token=' . $this->accessToken, $data);
         $this->assertResponseSuccess();
@@ -145,7 +156,7 @@ class UsersControllerTest extends BcTestCase
     {
         $this->enableSecurityToken();
         $this->enableCsrfToken();
-        $this->post('/baser/admin/baser-core/users/delete/1?token=' . $this->accessToken);
+        $this->post('/baser/api/baser-core/users/delete/2.json?token=' . $this->accessToken);
         $this->assertResponseSuccess();
     }
 

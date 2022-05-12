@@ -1,39 +1,55 @@
 <?php
-// TODO : コード確認要
-use BaserCore\Utility\BcUtil;
-use Cake\Event\Event;
-
-return;
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS Users Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright       Copyright (c) baserCMS Users Community
- * @link            https://basercms.net baserCMS Project
- * @package         Baser.Event
- * @since           baserCMS v 4.0.0
- * @license         https://basercms.net/license/index.html
+ * @copyright     Copyright (c) NPO baser foundation
+ * @link          https://basercms.net baserCMS Project
+ * @since         5.0.0
+ * @license       https://basercms.net/license/index.html MIT License
  */
+
+namespace BaserCore\Event;
+
+use Cake\Event\Event;
+use Cake\Core\Configure;
+use Cake\Utility\Inflector;
+use BaserCore\Utility\BcUtil;
+use BaserCore\Annotation\Note;
+use BaserCore\Annotation\NoTodo;
+use BaserCore\Annotation\Checked;
+use BaserCore\Annotation\UnitTest;
+use BaserCore\View\BcAdminAppView;
+use BaserCore\Utility\BcContainerTrait;
+use BaserCore\Service\PermissionsServiceInterface;
 
 /**
  * Class BcContentsEventListener
  *
- * baserCMS Contents Event Listener
+ * baserCMS Contents Event Listeners
  *
  * 階層コンテンツと連携したフォーム画面を表示する為のイベント
  * BcContentsComponent でコントロールされる
  *
  * @package Baser.Event
  */
-class BcContentsEventListener extends CakeObject implements CakeEventListener
+class BcContentsEventListener extends BcEventListener
 {
+
+    /**
+     * BcContainerTrait
+     */
+    use BcContainerTrait;
 
     /**
      * Implemented Events
      *
      * @return array
+     * @checked
+     * @noTodo
+     * @unitTest
      */
-    public function implementedEvents()
+    public function implementedEvents(): array
     {
         return [
             'Helper.Form.beforeCreate' => ['callable' => 'formBeforeCreate'],
@@ -46,13 +62,21 @@ class BcContentsEventListener extends CakeObject implements CakeEventListener
      * Form Before Create
      *
      * @param Event $event
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function formBeforeCreate(Event $event)
     {
         if (!BcUtil::isAdminSystem()) {
             return;
         }
-        $event->setData('options', ['type' => 'file']);
+        $options = $event->getData('options');
+        if(!is_array($options)) {
+            $options = [];
+        }
+        $options += ['type' => 'file'];
+        $event->setData('options', $options);
     }
 
     /**
@@ -60,6 +84,9 @@ class BcContentsEventListener extends CakeObject implements CakeEventListener
      *
      * @param Event $event
      * @return string
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function formAfterCreate(Event $event)
     {
@@ -73,7 +100,7 @@ class BcContentsEventListener extends CakeObject implements CakeEventListener
         if (!preg_match('/(AdminEditForm|AdminEditAliasForm)$/', $event->getData('id'))) {
             return;
         }
-        return $event->getData('out') . "\n" . $View->element('admin/content_fields');
+        return $event->getData('out') . "\n" . $View->element('content_fields');
     }
 
     /**
@@ -84,34 +111,43 @@ class BcContentsEventListener extends CakeObject implements CakeEventListener
      *
      * @param Event $event
      * @return string
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function formAfterSubmit(Event $event)
     {
+        $preOut = $event->getData('out');
+
         if (!BcUtil::isAdminSystem()) {
-            return $event->getData('out');
+            return $preOut;
         }
-        /* @var BcAppView $View */
+        /**  @var BcAdminAppView $View*/
         $View = $event->getSubject();
-        $data = $View->request->getData();
+        $data = $View->getRequest()->getData();
         if (!preg_match('/(AdminEditForm|AdminEditAliasForm)$/', $event->getData('id'))) {
-            return $event->getData('out');
+            return $preOut;
         }
-        $setting = Configure::read('BcContents.items.' . $data['Content']['plugin'] . '.' . $data['Content']['type']);
-
-        $PermissionModel = ClassRegistry::init('Permission');
-        $isAvailablePreview = (!empty($setting['preview']) && $data['Content']['type'] != 'ContentFolder');
-        $isAvailableDelete = (empty($data['Content']['site_root']) && $PermissionModel->check('/' . Configure::read('Routing.prefixes.0') . '/contents/delete', $View->viewVars['user']['user_group_id']));
-
+        $content = $data['Contents'] ?? array_column($data, 'content')[0]; // Contentエンティティ or 関連エンティティ
+        $setting = Configure::read('BcContents.items.' . $content['plugin'] . '.' . $content['type']);
+        $isAvailablePreview = (!empty($setting['preview']) && $content['type'] != 'ContentFolder');
+        $path = BcUtil::getPrefix() . "/" . Inflector::dasherize($event->getSubject()->getPlugin()) . '/contents/delete';
+        $service = $this->getService(PermissionsServiceInterface::class);
+        $checked = false;
+        foreach(BcUtil::loginUser()->user_groups as $index => $group) {
+            if ($service->check($path, [$index => $group->id])) $checked = true;
+        }
+        $isAvailableDelete = empty($content['site_root']) && $checked;
         $event->setData('out', implode("\n", [
-            $View->element('admin/content_options'),
-            $View->element('admin/content_actions', [
+            $View->element('content_options'),
+            $View->element('content_actions', [
                 'isAvailablePreview' => $isAvailablePreview,
                 'isAvailableDelete' => $isAvailableDelete,
-                'currentAction' => $event->getData('out'),
-                'isAlias' => ($data['Content']['alias_id'])
+                'currentAction' => $preOut,
+                'isAlias' => ($content['alias_id'])
             ]),
-            $View->element('admin/content_related'),
-            $View->element('admin/content_info')
+            $View->element('content_related'),
+            $View->element('content_info')
         ]));
         return $event->getData('out');
     }

@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Test\TestCase\Model\Entity;
@@ -89,6 +89,7 @@ class UserTest extends BcTestCase
     public function testGetDisplayName($nickname, $realName1, $realName2, $expect)
     {
         $userTable = $this->getTableLocator()->get('Users');
+        /** @var User $user */
         $user = $userTable->newEntity([
             'nickname' => $nickname,
             'real_name_1' => $realName1,

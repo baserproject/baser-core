@@ -1,27 +1,31 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Model;
 
-use Cake\ORM\Table;
+use ArrayObject;
 use Cake\ORM\Query;
+use Cake\ORM\Table;
 use Cake\Core\Configure;
-use Cake\Datasource\EntityInterface;
-use Cake\Datasource\ConnectionManager;
+use Cake\I18n\FrozenTime;
 use Cake\Filesystem\Folder;
 use Cake\Http\ServerRequest;
-use BaserCore\Controller\AppController;
-use BaserCore\Annotation\UnitTest;
+use BaserCore\Utility\BcUtil;
+use Cake\Event\EventInterface;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
+use BaserCore\Annotation\UnitTest;
+use Cake\Datasource\EntityInterface;
+use Cake\Datasource\ConnectionManager;
+use BaserCore\Controller\AppController;
 
 /**
  * Class AppTable
@@ -38,6 +42,13 @@ class AppTable extends Table
      * @var string
      */
     public $useDbConfig = 'default';
+
+    /**
+     * 一時イベント
+     * イベントを一時にオフにする場合に対象のコールバック処理を一時的に格納する
+     * @var array
+     */
+    public $tmpEvents = [];
 
     /**
      * 公開状態のフィールド
@@ -96,17 +107,33 @@ class AppTable extends Table
     }
 
     /**
-     * beforeSave
+     * Initialize
      *
-     * @return    boolean
+     * @param array $config テーブル設定
+     * @return void
+     * @checked
+     * @noTodo
+     * @unitTest
      */
-    public function beforeSave($options = [])
+    public function initialize(array $config): void
+    {
+        parent::initialize($config);
+        FrozenTime::setToStringFormat('yyyy/MM/dd HH:mm:ss');
+    }
+
+    /**
+     * Before Save
+     * @param EventInterface $event
+     * @param EntityInterface $entity
+     * @param ArrayObject $options
+     * @return bool
+     */
+    public function beforeSave(EventInterface $event, EntityInterface $entity, ArrayObject $options)
     {
         // TODO 暫定措置
         // >>>
         return true;
         // <<<
-        $result = parent::beforeSave($options);
         // 日付フィールドが空の場合、nullを保存する
         foreach($this->_schema as $key => $field) {
             if (('date' == $field['type'] ||
@@ -118,7 +145,7 @@ class AppTable extends Table
                 }
             }
         }
-        return $result;
+        return true;
     }
 
     /**
@@ -192,7 +219,7 @@ class AppTable extends Table
         // ログを記録する
         $Dblog = ClassRegistry::init('Dblog');
         $logdata['Dblog']['name'] = $message;
-        $logdata['Dblog']['user_id'] = @$_SESSION['Auth'][Configure::read('BcAuthPrefix.admin.sessionKey')]['id'];
+        $logdata['Dblog']['user_id'] = @$_SESSION['Auth'][Configure::read('BcPrefixAuth.Admin.sessionKey')]['id'];
         return $Dblog->save($logdata);
         <<< */
     }
@@ -442,8 +469,7 @@ class AppTable extends Table
             }
         }
         ClassRegistry::flush();
-        BcSite::flash();
-        clearAllCache();
+        BcUtil::clearAllCache();
         return $result;
         <<< */
     }
@@ -488,8 +514,7 @@ class AppTable extends Table
             }
         }
         ClassRegistry::flush();
-        BcSite::flash();
-        clearAllCache();
+        BcUtil::clearAllCache();
         return $result;
         <<< */
     }
@@ -517,43 +542,14 @@ class AppTable extends Table
      * @param string $field
      * @param array $conditions
      * @return int
+     * @checked
+     * @unitTest
+     * @noTodo
      */
     public function getMax($field, $conditions = [])
     {
-        if (strpos($field, '.') === false) {
-            $modelName = $this->alias;
-        } else {
-            [$modelName, $field] = explode('\.', $field);
-        }
-
-        $db = ConnectionManager::get($this->useDbConfig);
-        $this->recursive = -1;
-        if ($db->config['datasource'] == 'Database/BcCsv') {
-            // CSVDBの場合はMAX関数が利用できない為、プログラムで処理する
-            // TODO dboでMAX関数の実装できたらここも変更する
-            $this->cacheQueries = false;
-            $dbDatas = $this->find('all', ['conditions' => $conditions, 'fields' => [$modelName . '.' . $field]]);
-            $this->cacheQueries = true;
-            $max = 0;
-            if ($dbDatas) {
-                foreach($dbDatas as $dbData) {
-                    if ($max < $dbData[$modelName][$field]) {
-                        $max = $dbData[$modelName][$field];
-                    }
-                }
-            }
-            return $max;
-        } else {
-            $this->cacheQueries = false;
-            // SQLiteの場合、Max関数にmodel名を含むと、戻り値の添字が崩れる（CakePHPのバグ）
-            $dbData = $this->find('all', ['conditions' => $conditions, 'fields' => ['MAX(' . $modelName . '.' . $field . ') AS max']]);
-            $this->cacheQueries = true;
-            if (isset($dbData[0][0]['max'])) {
-                return $dbData[0][0]['max'];
-            } else {
-                return 0;
-            }
-        }
+        $max = $this->find()->where($conditions)->all()->max($field);
+        return $max->{$field} ?? 0;
     }
 
     /**
@@ -582,7 +578,6 @@ class AppTable extends Table
         $ret = $db->addColumn($options);
         $this->deleteModelCache();
         ClassRegistry::flush();
-        BcSite::flash();
         return $ret;
         <<< */
     }
@@ -613,7 +608,6 @@ class AppTable extends Table
         $ret = $db->changeColumn($options);
         $this->deleteModelCache();
         ClassRegistry::flush();
-        BcSite::flash();
         return $ret;
         <<< */
     }
@@ -644,7 +638,6 @@ class AppTable extends Table
         $ret = $db->dropColumn($options);
         $this->deleteModelCache();
         ClassRegistry::flush();
-        BcSite::flash();
         return $ret;
         <<< */
     }
@@ -676,7 +669,6 @@ class AppTable extends Table
         $ret = $db->renameColumn($options);
         $this->deleteModelCache();
         ClassRegistry::flush();
-        BcSite::flash();
         return $ret;
         <<< */
     }
@@ -850,88 +842,6 @@ class AppTable extends Table
                 @unlink(CACHE . 'models' . DS . $cache);
             }
         }
-    }
-
-    /**
-     * Key Value 形式のテーブルよりデータを取得して
-     * １レコードとしてデータを展開する
-     *
-     * @return array
-     */
-    public function findExpanded()
-    {
-        $dbDatas = $this->find()
-            ->select(['name', 'value'])
-            ->all();
-        $expandedData = [];
-        var_dump($dbDatas);
-        return;
-        if ($dbDatas) {
-            foreach($dbDatas as $dbData) {
-                $expandedData[$dbData[$this->_alias]['name']] = $dbData[$this->_alias]['value'];
-            }
-        }
-        return $expandedData;
-    }
-
-    /**
-     * Key Value 形式のテーブルにデータを保存する
-     *
-     * @param array $data
-     * @return boolean
-     */
-    public function saveKeyValue($data)
-    {
-        if (isset($data[$this->_alias])) {
-            $data = $data[$this->_alias];
-        }
-
-        if ($this->_behaviors->loaded('BcCache')) {
-            // TODO disableのCakePHP4の記述方法確認
-            // $this->_behaviors->disable('BcCache');
-        }
-
-        $result = true;
-        foreach($data as $key => $value) {
-
-            if ($this->find()->where(['name' => $key])->count() > 1) {
-                $this->deleteAll(['name' => $key]);
-            }
-
-            $dbData = $this->find()->where(['name' => $key])->first();
-
-            if (!$dbData) {
-                $dbData = $this->newEntity([
-                    $this->_alias => [
-                        'name' => $key,
-                        'value' => $value
-                    ]
-                ]);
-                $this->save($dbData);
-            } else {
-                $dbData = $this->patchEntity($dbData, [
-                    $this->_alias => [
-                        'value' => $value
-                    ]
-                ]);
-                $this->save($dbData);
-            }
-
-            // SQliteの場合、トランザクション用の関数をサポートしていない場合があるので、
-            // 個別に保存するようにした。
-            // TODO CakePHP4の記述方法確認
-            // if (!$this->save(null, false)) {
-            //     $result = false;
-            // }
-        }
-
-        if ($this->_behaviors->loaded('BcCache')) {
-            // TODO enableのCakePHP4の記述方法確認
-            // $this->_behaviors->enable('BcCache');
-            // $this->delCache();
-        }
-
-        return $result;
     }
 
     /**
@@ -1372,6 +1282,8 @@ class AppTable extends Table
      */
     public function exists($conditions): bool
     {
+        return parent::exists($conditions);
+
         // TODO 未実装の為コメントアウト
         /* >>>
         if ($this->Behaviors->loaded('SoftDelete')) {
@@ -1416,36 +1328,11 @@ class AppTable extends Table
     {
         $result = parent::delete($entity, $options);
         // TODO 未実装の為コメントアウト
-        /* >>>
-        if ($result === false && $this->Behaviors->enabled('SoftDelete')) {
-            $this->getEventManager()->dispatch(new CakeEvent('Model.afterDelete', $this));
-            return (bool)$this->field('deleted', ['deleted' => 1]);
-        }
-        <<< */
+        // if ($result === false && $this->Behaviors->enabled('SoftDelete')) {
+        //     $this->getEventManager()->dispatch(new CakeEvent('Model.afterDelete', $this));
+        //     return (bool)$this->field('deleted', ['deleted' => 1]);
+        // }
         return $result;
-    }
-
-    public function dataIter(&$results, $callback)
-    {
-        if (!$isVector = isset($results[0])) {
-            $results = [$results];
-        }
-        $modeled = array_key_exists($this->alias, $results[0]);
-        foreach($results as &$value) {
-            if (!$modeled) {
-                $value = [$this->alias => $value];
-            }
-            $continue = $callback($value, $this);
-            if (!$modeled) {
-                $value = $value[$this->alias];
-            }
-            if (!is_null($continue) && !$continue) {
-                break;
-            }
-        }
-        if (!$isVector) {
-            $results = $results[0];
-        }
     }
 
     /**
@@ -1476,52 +1363,6 @@ class AppTable extends Table
     }
 
     /**
-     * サイズの単位を変換する
-     *
-     * @param string $size 変換前のサイズ
-     * @param string $outExt 変換後の単位
-     * @param string $inExt 変換元の単位
-     * @return int 変換後のサイズ
-     * @checked
-     * @noTodo
-     * @unitTest
-     */
-    public function convertSize($size, $outExt = 'B', $inExt = null)
-    {
-        preg_match('/\A\d+(\.\d+)?/', $size, $num);
-        $sizeNum = (isset($num[0]))? $num[0] : 0;
-
-        $extArray = ['B', 'K', 'M', 'G', 'T'];
-        $extRegex = implode('|', $extArray);
-        if (empty($inExt)) {
-            $inExt = (preg_match("/($extRegex)B?\z/i", $size, $ext))? strtoupper($ext[1]) : 'B';
-        }
-        $inExt = (preg_match("/\A($extRegex)B?\z/i", $inExt, $ext))? strtoupper($ext[1]) : 'B';
-        $outExt = (preg_match("/\A($extRegex)B?\z/i", $outExt, $ext))? strtoupper($ext[1]) : 'B';
-
-        $index = array_search($inExt, $extArray) - array_search($outExt, $extArray);
-
-        $outSize = pow(1024, $index) * $sizeNum;
-        return $outSize;
-    }
-
-    /**
-     * 送信されたPOSTがpost_max_sizeを超えているかチェックする
-     *
-     * @return boolean
-     */
-    public function isOverPostSize()
-    {
-        if (empty($_POST) &&
-            env('REQUEST_METHOD') === 'POST' &&
-            env('CONTENT_LENGTH') > $this->convertSize(ini_get('post_max_size'))) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    /**
      * 公開済データを取得するための conditions を生成取得
      *
      * @return array
@@ -1536,6 +1377,35 @@ class AppTable extends Table
             [$this->alias . '.' . $this->publishEndField => null],
             [$this->alias . '.' . $this->publishEndField => '0000-00-00 00:00:00']]];
         return $conditions;
+    }
+
+    /**
+     * イベントを一時的にオフにする
+     * @param string $eventKey
+     */
+    public function offEvent($eventKey) {
+        $eventManager = $this->getEventManager();
+        $this->tmpEvents[$eventKey] = $eventManager->listeners($eventKey);
+        $eventManager->off($eventKey);
+    }
+
+    /**
+     * 一時的にオフにしたイベントをオンにする
+     * BcModelEventDispatcherは対象外とする
+     * @param string $eventKey
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function onEvent($eventKey) {
+        if(!isset($this->tmpEvents[$eventKey])) return;
+        $eventManager = $this->getEventManager();
+        foreach($this->tmpEvents[$eventKey] as $listener) {
+            if(get_class($listener['callable'][0]) !== 'BaserCore\Event\BcModelEventDispatcher' ) {
+                $eventManager->on('Model.beforeSave', [], $listener['callable']);
+            }
+        }
+        unset($this->tmpEvents[$eventKey]);
     }
 
 }

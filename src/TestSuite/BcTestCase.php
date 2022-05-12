@@ -1,24 +1,28 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\TestSuite;
 
 use App\Application;
 use Authentication\Authenticator\Result;
-use BaserCore\Event\BcControllerEventListener;
+use BaserCore\Middleware\BcAdminMiddleware;
+use BaserCore\Middleware\BcRequestFilterMiddleware;
 use BaserCore\Plugin;
-use BaserCore\Service\UserApiService;
+use BaserCore\Utility\BcApiUtil;
 use Cake\Core\Configure;
+use Cake\Event\EventListenerInterface;
 use Cake\Event\EventManager;
+use Cake\Http\Response;
 use Cake\Http\ServerRequest;
+use Cake\Http\ServerRequestFactory;
 use Cake\ORM\TableRegistry;
 use Cake\Routing\Router;
 use Cake\TestSuite\IntegrationTestTrait;
@@ -28,6 +32,8 @@ use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
 use Cake\Utility\Inflector;
 use ReflectionClass;
+use BaserCore\Utility\BcContainer;
+use BaserCore\ServiceProvider\BcServiceProvider;
 
 /**
  * Class BcTestCase
@@ -42,20 +48,65 @@ class BcTestCase extends TestCase
     use IntegrationTestTrait;
 
     /**
+     * @var Application
+     */
+    public $Application;
+
+    /**
+     * @var Plugin
+     */
+    public $BaserCore;
+
+    /**
+     * イベントレイヤー
+     * entryEventToMock() の引数として利用
+     * @var string
+     */
+    const EVENT_LAYER_CONTROLLER = 'Controller';
+    const EVENT_LAYER_VIEW = 'View';
+    const EVENT_LAYER_MODEL = 'Model';
+    const EVENT_LAYER_HELPER = 'Helper';
+
+    /**
+     * detectors
+     *
+     * ServerRequest::_detectors を初期化する際、
+     * 一番初期の状況を保管しておくために利用
+     * @var array
+     */
+    public static $_detectors;
+
+    /**
      * Set Up
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function setUp(): void
     {
         parent::setUp();
-        $application = new Application(CONFIG);
-        $application->bootstrap();
+        $this->Application = new Application(CONFIG);
+        $this->Application->bootstrap();
+        $this->Application->getContainer();
         $builder = Router::createRouteBuilder('/');
-        $application->routes($builder);
-        $plugin = new Plugin();
-        $plugin->bootstrap($application);
-        $plugin->routes($builder);
+        $this->Application->pluginBootstrap();
+        $this->Application->pluginRoutes($builder);
+        $this->BaserCore = $this->Application->getPlugins()->get('BaserCore');
+        $container = BcContainer::get();
+        $container->addServiceProvider(new BcServiceProvider());
+        EventManager::instance(new EventManager());
+    }
+
+    /**
+     * Tear Down
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function tearDown(): void
+    {
+        BcContainer::clear();
+        parent::tearDown();
     }
 
     /**
@@ -67,19 +118,65 @@ class BcTestCase extends TestCase
      * @unitTest
      * @noTodo
      */
-    public function getRequest($url = '/', $data = [], $method = 'GET')
+    public function getRequest($url = '/', $data = [], $method = 'GET', $config = [])
     {
-        $config = [
-            'url' => $url,
-            'environment' => [
-                'REQUEST_METHOD' => $method
+        $config = array_merge([
+            'ajax' => false
+        ], $config);
+        $isAjax = (!empty($config['ajax']))? true : false;
+        unset($config['ajax']);
+        if(preg_match('/^http/', $url)) {
+            $parseUrl = parse_url($url);
+            Configure::write('BcEnv.host', $parseUrl['host']);
+            $defaultConfig = [
+                'uri' => ServerRequestFactory::createUri([
+                    'HTTP_HOST' => $parseUrl['host'],
+                    'REQUEST_URI' => $url,
+                    'REQUEST_METHOD' => $method,
+                    'HTTPS' => (preg_match('/^https/', $url))? 'on' : ''
+            ])];
+        } else {
+            $defaultConfig = [
+                'url' => $url,
+                'environment' => [
+                    'REQUEST_METHOD' => $method
             ]];
-        $request = new ServerRequest($config);
-        $params = Router::parseRequest($request);
+        }
+        $defaultConfig = array_merge($defaultConfig, $config);
+        $request = new ServerRequest($defaultConfig);
+
+        // ServerRequest::_detectors を初期化
+        // static プロパティで値が残ってしまうため
+        $ref = new ReflectionClass($request);
+        $detectors = $ref->getProperty('_detectors');
+        $detectors->setAccessible(true);
+        if(!self::$_detectors) {
+            self::$_detectors = $detectors->getValue();
+        }
+        $detectors->setValue(self::$_detectors);
+        $request->getSession()->start();
+        try {
+            Router::setRequest($request);
+            $params = Router::parseRequest($request);
+        } catch (\Exception $e) {
+            return $request;
+        }
+
         $request = $request->withAttribute('params', $params);
+        if($request->getParam('prefix') === 'Admin') {
+            $request = $this->execPrivateMethod(new BcAdminMiddleware(), 'setCurrentSite', [$request]);
+        }
         if ($data) {
             $request = $request->withParsedBody($data);
         }
+        $authentication = $this->BaserCore->getAuthenticationService($request);
+        $request = $request->withAttribute('authentication', $authentication);
+        $request = $request->withEnv('HTTPS', (preg_match('/^https/', $url))? 'on' : '');
+        if($isAjax) {
+            $request = $request->withEnv('HTTP_X_REQUESTED_WITH', 'XMLHttpRequest');
+        }
+        $bcRequestFilter = new BcRequestFilterMiddleware();
+        $request = $bcRequestFilter->addDetectors($request);
         Router::setRequest($request);
         return $request;
     }
@@ -106,21 +203,27 @@ class BcTestCase extends TestCase
      * 管理画面にログインする
      *
      * @param string $group
-     * @return object $user
+     * @return ServerRequest
      * @checked
      * @unitTest
      * @noTodo
      */
-    protected function loginAdmin($id = 1)
+    protected function loginAdmin(ServerRequest $request, $id = 1)
     {
         $sessionKey = Configure::read('BcPrefixAuth.Admin.sessionKey');
         $user = $this->getUser($id);
         $this->session([$sessionKey => $user]);
-        // IntegrationTestTrait が提供するsession だけでは、テスト中に取得できないテストがあったため
-        // request から取得する session でも書き込むようにした
-        $session = $this->getRequest()->getSession();
-        $session->write($sessionKey, $user);
-        return $user;
+        $authentication = $request->getAttribute('authentication');
+        if(!$authentication) {
+            $authentication = $this->BaserCore->getAuthenticationService($request);
+            $request = $request->withAttribute('authentication', $authentication);
+        }
+        $reflectionClass = new ReflectionClass($authentication);
+        $result = $reflectionClass->getProperty('_result');
+        $result->setAccessible(true);
+        $result->setValue($authentication, new Result($user, Result::SUCCESS));
+        $request = $authentication->persistIdentity($request, new Response, $user)['request'];
+        return $request;
     }
 
     /**
@@ -130,10 +233,9 @@ class BcTestCase extends TestCase
      */
     protected function apiLoginAdmin($id = 1)
     {
-        $userApi = new UserApiService();
         $user = $this->getUser($id);
         if($user) {
-            return $userApi->getAccessToken(new Result($this->getUser($id), Result::SUCCESS));
+            return BcApiUtil::createAccessToken($id);
         } else {
             return [];
         }
@@ -143,20 +245,20 @@ class BcTestCase extends TestCase
      * モックにコントローラーのイベントを登録する
      * @param $eventName
      * @param $callback
-     * @return BcControllerEventListener|\PHPUnit\Framework\MockObject\MockObject
+     * @return EventListenerInterface|\PHPUnit\Framework\MockObject\MockObject
      */
-    protected function entryControllerEventToMock($eventName, $callback)
+    protected function entryEventToMock($layer, $eventName, $callback)
     {
         $aryEventName = explode('.', $eventName);
         $methodName = Inflector::variable(implode('_', $aryEventName));
         // モック作成
-        $listener = $this->getMockBuilder(BcControllerEventListener::class)
+        $listener = $this->getMockBuilder('\BaserCore\Event\Bc' . $layer . 'EventListener')
             ->onlyMethods(['implementedEvents'])
             ->addMethods([$methodName])
             ->getMock();
         // イベント定義
         $listener->method('implementedEvents')
-            ->willReturn([$eventName => ['callable' => $methodName]]);
+            ->willReturn([$layer . '.' . $eventName => ['callable' => $methodName]]);
         // コールバック定義
         $listener->method($methodName)
             ->willReturn($this->returnCallback($callback));
@@ -182,5 +284,37 @@ class BcTestCase extends TestCase
         $value = $method->invokeArgs($class, $args);
         return $value;
     }
+
+
+	/**
+	 * イベントを設定する
+	 *
+	 * @param $events
+     * @checked
+     * @unitTest
+     * @noTodo
+	 */
+	public function attachEvent($events)
+	{
+		$EventManager = EventManager::instance();
+		$event = new BcEventListenerMock($events);
+		$EventManager->on($event);
+		return $event;
+	}
+
+	/**
+	 * イベントをリセットする
+     * @checked
+     * @unitTest
+     * @noTodo
+	 */
+	public function resetEvent()
+	{
+		$EventManager = EventManager::instance();
+		$reflectionClass = new ReflectionClass(get_class($EventManager));
+		$property = $reflectionClass->getProperty('_listeners');
+		$property->setAccessible(true);
+		$property->setValue($EventManager, []);
+	}
 
 }

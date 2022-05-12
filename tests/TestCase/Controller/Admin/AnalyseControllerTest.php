@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Test\TestCase\Controller\Admin;
@@ -22,6 +22,16 @@ use BaserCore\Controller\AnalyseController;
 class AnalyseControllerTest extends BcTestCase
 {
     use IntegrationTestTrait;
+
+    /**
+     * Fixtures
+     *
+     * @var array
+     */
+    protected $fixtures = [
+        'plugin.BaserCore.Sites',
+        'plugin.BaserCore.SiteConfigs'
+    ];
 
     /**
      * set up
@@ -64,13 +74,16 @@ class AnalyseControllerTest extends BcTestCase
         $path = ROOT . DS . 'plugins' . DS . 'baser-core';
         $result = $this->execPrivateMethod($this->Controller, 'getList', [$path]);
         $expected = [
-            "file" => "content_folders.php",
-            "path" => "/plugins/baser-core/config/Schema/content_folders.php",
+            "file" => "paths.php",
+            "path" => "/plugins/baser-core/config/paths.php",
+            'type' => 'config',
             "class" => "",
             "method" => "",
-            "checked" => false,
-            "unitTest" => false,
-            "noTodo" => false
+            "checked" => true,
+            "unitTest" => true,
+            "noTodo" => true,
+            "doc" => false,
+            "note" => "",
         ];
         $this->assertContains($expected, $result);
     }

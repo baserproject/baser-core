@@ -50,7 +50,6 @@ class BaserTestCase extends CakeTestCase
     {
         Router::$initialized = false;
         Router::reload();
-        BcSite::flash();
         $request = new CakeRequest($url);
 
         // コンソールからのテストの場合、requestのパラメーターが想定外のものとなってしまうので調整
@@ -88,62 +87,11 @@ class BaserTestCase extends CakeTestCase
      */
     protected function _loginAdmin($id = 1)
     {
-        $key = Configure::read('BcAuthPrefix.admin.sessionKey');
+        $key = Configure::read('BcPrefixAuth.Admin.sessionKey');
         $User = ClassRegistry::init('User', 'Model');
         $user = $User->find('first', ['conditions' => ['User.id' => $id]]);
         $user['User']['UserGroup'] = $user['UserGroup'];
         $_SESSION['Auth'][$key] = $user['User'];
-    }
-
-    /**
-     * イベントを設定する
-     *
-     * @param $events
-     */
-    public function attachEvent($events)
-    {
-        $EventManager = CakeEventManager::instance();
-        $event = new BcEventListenerMock($events);
-        $EventManager->attach($event);
-        return $event;
-    }
-
-    /**
-     * イベントをリセットする
-     */
-    public function resetEvent()
-    {
-        $EventManager = CakeEventManager::instance();
-        $reflectionClass = new ReflectionClass(get_class($EventManager));
-        $property = $reflectionClass->getProperty('_listeners');
-        $property->setAccessible(true);
-        $property->setValue($EventManager, []);
-    }
-
-}
-
-/**
- * Class BcEventListenerMock
- */
-class BcEventListenerMock extends CakeObject implements CakeEventListener
-{
-    public $events = [];
-
-    /**
-     * BcEventListenerMock constructor.
-     * @param $events
-     */
-    public function __construct($events)
-    {
-        $this->events = $events;
-    }
-
-    /**
-     * @return array
-     */
-    public function implementedEvents()
-    {
-        return $this->events;
     }
 
 }

@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Test\TestCase;
@@ -100,6 +100,7 @@ class BcPluginTest extends BcTestCase
             'mode' => 0777,
             'schema' => Folder::OVERWRITE
         ]);
+        $this->BcPlugin->install(['connection' => 'test']);
 
     }
 
@@ -113,6 +114,9 @@ class BcPluginTest extends BcTestCase
         $collection = ConnectionManager::get('default')->getSchemaCollection();
         $tables = $collection->listTables();
         $this->assertNotContains('blog_posts', $tables);
+        $plugins = $this->getTableLocator()->get('BaserCore.Plugins');
+        $plugins->deleteAll(['name' => 'BcBlog']);
+        $this->BcPlugin->install(['connection' => 'test']);
     }
 
     /**
@@ -134,7 +138,7 @@ class BcPluginTest extends BcTestCase
         $this->assertEquals($all[6]->defaults, ['plugin' => 'BcBlog', 'action' => 'index', 'prefix' => 'Admin']);
         $this->assertEmpty($all[6]->getExtensions());
         // connectにより1つコネクションあり|拡張子jsonなし
-        $this->assertEquals($all[9]->defaults, ['plugin' => 'BaserCore', 'controller' => 'Dashboard', 'action' => 'index', 'prefix' => 'Admin']);
+        $this->assertEquals($all[9]->defaults, ['plugin' => 'BcBlog', 'action' => 'index']);
         $this->assertEmpty($all[9]->getExtensions());
     }
 }

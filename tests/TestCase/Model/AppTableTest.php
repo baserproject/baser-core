@@ -1,18 +1,21 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Test\TestCase\Model;
 
+use Cake\I18n\Time;
 use BaserCore\Model\AppTable;
 use BaserCore\TestSuite\BcTestCase;
+use BaserCore\Model\PermissionsTable;
+use BaserCore\Model\Table\PermissionsTable as TablePermissionsTable;
 
 /**
  * Class AppTableTest
@@ -27,7 +30,14 @@ class AppTableTest extends BcTestCase
      * @var AppTable
      */
     public $App;
-
+        /**
+     * Fixtures
+     *
+     * @var array
+     */
+    protected $fixtures = [
+        'plugin.BaserCore.Permissions'
+    ];
     /**
      * Set Up
      *
@@ -38,6 +48,7 @@ class AppTableTest extends BcTestCase
         parent::setUp();
         $config = $this->getTableLocator()->exists('AppTable')? [] : ['className' => 'BaserCore\Model\AppTable'];
         $this->App = $this->getTableLocator()->get('BaserCore.AppTable', $config);
+
     }
 
     /**
@@ -49,6 +60,22 @@ class AppTableTest extends BcTestCase
     {
         unset($this->App);
         parent::tearDown();
+    }
+
+    /**
+     * Test initialize
+     *
+     * @return void
+     */
+    public function testInitialize()
+    {
+        $Permission = new TablePermissionsTable();
+
+        $this->assertMatchesRegularExpression(
+            // yyyy/MM/dd HH:mm:ssのパターン
+            '{^[0-9]{4}/(0[1-9]|1[0-2])/(0[1-9]|[12][0-9]|3[01])\s([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$}',
+            $Permission->find()->first()->created->__toString()
+        );
     }
 
     /**
@@ -94,21 +121,35 @@ class AppTableTest extends BcTestCase
     }
 
     /**
-     * Test convertSize
+     * Test getMax
      *
      * @return void
      */
-    public function testConvertSize()
+    public function testGetMax()
     {
-        $this->assertEquals(1, $this->App->convertSize('1B'));
-        $this->assertEquals(1024, $this->App->convertSize('1K'));
-        $this->assertEquals(1048576, $this->App->convertSize('1M'));
-        $this->assertEquals(1073741824, $this->App->convertSize('1G'));
-        $this->assertEquals(1099511627776, $this->App->convertSize('1T'));
-        $this->assertEquals(1099511627776, $this->App->convertSize('1T', 'B'));
-        $this->assertEquals(1073741824, $this->App->convertSize('1T', 'K'));
-        $this->assertEquals(1073741824, $this->App->convertSize('1', 'K', 'T'));
-        $this->assertEquals(0, $this->App->convertSize(null));
+        $Permission = new TablePermissionsTable();
+        $max = $Permission->getMax('no', []);
+        $this->assertEquals(22, $max);
+    }
+
+    /**
+     * test offEvent And onEvent
+     */
+    public function testOffAndOnEvent()
+    {
+        $Permission = new TablePermissionsTable();
+        $eventManager = $Permission->getEventManager();
+        // 通常のイベント取得
+        $listeners = $eventManager->listeners('Model.beforeSave');
+        $this->assertEquals(2, count($listeners));
+        // BcModelEventListener以外をオフ
+        $Permission->offEvent('Model.beforeSave');
+        $listeners = $eventManager->listeners('Model.beforeSave');
+        $this->assertEquals(0, count($listeners));
+        // BcModelEventListener以外をオン
+        $Permission->onEvent('Model.beforeSave');
+        $listeners = $eventManager->listeners('Model.beforeSave');
+        $this->assertEquals(2, count($listeners));
     }
 
 }

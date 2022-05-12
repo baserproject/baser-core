@@ -143,16 +143,9 @@ $config['BcApp'] = [
         ]
     ],
     // コアプラグイン
-    'corePlugins' => ['Blog', 'Feed', 'Mail', 'Uploader'],
-    // アップデートキー
-    'updateKey' => 'update',
+    'corePlugins' => ['BcBlog', 'BcFeed', 'BcMail', 'BcUploader'],
     // 管理者グループID
     'adminGroupId' => 1,
-    // エディター
-    'editors' => [
-        'none' => __d('baser', 'なし'),
-        'BcCkeditor' => 'CKEditor'
-    ],
     'testTheme' => 'bc_sample',
     // 固定ページでシンタックスエラーチェックを行うかどうか
     // お名前ドットコムの場合、CLI版PHPの存在確認の段階で固まってしまう
@@ -161,9 +154,6 @@ $config['BcApp'] = [
     'allowedPhpOtherThanAdmins' => true,
     // テーマ編集機能の利用を許可するかどうか
     'allowedThemeEdit' => false,
-    'marketThemeRss' => 'https://market.basercms.net/themes.rss',
-    'marketPluginRss' => 'https://market.basercms.net/plugins.rss',
-    'specialThanks' => 'https://basercms.net/special_thanks/special_thanks/ajax_users',
     // 管理システムのデフォルトテーマ
     'defaultAdminTheme' => 'admin-third',
     // コンテンツの作成日を自動で更新する
@@ -179,13 +169,6 @@ $config['BcApp'] = [
     'excludeListAddPrefix' => [],
     // generator のメタタグを出力するかどうか
     'outputMetaGenerator' => true,
-    // 外部リンク
-    'outerLinks' => [
-        // インストールマニュアル
-        'installManual' => 'http://wiki.basercms.net/%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB%E3%82%AC%E3%82%A4%E3%83%89',
-        // アップデートマニュアル
-        'updateManual' => 'http://wiki.basercms.net/%E3%83%90%E3%83%BC%E3%82%B8%E3%83%A7%E3%83%B3%E3%82%A2%E3%83%83%E3%83%97%E3%82%AC%E3%82%A4%E3%83%89'
-    ],
     // システムメッセージの言語につてサイト設定を利用する
     // 	- false：ブラウザ
     // 	- true：サイト設定
@@ -204,40 +187,12 @@ $config['BcRequire'] = [
 ];
 
 /**
- * 環境設定
- */
-$config['BcEnv'] = [
-    // テストDBプレフィックス
-    'testDbPrefix' => 'test_',
-    // WebサイトURL（インストーラーで install.php 自動設定される、システム設定で変更可）
-    'siteUrl' => '',
-    // SSLのWebサイトURL（システム設定で変更可）
-    'sslUrl' => '',
-    // 復数のWebサイトを管理する場合のメインとなるドメイン
-    'mainDomain' => '',
-    // 現在のリクエストのホスト
-    'host' => @$_SERVER['HTTP_HOST']
-];
-
-/**
- * 文字コード設定
- */
-$config['BcEncode'] = [
-    // 文字コードの検出順
-    'detectOrder' => 'ASCII,JIS,UTF-8,SJIS-win,EUC-JP',
-    'mail' => [
-        'UTF-8' => 'UTF-8',
-        'ISO-2022-JP' => 'ISO-2022-JP'
-    ]
-];
-
-/**
  * 認証プレフィックス設定
  * ※ CSVは非対応
  */
 $prefixes = Configure::read('Routing.prefixes');
 $adminPrefix = $prefixes[0];
-$config['BcAuthPrefix'] = [
+$config['BcPrefixAuth'] = [
     // 管理画面
     'admin' => [
         // 認証タイプ
@@ -300,63 +255,11 @@ $config['BcEmail'] = [
 ];
 
 /**
- * エージェント設定
- */
-$config['BcAgent'] = [
-    'mobile' => [
-        'name' => __d('baser', 'ケータイ'),
-        'helper' => 'BcMobile',
-        'agents' => [
-            'Googlebot-Mobile',
-            'Y!J-SRD',
-            'Y!J-MBS',
-            'DoCoMo',
-            'SoftBank',
-            'Vodafone',
-            'J-PHONE',
-            'UP.Browser'
-        ],
-        'sessionId' => true
-    ],
-    'smartphone' => [
-        'name' => __d('baser', 'スマートフォン'),
-        'helper' => 'BcSmartphone',
-        'agents' => [
-            'iPhone',            // Apple iPhone
-            'iPod',                // Apple iPod touch
-            'Android',            // 1.5+ Android
-            'dream',            // Pre 1.5 Android
-            'CUPCAKE',            // 1.5+ Android
-            'blackberry9500',    // Storm
-            'blackberry9530',    // Storm
-            'blackberry9520',    // Storm v2
-            'blackberry9550',    // Storm v2
-            'blackberry9800',    // Torch
-            'webOS',            // Palm Pre Experimental
-            'incognito',        // Other iPhone browser
-            'webmate'            // Other iPhone browser
-        ]
-    ]
-];
-
-/**
- * 言語設定
- */
-$config['BcLang'] = [
-    'english' => [
-        'name' => __d('baser', '英語'),
-        'langs' => [
-            'en'
-        ]
-    ]
-];
-
-/**
  * コンテンツ設定
  */
 $config['BcContents'] = [
     'items' => [
-        'Core' => [
+        'BaserCore' => [
             'Default' => [
                 'title' => __d('baser', '無所属コンテンツ'),
                 'omitViewAction' => true,
@@ -495,20 +398,13 @@ $config['BcContents'] = [
 /**
  * ショートコード設定
  */
-$config['BcShortCode']['Core'] = [
+$config['BcShortCode']['BaserCore'] = [
     'BcBaser.getSitemap',
     'BcBaser.getRelatedSiteLinks',
     'BcBaser.getWidgetArea',
     'BcBaser.getGoogleMaps',
     'BcBaser.getSiteSearchForm',
     'BcBaser.getUpdateInfo'
-];
-
-/**
- * セキュリティ設定
- */
-$config['BcSecurity'] = [
-    'csrfExpires' => '+4 hours'
 ];
 
 /**

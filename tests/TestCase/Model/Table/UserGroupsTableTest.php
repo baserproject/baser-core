@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Test\TestCase\Model\Table;
@@ -37,6 +37,7 @@ class UserGroupsTableTest extends BcTestCase
      */
     protected $fixtures = [
         'plugin.BaserCore.UserGroups',
+        'plugin.BaserCore.Permissions',
     ];
 
     /**
@@ -86,7 +87,9 @@ class UserGroupsTableTest extends BcTestCase
         foreach($validator->getIterator() as $key => $value) {
             $fields[] = $key;
         }
-        $this->assertEquals(['id', 'name', 'title', 'auth_prefix', 'use_admin_globalmenu', 'default_favorites', 'use_move_contents'], $fields);
+        $this->assertEquals(['id', 'name', 'title', 'auth_prefix', 'use_move_contents'], $fields);
+        $userGroups = $this->UserGroups->get(2);
+
     }
 
     /**
@@ -96,10 +99,25 @@ class UserGroupsTableTest extends BcTestCase
      */
     public function testCopy()
     {
-        $this->UserGroups->copy(1);
-        $originalUserGroup = $this->UserGroups->get(1);
+        $copied = $this->UserGroups->copy(3);
+        $originalUserGroup = $this->UserGroups->get(3);
         $query = $this->UserGroups->find()->where(['name' => $originalUserGroup->name . '_copy']);
         $this->assertEquals(1, $query->count());
+        $this->assertEquals(4, $copied->id);
+    }
+
+    /**
+     * Test getAuthPrefix
+     *
+     * @return void
+     */
+    public function testGetAuthPrefix()
+    {
+        $result = $this->UserGroups->getAuthPrefix(1);
+        $this->assertEquals('Admin', $result);
+
+        $result = $this->UserGroups->getAuthPrefix(999);
+        $this->assertEquals(null, $result);
     }
 
 }

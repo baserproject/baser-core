@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\View\Helper;
@@ -270,10 +270,10 @@ class BcTimeHelper extends TimeHelper
      * @param int $userOffset User's offset from GMT (in hours)
      * @return string Formatted date string
      */
-    public function format($date = null, $format = 'YYYY-MM-dd', $invalid = false, $userOffset = null)
+    public function format($date = null, $format = 'yyyy-MM-dd', $invalid = false, $userOffset = null)
     {
         if ($format === 'Y-m-d') {
-            $format = 'YYYY-MM-dd';
+            $format = 'yyyy-MM-dd';
         }
         if ($date !== "00:00:00" && (!$date || $date == '0000-00-00 00:00:00')) {
             return "";
@@ -313,7 +313,7 @@ class BcTimeHelper extends TimeHelper
      * - 引数により、指定しない場合は本日の曜日
      * - 文字列で、strtotime関数で解析可能な場合は解析された日付の曜日
      *
-     * @param string $dataStr (null|string) 日付文字列 "+1 day" / "YYYY/MM/DD"など
+     * @param string $dataStr (null|string) 日付文字列 "+1 day" / "yyyy/MM/DD"など
      * @param type $suffix 接尾語(曜日 など)
      * @return string 曜日 | 空白
      */

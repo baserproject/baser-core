@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Controller;
@@ -36,6 +36,10 @@ class AnalyseController extends AppController
     private const EXCLUDE_EXT = [
         '.png', '.gif', '.jpg', '.md', '.lock', '.scss', '.css', '.json', '.psd', '.csv',
         '.min.js', '.mo', '.po', '.pot', '.eot', '.svg', '.ttf', '.woff', '.woff2', '.map', '.html', '.bundle.js', '.txt'
+    ];
+
+    private const CONVERT_CLASS_NAME = [
+        '\BaserCore\Routing\RouteCollection' => '\Cake\Routing\RouteCollection'
     ];
 
     /**
@@ -93,14 +97,18 @@ class AnalyseController extends AppController
             if (preg_match('/(' . str_replace(',', '|', preg_quote(implode(',', self::EXCLUDE_EXT))) . ')$/', $fileName)) {
                 continue;
             }
+            $pathArray = explode(DS, str_replace(ROOT . DS . 'plugins' . DS, '', $path));
             $meta = [
                 'file' => $fileName,
                 'path' => str_replace(ROOT, '', $path),
+                'type' => $pathArray[1],
                 'class' => '',
                 'method' => '',
                 'checked' => false,
                 'unitTest' => false,
-                'noTodo' => false
+                'noTodo' => false,
+                'doc' => false,
+                'note' => ''
             ];
             if (preg_match('/^[a-z]/', $fileName) || !preg_match('/\.php$/', $fileName)) {
                 $file = new File($path);
@@ -109,16 +117,25 @@ class AnalyseController extends AppController
                     $meta['checked'] = true;
                 }
                 if (preg_match('/@noTodo/', $code)) {
-                    $meta['checked'] = true;
+                    $meta['noTodo'] = true;
                 }
-                if (preg_match('/@noTodo/', $code)) {
+                if (preg_match('/@unitTest/', $code)) {
                     $meta['unitTest'] = true;
+                }
+                if (preg_match('/@doc/', $code)) {
+                    $meta['doc'] = true;
+                }
+                if (preg_match('/@note\(value="(.+?)"\)/', $code, $matches)) {
+                    $meta['note'] = $matches[1];
                 }
                 $metas[] = $meta;
                 continue;
             }
             try {
                 $className = $this->pathToClass($path);
+                if(!empty(self::CONVERT_CLASS_NAME[$className])) {
+                    $className = self::CONVERT_CLASS_NAME[$className];
+                }
                 $meta['class'] = $className;
                 $class = new ReflectionClass($className);
                 $traitMethodsArray = $this->getTraitMethod($class);
@@ -131,7 +148,9 @@ class AnalyseController extends AppController
                 $meta = array_merge($meta, [
                     'checked' => false,
                     'unitTest' => false,
-                    'noTodo' => false
+                    'noTodo' => false,
+                    'doc' => false,
+                    'note' => ''
                 ]);
                 if ('\\' . $method->class === $className && !in_array($method->name, $traitMethodsArray)) {
                     $meta['method'] = $method->name;
@@ -160,10 +179,14 @@ class AnalyseController extends AppController
         $methodAnnotations = $reader->getMethodAnnotations(new ReflectionMethod($className, $methodName));
         $annotations = [];
         if ($methodAnnotations) {
-            foreach(['checked', 'unitTest', 'noTodo'] as $property) {
+            foreach(['checked', 'unitTest', 'noTodo', 'doc', 'note'] as $property) {
                 foreach($methodAnnotations as $annotation) {
                     if ($property === $annotation->name) {
-                        $annotations[$property] = true;
+                        if(isset($annotation->value)) {
+                            $annotations[$property] = $annotation->value;
+                        } else {
+                            $annotations[$property] = true;
+                        }
                     }
                 }
             }

@@ -10,6 +10,8 @@
  * @license         https://basercms.net/license/index.html
  */
 
+use BaserCore\Service\BcFrontService;
+
 require CORE_PATH . 'Baser' . DS . 'Config' . DS . 'paths.php';
 require BASER . 'basics.php';
 require BASER . 'Error' . DS . 'exceptions.php';
@@ -76,33 +78,10 @@ Configure::write('Dispatcher.filters',
 );
 
 /**
- * 配置パターン
- * Windows対策として、「\」を「/」へ変換してチェックする
- */
-if (!defined('BC_DEPLOY_PATTERN')) {
-    if (!preg_match('/' . preg_quote(str_replace('\\', '/', docRoot()), '/') . '/', str_replace('\\', '/', ROOT))) {
-        // CakePHP標準の配置
-        define('BC_DEPLOY_PATTERN', 3);
-    } elseif (ROOT . DS == WWW_ROOT) {
-        // webrootをドキュメントルートにして、その中に app / baser / cake を配置
-        define('BC_DEPLOY_PATTERN', 2);
-    } else {
-        // baserCMS配布時の配置
-        define('BC_DEPLOY_PATTERN', 1);
-    }
-}
-
-/**
  * baserUrl取得
  * BC_DEPLOY_PATTERN の定義より後に実行
  */
-define('BC_BASE_URL', baseUrl());
-
-/**
- * インストール状態
- */
-define('BC_INSTALLED', isInstalled());
-Configure::write('BcRequest.isInstalled', BC_INSTALLED); // UnitTest用
+define('BC_BASE_URL', BcUtil::baseUrl());
 
 /**
  * 静的ファイルの読み込みの場合はスキップ
@@ -289,7 +268,7 @@ if (BC_INSTALLED) {
     } elseif (BC_INSTALLED && !$isMaintenance && (!empty($bcSite['version']) && (getVersion() > $bcSite['version']))) {
         if (!isConsole()) {
             CakeLog::write(LOG_ERR, 'プログラムとデータベースのバージョンが異なります。');
-            header('Location: ' . topLevelUrl(false) . baseUrl() . 'maintenance/index');
+            header('Location: ' . \BaserCore\Utility\BcUtil::topLevelUrl(false) . BcUtil::baseUrl() . 'maintenance/index');
             exit();
         } else {
             throw new BcException(__d('baser', 'プログラムとデータベースのバージョンが異なるため、強制終了します。データベースのバージョンを調整して、再実行してください。'));
@@ -315,7 +294,8 @@ if (BC_INSTALLED || isConsole()) {
  */
 
 if (BC_INSTALLED && !$isUpdater && !$isMaintenance) {
-    $sites = BcSite::findAll();
+    $sitesTable = \Cake\ORM\TableRegistry::getTableLocator()->get('BaserCore.Sites');
+    $sites = $sitesTable->find()->all();
     $pluginPaths = [ROOT . DS . 'Plugin' . DS];
     foreach($sites as $site) {
         if ($site->theme) {
@@ -366,13 +346,6 @@ if (BC_INSTALLED && !$isUpdater && !$isMaintenance) {
 }
 
 /**
- * 文字コードの検出順を指定
- */
-if (function_exists('mb_detect_order')) {
-    mb_detect_order(Configure::read('BcEncode.detectOrder'));
-}
-
-/**
  * メモリー設定
  */
 $memoryLimit = (int)ini_get('memory_limit');
@@ -403,7 +376,7 @@ if (Configure::read('debug') == 0) {
         // TODO ブラウザを閉じても最初から編集ページへのリンクを表示する場合は、クッキーのチェックを行い、認証処理を行う必要があるが、
         // セキュリティ上の問題もあるので実装は検討が必要。
         // bootstrapで実装した場合、他ページへの負荷の問題もある
-        if (isset($_SESSION['Auth'][Configure::read('BcAuthPrefix.admin.sessionKey')])) {
+        if (isset($_SESSION['Auth'][Configure::read('BcPrefixAuth.Admin.sessionKey')])) {
             Configure::write('Cache.check', false);
         }
     }
@@ -414,8 +387,9 @@ if (Configure::read('debug') == 0) {
 
 // サブサイトの際にキャッシュがメインサイトと重複しないように調整
 if (Configure::read('Cache.check')) {
-    $site = BcSite::findCurrent();
-    if ($site->useSubDomain) {
+    $sites = \Cake\ORM\TableRegistry::getTableLocator()->get('BaserCore.Sites');
+    $site = $sites->findByUrl($_SERVER['REQUEST_URI']);
+    if ($site->use_subdomain) {
         Configure::write('Cache.viewPrefix', $site->alias);
     }
 }

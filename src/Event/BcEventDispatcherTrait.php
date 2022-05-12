@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Event;
@@ -33,6 +33,7 @@ trait BcEventDispatcherTrait
      * @return bool|\Cake\Event\Event
      * @checked
      * @unitTest
+     * @noTodo
      */
     public function dispatchLayerEvent($name, $data = [], $options = [])
     {
@@ -46,15 +47,18 @@ trait BcEventDispatcherTrait
             $classArray = explode('\\', $class);
             $class = str_replace('Table', '', $classArray[count($classArray) - 1]);
             $layer = 'Model';
+            $alias = $this->getRegistryAlias();
+            if(strpos($alias, '.') !== false) {
+                $plugin = explode('.', $alias)[0];
+            }
         } elseif (is_a($this, 'Cake\View\View')) {
             $layer = 'View';
         } elseif (is_a($this, 'Cake\View\Helper')) {
             $layer = 'Helper';
             $class = str_replace('Helper', '', $class);
             $subject = $this->_View;
+            $plugin = method_exists($this->_View, 'getPlugin')? $this->_View->getPlugin() : '';
         }
-        // TODO Tableクラスはプラグイン名を持たないため、自動でプラグイン名を取得することができない
-        // 一旦空文字列とする
         $options = array_merge([
             'modParams' => 0,
             'plugin' => $plugin,

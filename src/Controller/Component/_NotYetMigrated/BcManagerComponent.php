@@ -1,5 +1,7 @@
 <?php
 // TODO : コード確認要
+use BaserCore\Utility\BcUtil;
+
 return;
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
@@ -64,7 +66,7 @@ class BcManagerComponent extends Component
         $result = true;
 
         // キャッシュ削除
-        clearAllCache();
+        BcUtil::clearAllCache();
 
         // 一時フォルダ作成
         checkTmpFolders();
@@ -278,7 +280,7 @@ class BcManagerComponent extends Component
         ClassRegistry::flush();
         $Page = ClassRegistry::init('Page');
         $Page->searchIndexSaving = false;
-        clearAllCache();
+        BcUtil::clearAllCache();
         $pages = $Page->find('all', ['conditions' => ['Content.alias_id' => null], 'recursive' => 0]);
         if ($pages) {
             foreach($pages as $page) {
@@ -505,7 +507,7 @@ class BcManagerComponent extends Component
         $installFileName = APP . 'Config' . DS . 'install.php';
 
         if (!$siteUrl) {
-            $siteUrl = siteUrl();
+            $siteUrl = BcUtil::siteUrl();
         }
         $installCoreData = ["<?php",
             "Configure::write('Security.salt', '{$securitySalt}');",
@@ -586,7 +588,7 @@ class BcManagerComponent extends Component
 
         [$theme, $pattern] = explode('.', $dbDataPattern);
 
-        if (!$this->constructionTable('Core', 'default', $dbConfig)) {
+        if (!$this->constructionTable('BaserCore', 'default', $dbConfig)) {
             $this->log(__d('baser', 'コアテーブルの構築に失敗しました。'));
             return false;
         }
@@ -655,9 +657,9 @@ class BcManagerComponent extends Component
         extract($options);
 
         $themePath = $dataPath = $title = '';
-        $dataPath = dirname(BcUtil::getDefaultDataPath('Core', $theme));
+        $dataPath = dirname(BcUtil::getDefaultDataPath('BaserCore', $theme));
 
-        if ($theme != 'core' && $dataPath == dirname(BcUtil::getDefaultDataPath('Core'))) {
+        if ($theme != 'core' && $dataPath == dirname(BcUtil::getDefaultDataPath('BaserCore'))) {
             return [];
         }
 
@@ -1273,7 +1275,7 @@ class BcManagerComponent extends Component
         }
 
         ClassRegistry::flush();
-        clearAllCache();
+        BcUtil::clearAllCache();
 
         return $result;
     }
@@ -1623,7 +1625,7 @@ class BcManagerComponent extends Component
      */
     public function installPlugin($name, $dbDataPattern = '')
     {
-        clearAllCache();
+        BcUtil::clearAllCache();
 
         $paths = App::path('Plugin');
         $exists = false;

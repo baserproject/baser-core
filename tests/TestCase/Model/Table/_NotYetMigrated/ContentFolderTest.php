@@ -123,14 +123,6 @@ class ContentFolderTest extends BaserTestCase
     }
 
     /**
-     * サイトルートフォルダを保存
-     */
-    public function testSaveSiteRoot()
-    {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-    }
-
-    /**
      * フォルダのテンプレートリストを取得する
      */
     public function testGetFolderTemplateList()
@@ -151,9 +143,9 @@ class ContentFolderTest extends BaserTestCase
      */
     public function testReconstructSearchIndices()
     {
-        Configure::write('BcAuthPrefix.admin.previewRedirect', '');
+        Configure::write('BcPrefixAuth.Admin.previewRedirect', '');
         $_SERVER['REQUEST_URI'] = '/';
-        $this->_loginAdmin();
+        $this->loginAdmin($this->getRequest());
 
         $pageModel = ClassRegistry::init('Page');
         // ディレクトリを追加

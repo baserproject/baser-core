@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Test\TestCase\Controller\Admin;
@@ -27,6 +27,7 @@ class DashboardControllerTest extends TestCase
      * @var array
      */
     public $fixtures = [
+        'plugin.BaserCore.Dblogs',
         'plugin.BaserCore.Users',
         'plugin.BaserCore.UsersUserGroups',
         'plugin.BaserCore.UserGroups',
@@ -41,7 +42,7 @@ class DashboardControllerTest extends TestCase
     {
         parent::setUp();
 
-        $this->loadFixtures('Users', 'UsersUserGroups', 'UserGroups');
+        $this->loadFixtures('Dblogs', 'Users', 'UsersUserGroups', 'UserGroups');
 
         $config = $this->getTableLocator()->exists('Users')? [] : ['className' => 'BaserCore\Model\Table\UsersTable'];
         $Users = $this->getTableLocator()->get('Users', $config);

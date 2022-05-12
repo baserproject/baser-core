@@ -11,7 +11,9 @@ return;
  * @since           baserCMS v 0.1.0
  * @license         https://basercms.net/license/index.html
  */
-
+use Cake\Core\Configure;
+use BaserCore\Utility\BcUtil;
+use BaserCore\Service\PermissionsServiceInterface;
 /**
  * Class Favorite
  *
@@ -85,19 +87,18 @@ class Favorite extends AppModel
      *
      * @param array $check
      */
-    public function isPermitted($check)
+    public function isPermitted($check, PermissionsServiceInterface $permissionService)
     {
         if (!$this->_Session) {
             return true;
         }
         $url = $check[key($check)];
-        $prefix = BcUtil::authSessionKey('admin');
+        $prefix = BcUtil::authSessionKey('Admin');
         $userGroupId = $this->_Session->read('Auth.' . $prefix . '.user_group_id');
         if ($userGroupId == Configure::read('BcApp.adminGroupId')) {
             return true;
         }
-        $Permission = ClassRegistry::init('Permission');
-        return $Permission->check($url, $userGroupId);
+        return $permissionService->check($url, $userGroupId);
     }
 
 }

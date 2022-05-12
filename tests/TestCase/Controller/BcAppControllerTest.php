@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Test\TestCase\Controller;
@@ -22,6 +22,19 @@ use Cake\Event\Event;
 class BcAppControllerTest extends BcTestCase
 {
     use IntegrationTestTrait;
+
+    /**
+     * Fixtures
+     *
+     * @var array
+     */
+    protected $fixtures = [
+        'plugin.BaserCore.Dblogs',
+        'plugin.BaserCore.Users',
+        'plugin.BaserCore.UsersUserGroups',
+        'plugin.BaserCore.UserGroups',
+        'plugin.BaserCore.Sites'
+    ];
 
     /**
      * set up
@@ -44,16 +57,6 @@ class BcAppControllerTest extends BcTestCase
     }
 
     /**
-     * Test construct
-     *
-     * @return void
-     */
-    public function testConstruct(): void
-    {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-    }
-
-    /**
      * Test beforeFilter
      *
      * @return void
@@ -61,6 +64,43 @@ class BcAppControllerTest extends BcTestCase
     public function testBeforeFilter(): void
     {
         $this->markTestIncomplete('このテストは、まだ実装されていません。');
+    }
+
+    /**
+     * Test saveDblog
+     *
+     * @return void
+     * @dataProvider saveDblogDataProvider
+     */
+    public function testSaveDblog(string $message, int $userId = null): void
+    {
+        $request =$this->getRequest('/baser/admin/baser-core/users/');
+        if (isset($userId)) $this->loginAdmin($request, $userId);
+
+        $result = $this->execPrivateMethod($this->BcAppController, 'saveDblog', [$message]);
+
+        $where = [
+            'message' => $message,
+            'controller' => 'Users',
+            'action' => 'index'
+        ];
+        if (isset($userId)) {
+            $where['user_id'] = $userId;
+        } else {
+            $where['user_id IS'] = null;
+        }
+
+        $dblogs = $this->getTableLocator()->get('Dblogs');
+        $query = $dblogs->find()->where($where);
+        $this->assertSame(1, $query->count());
+    }
+
+    public function saveDblogDataProvider(): array
+    {
+        return [
+            ['dblogs testSaveDblog message guest', null],
+            ['dblogs testSaveDblog message login', 1]
+        ];
     }
 
 }

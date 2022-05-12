@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Test\TestCase\Model\Table;
@@ -79,7 +79,7 @@ class UsersTableTest extends BcTestCase
         $this->assertEquals('users', $this->Users->getTable());
         $this->assertEquals('name', $this->Users->getDisplayField());
         $this->assertEquals('id', $this->Users->getPrimaryKey());
-        $this->assertIsBool($this->Users->hasBehavior('Timestamp'));
+        $this->assertTrue($this->Users->hasBehavior('Timestamp'));
         $this->assertEquals('UserGroups', $this->Users->getAssociation('UserGroups')->getName());
     }
 
@@ -205,12 +205,15 @@ class UsersTableTest extends BcTestCase
     }
 
     /**
-     * Test getLoginFormatData
+     * testGetUserList
+     *
+     * @return void
      */
-    public function testGetLoginFormatData()
+    public function testGetUserList(): void
     {
-        $user = $this->Users->getLoginFormatData(1)->toArray();
-        $this->assertEquals(1, $user['user_groups'][0]['id']);
+        $result = $this->Users->getUserList(['name' => 'baser admin']);
+        $this->assertCount(1, $result);
+        $this->assertEquals('ニックネーム1', $result[1]);
     }
 
 }

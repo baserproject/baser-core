@@ -1,19 +1,26 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Test\TestCase\View\Helper;
 
-use BaserCore\TestSuite\BcTestCase;
+use Cake\Core\Configure;
+use Cake\Event\Event;
+use Cake\Event\EventList;
+use Cake\Event\EventManager;
 use BaserCore\View\BcAdminAppView;
+use BaserCore\Model\Entity\Content;
+use BaserCore\TestSuite\BcTestCase;
 use BaserCore\View\Helper\BcFormHelper;
+use BaserCore\Model\Entity\ContentFolder;
+use BaserCore\Event\BcContentsEventListener;
 
 /**
  * Class BcFormHelperTest
@@ -29,7 +36,11 @@ class BcFormHelperTest extends BcTestCase
      * @var array
      */
     public $fixtures = [
+        'plugin.BaserCore.Users',
+        'plugin.BaserCore.UsersUserGroups',
         'plugin.BaserCore.UserGroups',
+        'plugin.BaserCore.Contents',
+        'plugin.BaserCore.Pages',
     ];
 
     /**
@@ -40,7 +51,19 @@ class BcFormHelperTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
-        $this->BcForm = new BcFormHelper(new BcAdminAppView($this->getRequest('/contacts/add')));
+        $View = new BcAdminAppView($this->getRequest('/contacts/add'));
+        $eventedView = $View->setEventManager(EventManager::instance()->on(new BcContentsEventListener())->setEventList(new EventList()));
+        $this->BcForm = new BcFormHelper($eventedView);
+    }
+    /**
+     * tearDown method
+     *
+     * @return void
+     */
+    public function tearDown(): void
+    {
+        unset($this->BcForm);
+        parent::tearDown();
     }
 
     /**
@@ -67,7 +90,7 @@ class BcFormHelperTest extends BcTestCase
         return [
             ['hoge', []],
             ['', []],
-            ['BaserCore.Users.user_group_id', [1 => 'システム管理', 2 => 'サイト運営者']]
+            ['BaserCore.Users.user_group_id', [1 => 'システム管理', 2 => 'サイト運営者', 3 => 'その他のグループ']]
         ];
     }
 
@@ -82,7 +105,7 @@ class BcFormHelperTest extends BcTestCase
     public function testDatePicker($fieldName, $attributes, $expected, $message)
     {
         $result = $this->BcForm->datePicker($fieldName, $attributes);
-        $this->assertRegExp('/' . $expected . '/s', $result, $message);
+        $this->assertMatchesRegularExpression('/' . $expected . '/s', $result, $message);
     }
 
     public function datePickerDataProvider()
@@ -106,7 +129,7 @@ class BcFormHelperTest extends BcTestCase
     public function testDateTimePicker($fieldName, $attributes, $expected, $message)
     {
         $result = $this->BcForm->dateTimePicker($fieldName, $attributes);
-        $this->assertRegExp('/' . $expected . '/s', $result, $message);
+        $this->assertMatchesRegularExpression('/' . $expected . '/s', $result, $message);
     }
 
     public function dateTimePickerDataProvider()
@@ -141,7 +164,7 @@ class BcFormHelperTest extends BcTestCase
         // <<<
 
         $result = $this->BcForm->dateTime($fieldName, $dateFormat, $timeFormat, $attributes);
-        $this->assertRegExp('/' . $expected . '/s', $result, $message);
+        $this->assertMatchesRegularExpression('/' . $expected . '/s', $result, $message);
     }
 
     public function dateTimeDataProvider()
@@ -151,34 +174,6 @@ class BcFormHelperTest extends BcTestCase
             ['test', 'WY', '12', [], '年.*年', '年の接尾辞を出力できません'],
             ['test', 'WM', '12', [], '月', '月の接尾辞を出力できません'],
             ['test', 'WD', '12', [], '日', '日の接尾辞を出力できません'],
-        ];
-    }
-
-    /**
-     * Creates a checkbox input widget.
-     *
-     * @param string $fieldName Name of a field, like this "Modelname.fieldname"
-     * @param array $options Array of HTML attributes.
-     * @param string $expected 期待値
-     * @param string $message テストが失敗した時に表示されるメッセージ
-     * @dataProvider checkboxDataProvider
-     */
-    public function testCheckbox($fieldName, $options, $expected, $message)
-    {
-        // TODO ucmitz移行時に未実装のため代替措置
-        // >>>
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        // <<<
-
-        $result = $this->BcForm->checkbox($fieldName, $options);
-        $this->assertRegExp('/' . $expected . '/s', $result, $message);
-    }
-
-    public function checkboxDataProvider()
-    {
-        return [
-            ['test', [], '<input type="checkbox" name="data\[test\]" value="1" id="test"', 'checkbox()を出力できません'],
-            ['test', ['label' => 'testLabel'], '<input type="checkbox".*label for="test">testLabel', '属性を付与できません'],
         ];
     }
 
@@ -193,23 +188,16 @@ class BcFormHelperTest extends BcTestCase
      */
     public function testHidden($fieldName, $options, $expected, $message)
     {
-
-        // TODO ucmitz移行時に未実装のため代替措置
-        // >>>
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        // <<<
-
         $result = $this->BcForm->hidden($fieldName, $options);
-        $this->assertRegExp('/' . $expected . '/s', $result, $message);
+        $this->assertMatchesRegularExpression('/' . $expected . '/s', $result, $message);
     }
 
     public function hiddenDataProvider()
     {
         return [
-            ['test', [], '<input type="hidden" name="data\[test\]" id="test"', 'hidden()を出力できません'],
+            ['test', [], '<input type="hidden" name="test"', 'hidden()を出力できません'],
             ['test', ['class' => 'bcclass'], 'class="bcclass"', '属性を付与できません'],
-            ['test', ['multiple' => 'checkbox'], 'name="data\[test\]"\/>$', 'セキュリティコンポーネントに対応していません'],
-            ['test', ['multiple' => 'checkbox', 'value' => ['value1', 'value2']], 'name="data\[test\]\[\]".* value="value1".*value="value2"', '値を複数追加できません'],
+            ['test', ['multiple' => 'checkbox', 'value' => ['value1', 'value2']], 'value="value1".*value="value2"', '値を複数追加できません'],
         ];
     }
 
@@ -224,46 +212,69 @@ class BcFormHelperTest extends BcTestCase
      */
     public function testCreate()
     {
-
-        // TODO ucmitz移行時に未実装のため代替措置
-        // >>>
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        // <<<
-
-        $result = $this->BcAdminForm->create();
-        $this->assertRegExp('/<form action="\/contacts\/add" novalidate="novalidate" id="addForm" method="post" accept-charset="utf-8"><div style="display:none;">.*/', $result);
+        // 引数がない場合
+        $result = $this->BcForm->create();
+        $this->assertMatchesRegularExpression('/<form method="post" accept-charset="utf-8" novalidate="novalidate" action="\/contacts\/add">.*/', $result);
+        // 引数が既存エンティティの場合の場合
+        $user = $this->getTableLocator()->get('Users')->get(1);
+        $result = $this->BcForm->create($user);
+        $this->assertMatchesRegularExpression('/<form method="post" accept-charset="utf-8" novalidate="novalidate" action="\/contacts\/add"><div style="display:none;"><input type="hidden" name="_method" value="PUT"\/><\/div>.*/', $result);
+        $this->assertEventFired('Helper.Form.beforeCreate');
+        $this->assertEventFired('Helper.Form.afterCreate');
     }
 
 
     /**
      * end
      * フック用にラッピング
-     *
-     * @param array $options
-     * @return    string
-     * @access    public
-     * @dataProvider endProvider
      */
-    public function testEnd($array1, $array2, $expected)
+    public function testEnd()
     {
+        // 通常
+        $result = $this->BcForm->end();
+        $this->assertEquals('</form>', $result);
 
-        // TODO ucmitz移行時に未実装のため代替措置
-        // >>>
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        // <<<
+        // トークン付き
+        $view = $this->BcForm->getView();
+        $request = $view->getRequest();
+        $view->setRequest($request->withAttribute('formTokenData', ['test']));
+        $usersTable = $this->getTableLocator()->get('BaserCore.Users');
+        $user = $usersTable->find()->where(['id' => 1])->first();
+        $this->BcForm->create($user);
+        $result = $this->BcForm->end();
+        $this->assertStringContainsString('</div></form>', $result);
 
-        $result = $this->BcAdminForm->end($array1, $array2);
-        $this->assertEquals($expected, $result);
+        // beforeEnd
+        $this->entryEventToMock(self::EVENT_LAYER_HELPER, 'Form.beforeEnd', function(Event $event){
+            $data = $event->getData();
+            $this->assertTrue(array_key_exists('id', $data));
+            $this->assertTrue(array_key_exists('secureAttributes', $data));
+            $event->setData('secureAttributes', ['debugSecurity' => true]);
+        });
+        $this->BcForm->create($user);
+        $result = $this->BcForm->end();
+        $this->assertStringContainsString('_Token[debug]', $result);
+
+        // afterEnd
+        $this->entryEventToMock(self::EVENT_LAYER_HELPER, 'Form.afterEnd', function(Event $event){
+            $data = $event->getData();
+            $this->assertTrue(array_key_exists('id', $data));
+            $this->assertTrue(array_key_exists('out', $data));
+            $event->setData('out', 'test');
+        });
+        $this->assertEquals('test', $this->BcForm->end());
     }
 
-    public function endProvider()
+    /**
+     * testSubmit
+     *
+     * @return void
+     */
+    public function testSubmit()
     {
-        return [
-            [null, null, '</form>'],
-            [[1, 2], null, '<div class="submit"><input 1="1" 2="2" type="submit" value="Submit"/></div></form>'],
-            [null, [1, 2], '</form>'],
-            [[1, 2], [1, 2], '<div class="submit"><input 1="1" 2="2" type="submit" value="Submit"/></div></form>']
-        ];
+        $result = $this->BcForm->submit('保存');
+        $this->assertMatchesRegularExpression('/<div class="submit"><input type="submit" value="保存"\/><\/div>/', $result);
+        $this->assertEventFired('Helper.Form.afterSubmit');
     }
 
 
@@ -303,7 +314,7 @@ class BcFormHelperTest extends BcTestCase
             ];
         }
         $result = $this->BcAdminForm->control($fieldName, $options);
-        $this->assertRegExp('/' . $expected . '/s', $result);
+        $this->assertMatchesRegularExpression('/' . $expected . '/s', $result);
         $this->resetEvent();
     }
 
@@ -348,7 +359,7 @@ class BcFormHelperTest extends BcTestCase
     {
         $expected = 'class="bca-label"';
         $result = $this->BcForm->label('User.id', 'id', ['class' => 'bca-label']);
-        $this->assertRegExp('/' . $expected . '/s', $result, 'ラベルに正しいクラスが付与できません');
+        $this->assertMatchesRegularExpression('/' . $expected . '/s', $result, 'ラベルに正しいクラスが付与できません');
     }
 
     /**
@@ -371,7 +382,7 @@ class BcFormHelperTest extends BcTestCase
         // <<<
 
         $result = $this->BcForm->ckeditor($fieldName, $options);
-        $this->assertRegExp('/' . $expected . '/s', $result, $message);
+        $this->assertMatchesRegularExpression('/' . $expected . '/s', $result, $message);
     }
 
     public function ckeditorDataProvider()
@@ -400,7 +411,7 @@ class BcFormHelperTest extends BcTestCase
         // <<<
 
         $result = $this->BcForm->editor($fieldName, $options);
-        $this->assertRegExp('/' . $expected . '/s', $result, $message);
+        $this->assertMatchesRegularExpression('/' . $expected . '/s', $result, $message);
     }
 
     public function editorDataProvider()
@@ -431,7 +442,7 @@ class BcFormHelperTest extends BcTestCase
         // <<<
 
         $result = $this->BcForm->prefTag($fieldName, $selected, $attributes);
-        $this->assertRegExp('/' . $expected . '/s', $result, $message);
+        $this->assertMatchesRegularExpression('/' . $expected . '/s', $result, $message);
     }
 
     public function prefTagDataProvider()
@@ -466,7 +477,7 @@ class BcFormHelperTest extends BcTestCase
         // <<<
 
         $result = $this->BcForm->wyear($fieldName, $minYear, $maxYear, $selected, $attributes, $showEmpty);
-        $this->assertRegExp('/' . $expected . '/s', $result, $message);
+        $this->assertMatchesRegularExpression('/' . $expected . '/s', $result, $message);
     }
 
     public function wyearDataProvider()
@@ -503,7 +514,7 @@ class BcFormHelperTest extends BcTestCase
         $now = $w . '-' . $wyear;
 
         $result = $this->BcForm->wyear('test', null, null, 'now');
-        $this->assertRegExp('/' . $now . '" selected/s', $result, '今年を選択状態にできません');
+        $this->assertMatchesRegularExpression('/' . $now . '" selected/s', $result, '今年を選択状態にできません');
     }
 
     /**
@@ -565,7 +576,7 @@ class BcFormHelperTest extends BcTestCase
         $attributes = $attributes + $attributes_default;
 
         $result = $this->BcForm->jsonList($field, $attributes);
-        $this->assertRegExp('/' . $expected . '/s', $result, $message);
+        $this->assertMatchesRegularExpression('/' . $expected . '/s', $result, $message);
     }
 
     public function jsonListDataProvider()
@@ -599,7 +610,7 @@ class BcFormHelperTest extends BcTestCase
         // <<<
 
         $result = $this->BcForm->selectText($fieldName, $options, $selected, $attributes, $showEmpty);
-        $this->assertRegExp('/' . $expected . '/s', $result, $message);
+        $this->assertMatchesRegularExpression('/' . $expected . '/s', $result, $message);
     }
 
     public function selectTextDataProvider()
@@ -628,20 +639,17 @@ class BcFormHelperTest extends BcTestCase
      */
     public function testFile($fieldName, $options, $expected, $message = null)
     {
-
-        // TODO ucmitz移行時に未実装のため代替措置
-        // >>>
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        // <<<
-
+        $pagesTable = $this->getTableLocator()->get('BaserCore.Pages');
+        $page = $pagesTable->find()->where(['Pages.id' => 2])->contain(['Contents'])->first();
+        $this->BcForm->create($page);
         $result = $this->BcForm->file($fieldName, $options);
-        $this->assertRegExp('/' . $expected . '/s', $result, $message);
+        $this->assertMatchesRegularExpression('/' . $expected . '/s', $result, $message);
     }
 
     public function fileDataProvider()
     {
         return [
-            ['hoge', [], '<input type="file" name="data\[hoge\]" id="hoge"', 'ファイルインプットボックス出力できません'],
+            ['hoge', [], '<input type="file" name="hoge"', 'ファイルインプットボックス出力できません'],
             ['hoge', ['imgsize' => '50'], 'imgsize="50"', 'ファイルインプットボックス出力できません'],
             ['hoge', ['link' => 'page'], 'link="page"', 'ファイルインプットボックス出力できません'],
             ['hoge', ['delCheck' => 'page'], 'delCheck="page"', 'ファイルインプットボックス出力できません'],
@@ -650,7 +658,7 @@ class BcFormHelperTest extends BcTestCase
             ['hoge', ['title' => 'page'], 'title="page"', 'ファイルインプットボックス出力できません'],
             ['hoge', ['width' => 'page'], 'width="page"', 'ファイルインプットボックス出力できません'],
             ['hoge', ['height' => 'page'], 'height="page"', 'ファイルインプットボックス出力できません'],
-            ['hoge', ['value' => 'page'], '<input type="file" name="data\[hoge\]" id="hoge"', 'ファイルインプットボックス出力できません'],
+            ['hoge', ['value' => 'page'], '<input type="file" name="hoge"', 'ファイルインプットボックス出力できません'],
             ['hoge', ['hoge' => 'page'], 'hoge="page"', 'ファイルインプットボックス出力できません']
         ];
     }
@@ -659,31 +667,24 @@ class BcFormHelperTest extends BcTestCase
      * フォームの最後のフィールドの後に発動する前提としてイベントを発動する
      *
      * @param string $type フォームのタイプ タイプごとにイベントの登録ができる
-     * @return string 行データ
      * @dataProvider dispatchAfterFormDataProvider
      */
     public function testDispatchAfterForm($type, $fields, $res, $expected)
     {
-
-        // TODO ucmitz移行時に未実装のため代替措置
-        // >>>
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        // <<<
-
-        $event = $this->attachEvent(['Helper.Form.after' . $type . 'Form' => ['callable' => function(\Cake\Event\Event $event) use ($fields, $res) {
+        $this->attachEvent(['Helper.Form.after' . $type . 'Form' => ['callable' => function(Event $event) use ($fields, $res) {
             $event->setData('fields', $fields);
             return $res;
         }]]);
         $result = $this->BcForm->dispatchAfterForm($type);
-        $this->assertRegExp('/' . $expected . '/s', $result);
+        $this->assertMatchesRegularExpression('/' . $expected . '/s', $result);
         $this->resetEvent();
     }
 
     public function dispatchAfterFormDataProvider()
     {
         return [
-            ['Hoge', [['title' => '1', 'input' => '2']], true, '<tr><th class="col-head bca-form-table__label">1<\/th>\n<td class="col-input bca-form-table__input">2<\/td>\n<\/tr>'],
-            ['Hoge', [['title' => '1', 'input' => '2']], false, '<tr><th class="col-head bca-form-table__label">1<\/th>\n<td class="col-input bca-form-table__input">2<\/td>\n<\/tr>'],
+            ['Hoge', [['title' => '1', 'input' => '2']], true, '<tr><th class="bca-form-table__label">1<\/th>\n<td class="bca-form-table__input">2<\/td>\n<\/tr>'],
+            ['Hoge', [['title' => '1', 'input' => '2']], false, '<tr><th class="bca-form-table__label">1<\/th>\n<td class="bca-form-table__input">2<\/td>\n<\/tr>'],
             ['Hoge', '', true, ''],
             ['Hoge', '', false, ''],
         ];
@@ -707,7 +708,7 @@ class BcFormHelperTest extends BcTestCase
         $this->markTestIncomplete('このテストは、まだ実装されていません。');
         // <<<
         $result = $this->BcForm->radio($fieldName, $options, $attributes);
-        $this->assertRegExp('/' . $expected . '/s', $result, $message);
+        $this->assertMatchesRegularExpression('/' . $expected . '/s', $result, $message);
     }
 
     public function radioDataProvider()
@@ -762,20 +763,11 @@ class BcFormHelperTest extends BcTestCase
      */
     public function testFileUploadField()
     {
-
-        // TODO ucmitz移行時に未実装のため代替措置
-        // >>>
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        // <<<
-
-        $fieldName = 'Contact.upload';
+        $fieldName = 'Content.upload';
         $this->BcForm->setEntity($fieldName);
         // 通常
         $result = $this->BcForm->file($fieldName);
-        $expected = [
-            ['input' => ['type' => 'file', 'name' => 'data[Contact][upload]', 'id' => 'ContactUpload']],
-        ];
-        $this->assertTags($result, $expected);
+        $this->assertEquals('<input type="file" name="Content[upload]">', $result);
     }
 
     /**
@@ -787,47 +779,41 @@ class BcFormHelperTest extends BcTestCase
      */
     public function testFileUploadFieldWithImageFile()
     {
-
-        // TODO ucmitz移行時に未実装のため代替措置
-        // >>>
         $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        // <<<
-
         $fieldName = 'Contact.eye_catch';
-        $this->BcForm->setEntity($fieldName);
-        $this->BcForm->BcUpload->request->data = [
-            'Contact' => [
-                'id' => '1',
-                'eye_catch' => 'template1.jpg',
-                'modified' => '2013-07-21 01:41:12', 'created' => '2013-07-21 00:53:42',
-            ]
-        ];
+        $request = $this->getRequest('/')->withData('Contact', [
+            'id' => '1',
+            'eye_catch' => 'template1.jpg',
+            'modified' => '2013-07-21 01:41:12', 'created' => '2013-07-21 00:53:42',
+        ]);
+        $View = new BcAdminAppView($request);
+        $BcForm = new BcFormHelper($View);
 
-        $result = $this->BcForm->file($fieldName);
-        $expected = [
-            ['input' => ['type' => 'file', 'name' => 'data[Contact][eye_catch]', 'id' => 'ContactEyeCatch']],
-            '&nbsp;',
-            ['span' => []],
-            ['input' => ['type' => 'hidden', 'name' => 'data[Contact][eye_catch_delete]', 'id' => 'ContactEyeCatchDelete_', 'value' => '0']],
-            ['input' => ['type' => 'checkbox', 'name' => 'data[Contact][eye_catch_delete]', 'value' => '1', 'id' => 'ContactEyeCatchDelete']],
-            ['label' => ['for' => 'ContactEyeCatchDelete']],
-            '削除する',
-            '/label',
-            '/span',
-            ['input' => ['type' => 'hidden', 'name' => 'data[Contact][eye_catch_]', 'value' => 'template1.jpg', 'id' => 'ContactEyeCatch']],
-            ['br' => true],
-            ['figure' => []],
-            ['a' => ['href' => 'preg:/' . preg_quote('/files/template1.jpg?', '/') . '\d+/', 'rel' => 'colorbox', 'title' => '']],
-            ['img' => ['src' => 'preg:/' . preg_quote('/files/template1.jpg?', '/') . '\d+/', 'alt' => '']],
-            '/a',
-            ['br' => true],
-            ['figcaption' => ['class' => 'file-name']],
-            'template1.jpg',
-            '/figcaption',
-            '/figure',
-        ];
+        $result = $BcForm->file($fieldName);
+        $this->assertEquals('<input type="file" name="Contact[eye_catch]" id="ContactEyeCatch"/>&nbsp;<span><input type="hidden" name="Contact[eye_catch_delete]" value="0"/><input type="checkbox" name="Contact[eye_catch_delete]" value="1" id="ContactEyeCatchDelete"/><label for="ContactEyeCatchDelete">削除する</label></span><input type="hidden" name="Contact[eye_catch_]" value="template1.jpg" id="ContactEyeCatch"/><br /><figure><a href="/files/template1.jpg?271873778" rel="colorbox" title=""><img src="/files/template1.jpg?570639534" alt=""/></a><br><figcaption class="file-name">template1.jpg</figcaption></figure>', $result);
 
-        $this->assertTags($result, $expected);
+        // $expected = [
+        //     ['input' => ['type' => 'file', 'name' => 'data[Contact][eye_catch]', 'id' => 'ContactEyeCatch']],
+        //     '&nbsp;',
+        //     ['span' => []],
+        //     ['input' => ['type' => 'hidden', 'name' => 'data[Contact][eye_catch_delete]', 'id' => 'ContactEyeCatchDelete_', 'value' => '0']],
+        //     ['input' => ['type' => 'checkbox', 'name' => 'data[Contact][eye_catch_delete]', 'value' => '1', 'id' => 'ContactEyeCatchDelete']],
+        //     ['label' => ['for' => 'ContactEyeCatchDelete']],
+        //     '削除する',
+        //     '/label',
+        //     '/span',
+        //     ['input' => ['type' => 'hidden', 'name' => 'data[Contact][eye_catch_]', 'value' => 'template1.jpg', 'id' => 'ContactEyeCatch']],
+        //     ['br' => true],
+        //     ['figure' => []],
+        //     ['a' => ['href' => 'preg:/' . preg_quote('/files/template1.jpg?', '/') . '\d+/', 'rel' => 'colorbox', 'title' => '']],
+        //     ['img' => ['src' => 'preg:/' . preg_quote('/files/template1.jpg?', '/') . '\d+/', 'alt' => '']],
+        //     '/a',
+        //     ['br' => true],
+        //     ['figcaption' => ['class' => 'file-name']],
+        //     'template1.jpg',
+        //     '/figcaption',
+        //     '/figure',
+        // ];
     }
 
     /**
@@ -913,42 +899,96 @@ class BcFormHelperTest extends BcTestCase
     /**
      * フォームのIDを取得する
      *
-     * @dataProvider getIdDataProvider
+     * @dataProvider createIdDataProvider
      */
-    public function testGetId($Model, $expected)
+    public function testCreateId($context, $options, $expected)
     {
-
-        // TODO ucmitz移行時に未実装のため代替措置
-        // >>>
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        // <<<
-
-        $this->BcAdminForm->create($Model);
-        $this->assertEquals($expected, $this->BcForm->getId());
+        $request = $this->getRequest('/')->withParam('prefix', 'Admin')->withParam('controller', 'testController')->withParam('action', 'test');
+        $BcForm = new BcFormHelper(new BcAdminAppView($request));
+        $result = $this->execPrivateMethod($BcForm, "createId", [$context, $options]);
+        $this->assertEquals($expected, $result);
+    }
+    public function createIdDataProvider()
+    {
+        $context = new ContentFolder();
+        $context->setSource("BaserCore.ContentFolder");
+        $secondContext = new Content();
+        $secondContext->setSource("BaserCore.Content");
+        $arrayContext = [$context, $secondContext];
+        return [
+            // contextがない場合(Controller名が使われれるか)
+            [null, [], "TestControllerAdminTestForm"],
+            // context名が使われる場合
+            [$context, [], "ContentFolderAdminTestForm"],
+            // 複数のcontextが使用される場合１つ目のcontextがidとして使用される
+            [$arrayContext, [], "ContentFolderAdminTestForm"],
+            // 指定したoptionIDが使われる場合
+            [$context, ['id' => 'testForm'], "testForm"],
+        ];
+        // return [
+        //     ['', 'addForm'],
+        //     ['hogehoge', 'hogehogeAddForm'],
+        //     ['CakeSchema', 'CakeSchemaAddForm'],
+        //     ['Content', 'ContentAddForm'],
+        //     ['EditTemplate', 'EditTemplateAddForm'],
+        //     ['Favorite', 'FavoriteAddForm'],
+        //     ['Member', 'MemberAddForm'],
+        //     ['Page', 'PageAddForm'],
+        //     ['Plugin', 'PluginAddForm'],
+        //     ['Site', 'SiteAddForm'],
+        //     ['SiteConfig', 'SiteConfigAddForm'],
+        //     ['Theme', 'ThemeAddForm'],
+        //     ['ThemeFile', 'ThemeFileAddForm'],
+        //     ['ThemeFolder', 'ThemeFolderAddForm'],
+        //     ['Tool', 'ToolAddForm'],
+        //     ['Updater', 'UpdaterAddForm'],
+        //     ['User', 'UserAddForm'],
+        //     ['UserGroup', 'UserGroupAddForm']
+        // ];
+    }
+    /**
+     * Paramや_registryAliasがなしの状態でフォームのIDを取得する場合（異常系）
+     *
+     */
+    public function testCreateIdWithNoParam()
+    {
+        $context = new ContentFolder();
+        $BcForm = new BcFormHelper(new BcAdminAppView($this->getRequest('/')->withParam('action', '')));
+        $result = $this->execPrivateMethod($BcForm, "createId", [$context, []]);
+        $this->assertNull($result);
     }
 
-    public function getIdDataProvider()
+    /**
+     * testGetIdandSetId
+     *
+     * @return void
+     */
+    public function testGetIdandSetId()
     {
-        return [
-            ['', 'addForm'],
-            ['hogehoge', 'hogehogeAddForm'],
-            ['CakeSchema', 'CakeSchemaAddForm'],
-            ['Content', 'ContentAddForm'],
-            ['EditTemplate', 'EditTemplateAddForm'],
-            ['Favorite', 'FavoriteAddForm'],
-            ['Member', 'MemberAddForm'],
-            ['Page', 'PageAddForm'],
-            ['Plugin', 'PluginAddForm'],
-            ['Site', 'SiteAddForm'],
-            ['SiteConfig', 'SiteConfigAddForm'],
-            ['Theme', 'ThemeAddForm'],
-            ['ThemeFile', 'ThemeFileAddForm'],
-            ['ThemeFolder', 'ThemeFolderAddForm'],
-            ['Tool', 'ToolAddForm'],
-            ['Updater', 'UpdaterAddForm'],
-            ['User', 'UserAddForm'],
-            ['UserGroup', 'UserGroupAddForm']
-        ];
+        $result = $this->BcForm->setId("test");
+        $this->assertEquals($this->BcForm->getId(), $result);
+    }
+
+    /**
+     * test getTable
+     */
+    public function testGetTable()
+    {
+        $pagesTable = $this->getTableLocator()->get('BaserCore.Pages');
+        $page = $pagesTable->find()->where(['Pages.id' => 2])->contain(['Contents'])->first();
+        $this->BcForm->create($page);
+
+        // テーブル名なし
+        $table = $this->BcForm->getTable('contents');
+        $this->assertEquals('BaserCore\Model\Table\PagesTable', get_class($table));
+
+        // テーブル名あり
+        $table = $this->BcForm->getTable('Pages.contents');
+        $this->assertEquals('BaserCore\Model\Table\PagesTable', get_class($table));
+
+        // アソシエーションのテーブル名あり
+        $table = $this->BcForm->getTable('Pages.content.eyecatch');
+        $this->assertEquals('BaserCore\Model\Table\ContentsTable', get_class($table));
     }
 
 }

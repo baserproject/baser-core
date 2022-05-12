@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Test\TestCase\View\Helper;
@@ -33,6 +33,7 @@ class BcAuthHelperTest extends BcTestCase
         'plugin.BaserCore.Users',
         'plugin.BaserCore.UserGroups',
         'plugin.BaserCore.UsersUserGroups',
+        'plugin.BaserCore.Sites',
     ];
 
     /**
@@ -74,7 +75,19 @@ class BcAuthHelperTest extends BcTestCase
         // その他の場合
         $this->BcAuth->getView()->setRequest($this->getRequest()->withParam('prefix', null));
         $result = $this->BcAuth->getCurrentPrefix();
-        $this->assertEquals('front', $result);
+        $this->assertEquals('Front', $result);
+    }
+
+    /**
+     * test getPrefixSetting
+     */
+    public function testGetPrefixSetting()
+    {
+        // 管理画面の場合
+        $result = $this->BcAuth->getPrefixSetting('Admin');
+        $this->assertEquals($result['name'], "管理システム");
+        // 設定が存在しない場合
+        $this->assertNull($this->BcAuth->getPrefixSetting('test'));
     }
 
     /**
@@ -98,6 +111,18 @@ class BcAuthHelperTest extends BcTestCase
      * Test getCurrentLoginUrl
      * @return void
      */
+    public function testGetLoginUrl()
+    {
+        // 管理画面の場合
+        $this->assertEquals('/baser/admin/baser-core/users/login', $this->BcAuth->getLoginUrl('Admin'));
+        // 設定がない場合
+        $this->assertEmpty($this->BcAuth->getLoginUrl('test'));
+    }
+
+    /**
+     * Test getCurrentLoginUrl
+     * @return void
+     */
     public function testGetCurrentLoginUrl()
     {
         // Adminの場合
@@ -113,14 +138,15 @@ class BcAuthHelperTest extends BcTestCase
     }
 
     /**
-     * Test getCurrentUserPrefixSettings
+     * Test getCurrentUserPrefixes
      * @return void
-     * @todo getCurrentUserPrefixSettings() の実装が完了したら別パターンのテストを追加する
+     * @todo ucmitz getCurrentUserPrefixSettings() の実装が完了したら別パターンのテストを追加する
      */
-    public function testGetCurrentUserPrefixSettings()
+    public function testGetCurrentUserPrefixes()
     {
-        $result = $this->BcAuth->getCurrentUserPrefixSettings();
-        $this->assertEquals(['admin'], $result);
+        $this->loginAdmin($this->getRequest('/baser/admin'));
+        $result = $this->BcAuth->getCurrentUserPrefixes();
+        $this->assertEquals(['Admin'], $result);
     }
 
     /**
@@ -129,17 +155,9 @@ class BcAuthHelperTest extends BcTestCase
      */
     public function testIsCurrentUserAdminAvailable()
     {
+        $this->loginAdmin($this->getRequest('/baser/admin'));
         $result = $this->BcAuth->isCurrentUserAdminAvailable();
         $this->assertTrue($result);
-    }
-
-    /**
-     * Test getCurrentLoginAction
-     * @return void
-     */
-    public function testGetCurrentLoginAction()
-    {
-        $this->markTestIncomplete('テスト対象のメソッドが未実装です');
     }
 
     /**
@@ -164,9 +182,20 @@ class BcAuthHelperTest extends BcTestCase
         $result = $this->BcAuth->isAdminLogin();
         $this->assertFalse($result);
         // ログインした場合
-        $this->loginAdmin();
+        $this->loginAdmin($this->getRequest('/baser/admin'));
         $result = $this->BcAuth->isAdminLogin();
         $this->assertTrue($result);
+    }
+
+    /**
+     * test getLogoutUrl
+     */
+    public function testGetLogoutUrl()
+    {
+        // Adminの場合
+        $this->assertEquals('/baser/admin/baser-core/users/logout', $this->BcAuth->getLogoutUrl('Admin'));
+        // 設定がない場合
+        $this->assertEmpty($this->BcAuth->getLogoutUrl('test'));
     }
 
     /**
@@ -213,7 +242,7 @@ class BcAuthHelperTest extends BcTestCase
         foreach($ids as $id) {
             $expected = $this->getUser($id);
 
-            $this->loginAdmin($id);
+            $this->loginAdmin($this->getRequest('/baser/admin'), $id);
             $result = $this->BcAuth->getCurrentLoginUser();
             $this->assertEquals($result, $expected);
         }
@@ -227,7 +256,7 @@ class BcAuthHelperTest extends BcTestCase
     public function testIsSuperUser($id, $expected)
     {
         if ($id) {
-            $this->loginAdmin($id);
+            $this->loginAdmin($this->getRequest('/baser/admin'), $id);
         }
         $result = $this->BcAuth->isSuperUser();
         $this->assertEquals($result, $expected);

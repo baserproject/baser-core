@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Service;
@@ -16,7 +16,6 @@ use Exception;
 
 /**
  * Interface PluginsServiceInterface
- * @package BaserCore\Service
  */
 interface PluginsServiceInterface
 {
@@ -85,4 +84,20 @@ interface PluginsServiceInterface
      * @return array|mixed
      */
     public function getMarketPlugins(): array;
+
+    /**
+     * ユーザーグループにアクセス許可設定を追加する
+     *
+     * @param array $data リクエストデータ
+     * @return void
+     */
+    public function allow($data): void;
+
+
+    /**
+     * インストール時の状態を返す
+     * @param string $pluginName
+     * @return string
+     */
+    public function getInstallStatusMessage($pluginName): string;
 }

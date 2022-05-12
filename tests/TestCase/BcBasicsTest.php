@@ -1,5 +1,7 @@
 <?php
 // TODO : コード確認要
+use BaserCore\Utility\BcUtil;
+
 return;
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
@@ -36,68 +38,11 @@ class BcBasicsTest extends BcTestCase
     public function setUp()
     {
         parent::setUp();
-        BcSite::flash();
     }
 
     public function tearDown()
     {
         parent::tearDown();
-    }
-
-    /**
-     * WebサイトのベースとなるURLを取得する
-     * TODO BC_DEPLOY_PATTERNで分岐した場合のテストの追加
-     *
-     * @param string $script App.baseUrlの値
-     * @param string $script $_SERVER['SCRIPT_FILENAME']の値
-     * @param string $expect 期待値
-     * @dataProvider baseUrlDataProvider
-     */
-    public function testBaseUrl($baseUrl, $expect)
-    {
-        // 初期化
-        Configure::write('App.baseUrl', $baseUrl);
-        if (isConsole()) {
-            $_SERVER['SCRIPT_FILENAME'] = APP . 'Console' . DS . 'cake.php';
-            $_SERVER['SCRIPT_NAME'] = APP . 'Console' . DS . 'cake.php';
-        }
-        $result = baseUrl();
-        $this->assertEquals($expect, $result, 'WebサイトのベースとなるURLを正しく取得できません');
-
-    }
-
-    public function baseUrlDataProvider()
-    {
-        return [
-            ['/hoge/test', '/hoge/test/'],
-            [null, '/'],
-            ['/hoge/test', '/hoge/test/'],
-            [null, '/'],
-        ];
-    }
-
-
-    /**
-     * ドキュメントルートを取得する
-     */
-    public function testDocRoot()
-    {
-        $_SERVER['SCRIPT_FILENAME'] = WWW_ROOT . 'test.php';
-
-        if (isConsole()) {
-            $expected = str_replace('app' . DS . 'Console' . DS . 'cake.php', '', $_SERVER['SCRIPT_NAME']);
-
-        } else {
-            $path = explode('/', $_SERVER['SCRIPT_NAME']);
-            krsort($path);
-            $expected = $_SERVER['SCRIPT_FILENAME'];
-            foreach($path as $value) {
-                $reg = "/\/" . $value . "$/";
-                $expected = preg_replace($reg, '', $expected);
-            }
-        }
-        $result = docRoot();
-        $this->assertEquals($expected, $result);
     }
 
     /**
@@ -200,7 +145,7 @@ class BcBasicsTest extends BcTestCase
             ['/get/url/test', null, null, 'get/url/test', '$_GET["url"]からURLを正しく取得できません'],
             [null, '/req/', null, 'req/', '$_SERVER["REQUEST_URI"]からURLを正しく取得できません'],
             [null, '/req/test.php?a=aaa&b=bbb', null, 'req/test.php', '$_SERVER["REQUEST_URI"]からURLを正しく取得できません'],
-            [null, baseUrl() . '/req/', null, 'req/', '$_SERVER["REQUEST_URI"]からURLを正しく取得できません'],
+            [null, BcUtil::baseUrl() . '/req/', null, 'req/', '$_SERVER["REQUEST_URI"]からURLを正しく取得できません'],
             [null, '/base/req/', '/base/', 'req/', '$_SERVER["REQUEST_URI"]からURLを正しく取得できません'],
             [null, '/base/req/', '/base/url/', 'req/', '$_SERVER["REQUEST_URI"]からURLを正しく取得できません'],
         ];
@@ -310,7 +255,7 @@ class BcBasicsTest extends BcTestCase
         $dataCache = new File(CACHE . 'datas' . DS . 'cache', true);
 
         // キャッシュ削除
-        clearAllCache();
+        BcUtil::clearAllCache();
 
         $this->assertFalse($coreCache->exists());
         $this->assertFalse($modelCache->exists());
@@ -512,47 +457,9 @@ class BcBasicsTest extends BcTestCase
      */
     public function testFullUrl()
     {
-        $this->assertRegExp('/\//', fullUrl('/'));
-        $this->assertRegExp('/\/.*blog/', fullUrl('/blog'));
-        $this->assertRegExp('/\//', fullUrl(null));
-    }
-
-    /**
-     * サイトのトップレベルのURLを取得する
-     */
-    public function testTopLevelUrl()
-    {
-        if (isConsole()) {
-            $this->assertEquals('http://localhost', topLevelUrl());
-        } else {
-            $this->assertRegExp('/^http:\/\/.*\/$/', topLevelUrl());
-            $this->assertRegExp('/^http:\/\/.*[^\/]$/', topLevelUrl(false));
-
-            // httpsの場合
-            $_SERVER['HTTPS'] = 'on';
-            $this->assertRegExp('/^https:\/\//', topLevelUrl());
-        }
-    }
-
-    /**
-     * サイトの設置URLを取得する
-     */
-    public function testSiteUrl()
-    {
-        if (isConsole()) {
-            $this->assertEquals('http://localhost/', siteUrl());
-        } else {
-            $topLevelUrl = topLevelUrl(false);
-
-            Configure::write('App.baseUrl', '/test/');
-            $this->assertEquals($topLevelUrl . '/test/', siteUrl());
-
-            Configure::write('App.baseUrl', '/test/index.php');
-            $this->assertEquals($topLevelUrl . '/test/', siteUrl());
-
-            Configure::write('App.baseUrl', '/test/hoge/');
-            $this->assertEquals($topLevelUrl . '/test/hoge/', siteUrl());
-        }
+        $this->assertMatchesRegularExpression('/\//', fullUrl('/'));
+        $this->assertMatchesRegularExpression('/\/.*blog/', fullUrl('/blog'));
+        $this->assertMatchesRegularExpression('/\//', fullUrl(null));
     }
 
     /**
@@ -618,7 +525,7 @@ class BcBasicsTest extends BcTestCase
             $result[0]['Plugin']['name'],
             $result[1]['Plugin']['name']
         ];
-        $expect = ['Blog', 'Feed', 'Mail'];
+        $expect = ['BcBlog', 'BcFeed', 'BcMail'];
         $this->assertEquals($expect, $pluginNames, '利用可能なプラグインのリストを正しく取得できません');
     }
 
@@ -653,7 +560,7 @@ class BcBasicsTest extends BcTestCase
         $Bcversion = substr($version[0], 0, -1);
         $this->assertEquals($Bcversion, $result, 'BaserCMSコアのバージョンを正しく取得できません');
 
-        $result = getVersion('Blog');
+        $result = getVersion('BcBlog');
         $this->assertEquals($Bcversion, $result, 'BaserCMSコアのバージョンを正しく取得できません');
 
         // プラグインのバージョンを取得
@@ -686,21 +593,13 @@ class BcBasicsTest extends BcTestCase
         p(['test']);
         $result = ob_get_clean();
         $expect = 'array.*int.*0.*=&gt; &#039;test&#039;';
-        $this->assertRegExp('/' . $expect . '/s', $result);
+        $this->assertMatchesRegularExpression('/' . $expect . '/s', $result);
     }
 
     /**
      * データベースのドライバー名を取得する
      */
     public function testGetDbDriver()
-    {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-    }
-
-    /**
-     * コンソールから実行されているかチェックする
-     */
-    public function testIsConsole()
     {
         $this->markTestIncomplete('このテストは、まだ実装されていません。');
     }
@@ -731,82 +630,6 @@ class BcBasicsTest extends BcTestCase
     }
 
     /**
-     * プラグインを読み込む
-     * Blogプラグインでテストする前提
-     * TODO 一部未完成 引数$priorityが機能していないバグ？があります
-     *
-     *
-     * @param string $plugin プラグイン名
-     * @dataProvider loadPluginDataProvider
-     */
-    public function testLoadPlugin($plugin, $priority, $expect)
-    {
-        // Eventテスト準備
-        if ($expect) {
-            $EventFolderPath = CakePlugin::path($plugin) . 'Event' . DS;
-            $EventFilePath = $EventFolderPath . $plugin . 'Controller' . 'EventListener' . '.php';
-
-            $Folder = new Folder();
-            $Folder->create($EventFolderPath);
-
-            $EventFile = new File($EventFilePath, true);
-            $EventFile->write("<?php
-class BlogControllerEventListener extends BcControllerEventListener {
-	public \$events = array('hogeFunction');
-}");
-            $EventFile->close();
-        }
-
-        // 他のテストに影響がでるためバックアップをとる
-        $buckupPlugins = CakePlugin::loaded();
-        $buckupBlog = Configure::read('BcApp.adminNavi.blog');
-
-        Configure::delete('BcApp.adminNavi.blog');
-        CakePlugin::unload();
-
-        // プラグインを読み込む
-        $result = loadPlugin($plugin, $priority);
-
-        $this->assertEquals($expect, $result);
-
-        if ($expect) {
-            $EventFile->close();
-            $Folder->delete($EventFolderPath);
-
-            // プラグインが読み込めているか
-            $this->assertContains($plugin, CakePlugin::loaded(), 'プラグインを読み込めません');
-            $this->assertNotNull(Configure::read('BcApp.adminNavi.blog'), 'プラグインの設定が正しく設定されていません');
-
-            $this->Event = new CakeEventManager();
-            $EventListeners = $this->Event->listeners('Controller.hogeFunction');
-
-            // イベントリスナーに登録されているか
-            $this->assertContains('hogeFunction', $EventListeners[0]['callable'], 'プラグインイベントを正しく登録できません');
-
-            // プライオリティを設定できているか
-            if (!is_null($priority)) {
-                $this->assertEquals($priority, $EventListeners[1]['callable'][0]->events['hogeFunction']['priority']);
-            }
-        }
-
-        // バックアップを復元
-        Configure::write('BcApp.adminNavi.blog', $buckupBlog);
-        foreach($buckupPlugins as $key => $value) {
-            CakePlugin::load($value);
-        }
-
-    }
-
-    public function loadPluginDataProvider()
-    {
-        return [
-            ['Blog', null, true],
-            ['Blog', 1, true],
-            ['Hoge', null, false],
-        ];
-    }
-
-    /**
      * 後方互換のための非推奨メッセージを生成する
      */
     public function testDeprecatedMessage()
@@ -831,7 +654,7 @@ class BlogControllerEventListener extends BcControllerEventListener {
         $enc = base64UrlsafeEncode($text);
         $result = urlencode($enc);
         // %が含まれてないかチェック
-        $this->assertRegExp('/^(?!.*%)/', $result, 'パーセントエンコーディングされています');
+        $this->assertMatchesRegularExpression('/^(?!.*%)/', $result, 'パーセントエンコーディングされています');
 
         // decode
         $dec = base64UrlsafeDecode($enc);

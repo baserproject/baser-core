@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Model\Table;
@@ -18,7 +18,6 @@ use Cake\ORM\Association\BelongsToMany;
 use Cake\ORM\Behavior\TimestampBehavior as TimestampBehaviorAlias;
 use Cake\Datasource\{EntityInterface, ResultSetInterface as ResultSetInterfaceAlias};
 use BaserCore\Model\AppTable;
-use Cake\ORM\Table;
 use Cake\Validation\Validator;
 use BaserCore\Model\Table\Exception\CopyFailedException;
 use BaserCore\Annotation\UnitTest;
@@ -45,7 +44,7 @@ use BaserCore\Annotation\Checked;
  * @mixin TimestampBehaviorAlias
  * @uses UserGroupsTable
  */
-class UserGroupsTable extends Table //TODO AppTableに変更必
+class UserGroupsTable extends AppTable
 {
 
     /**
@@ -83,6 +82,7 @@ class UserGroupsTable extends Table //TODO AppTableに変更必
      * @param array $config The configuration for the Table.
      * @return void
      * @checked
+     * @noTodo
      * @unitTest
      */
     public function initialize(array $config): void
@@ -93,12 +93,18 @@ class UserGroupsTable extends Table //TODO AppTableに変更必
         $this->setDisplayField('name');
         $this->setPrimaryKey('id');
         $this->addBehavior('Timestamp');
-        // $this->addBehavior('BcCache'); //TODO 未実装
         $this->belongsToMany('Users', [
             'className' => 'BaserCore.Users',
             'foreignKey' => 'user_group_id',
             'targetForeignKey' => 'user_id',
             'joinTable' => 'users_user_groups',
+        ]);
+        $this->hasMany('Permissions', [
+            'className' => 'BaserCore.Permissions',
+            'order' => 'id',
+            'foreignKey' => 'user_group_id',
+            'dependent' => true,
+            'exclusive' => false,
         ]);
     }
 
@@ -120,6 +126,7 @@ class UserGroupsTable extends Table //TODO AppTableに変更必
         $validator
             ->scalar('name')
             ->maxLength('name', 50, __d('baser', 'ユーザーグループ名は50文字以内で入力してください。'))
+            ->requirePresence('name', 'create', __d('baser', 'ユーザーグループ名を入力してください。'))
             ->notEmptyString('name', __d('baser', 'ユーザーグループ名を入力してください。'))
             ->add('name', [
                 'name_halfText' => [
@@ -137,19 +144,13 @@ class UserGroupsTable extends Table //TODO AppTableに変更必
         $validator
             ->scalar('title')
             ->maxLength('title', 50, __d('baser', '表示名は50文字以内で入力してください。'))
+            ->requirePresence('title', 'create', __d('baser', '表示名を入力してください。'))
             ->notEmptyString('title', __d('baser', '表示名を入力してください。'));
 
         $validator
             ->scalar('auth_prefix')
+            ->requirePresence('auth_prefix', 'create', __d('baser', '認証プレフィックスを選択してください。'))
             ->notEmptyString('auth_prefix', __d('baser', '認証プレフィックスを選択してください。'));
-
-        $validator
-            ->boolean('use_admin_globalmenu')
-            ->allowEmptyString('use_admin_globalmenu');
-
-        $validator
-            ->scalar('default_favorites')
-            ->allowEmptyString('default_favorites');
 
         $validator
             ->boolean('use_move_contents')
@@ -162,61 +163,39 @@ class UserGroupsTable extends Table //TODO AppTableに変更必
      * ユーザーグループデータをコピーする
      *
      * @param int $id ユーザーグループID
-     * @param array $data DBに挿入するデータ
-     * @param bool $recursive 関連したPermissionもcopyするかしないか
-     * @return mixed UserGroups Or false
+     * @return EntityInterface|false
      * @throws CopyFailedException When copy failed.
      * @checked
+     * @noTodo
      * @unitTest
      */
-    public function copy($id = null, $data = [], $recursive = true)
+    public function copy($id)
     {
-        if ($id && is_numeric($id)) {
-            $data = $this->get($id)->toArray();
-        } else {
-            if (!empty($data['id'])) {
-                $id = $data['id'];
-            }
+        if (is_numeric($id)) {
+            $userGroup = $this->get($id);
         }
-        $data['name'] .= '_copy';
-        $data['title'] .= '_copy';
 
-        unset($data['id']);
-        unset($data['created']);
-        unset($data['modified']);
+        $userGroup->name .= '_copy';
+        $userGroup->title .= '_copy';
 
-        $entity = $this->newEntity($data);
-        $errors = $entity->getErrors();
-        if ($errors) {
+        unset($userGroup->id, $userGroup->created, $userGroup->modified);
+
+        $entity = $this->newEntity($userGroup->toArray());
+        if ($errors = $entity->getErrors()) {
             $exception = new CopyFailedException(__d('baser', '処理に失敗しました。'));
             $exception->setErrors($errors);
             throw $exception;
         }
 
-        $result = $this->save($entity);
-        if ($result) {
-            // TODO: Permissionのコピー
-            // $result['UserGroup']['id'] = $this->getInsertID();
-            // if ($recursive) {
-            //     $permissions = $this->Permission->find('all', [
-            //         'conditions' => ['Permission.user_group_id' => $id],
-            //         'order' => ['Permission.sort'],
-            //         'recursive' => -1
-            //     ]);
-            //     if ($permissions) {
-            //         foreach($permissions as $permission) {
-            //             $permission['Permission']['user_group_id'] = $result['UserGroup']['id'];
-            //             $this->Permission->copy(null, $permission);
-            //         }
-            //     }
-            // }
-            return $result;
-        } else {
-            if (!isset($errors['name'])) {
-                return $this->copy(null, $data, $recursive);
-            } else {
-                return false;
+        if ($result = $this->save($entity)) {
+            $permissions = $this->Permissions->find()->where(['user_group_id' => $id])->order(['sort'])->all();
+            if ($permissions) {
+                foreach($permissions as $permission) {
+                    $permission->user_group_id = $result->id;
+                    $this->Permissions->copy(null, $permission->toArray());
+                }
             }
+            return $result;
         }
     }
 
@@ -246,47 +225,24 @@ class UserGroupsTable extends Table //TODO AppTableに変更必
     }
 
     /**
-     * 管理者グループ以外のグループが存在するかチェックする
-     * @return    boolean
-     */
-    public function checkOtherAdmins()
-    {
-        if ($this->find('first', ['conditions' => ['UserGroup.id <>' => 1]])) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    /**
      * 認証プレフィックスを取得する
      *
      * @param int $id ユーザーグループID
      * @return    string
+     * @checked
+     * @noTodo
+     * @unitTest
      */
-    public function getAuthPrefix($id)
+    public function getAuthPrefix(int $id) : ?string
     {
-        $data = $this->find('first', [
-            'conditions' => ['UserGroup.id' => $id],
-            'fields' => ['UserGroup.auth_prefix'],
-            'recursive' => -1
-        ]);
-        if (isset($data['UserGroup']['auth_prefix'])) {
-            return $data['UserGroup']['auth_prefix'];
-        } else {
-            return '';
-        }
-    }
 
-    /**
-     * グローバルメニューを利用可否確認
-     *
-     * @param string $id ユーザーグループID
-     * @return boolean
-     */
-    public function isAdminGlobalmenuUsed($id)
-    {
-        return $this->field('use_admin_globalmenu', ['UserGroup.id' => $id]);
+        $userGroup = $this->find()->where(['id' => $id])->first();
+
+        if(isset($userGroup->auth_prefix)){
+            return $userGroup->auth_prefix;
+        }
+
+        return null;
     }
 
 }

@@ -1,5 +1,7 @@
 <?php
 // TODO : コード確認要
+use BaserCore\Utility\BcUtil;
+
 return;
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
@@ -104,7 +106,7 @@ class UpdatersController extends AppController
             $this->notFound();
         }
 
-        clearAllCache();
+        BcUtil::clearAllCache();
 
         $targetPlugins = Configure::read('BcApp.corePlugins');
         $targets = $this->Plugin->find('list', ['fields' => ['Plugin.name'], 'conditions' => ['Plugin.status' => true, 'Plugin.name' => $targetPlugins]]);
@@ -121,7 +123,7 @@ class UpdatersController extends AppController
 
         /* スクリプト実行 */
         if ($this->request->data) {
-            clearAllCache();
+            BcUtil::clearAllCache();
             @unlink($updateLogFile);
             if (function_exists('ini_set')) {
                 ini_set('max_excution_time', 0);
@@ -154,7 +156,7 @@ class UpdatersController extends AppController
                 $this->Plugin->save();
             }
 
-            clearAllCache();
+            BcUtil::clearAllCache();
 
             $this->BcMessage->setInfo(__d('baser', '全てのアップデート処理が完了しました。/app/tmp/logs/update.log にログを出力しています。'));
             $this->_writeUpdateLog();
@@ -196,7 +198,7 @@ class UpdatersController extends AppController
         if ($this->request->data) {
             $this->setUpdateLog(__d('baser', 'アップデートスクリプトの実行します。'));
             if ($this->_execScript($this->request->getData('Updater.plugin'), $this->request->getData('Updater.version'))) {
-                clearAllCache();
+                BcUtil::clearAllCache();
                 $this->BcManager->deployAdminAssets();
                 $this->setUpdateLog(__d('baser', 'アップデートスクリプトの実行が完了しました。'));
                 $this->_writeUpdateLog();
@@ -236,7 +238,7 @@ class UpdatersController extends AppController
             $this->notFound();
         }
 
-        clearAllCache();
+        BcUtil::clearAllCache();
 
         /* スクリプトの有無を確認 */
         $scriptNum = count($this->_getUpdaters($name));
@@ -244,11 +246,11 @@ class UpdatersController extends AppController
 
         /* スクリプト実行 */
         if ($this->request->data) {
-            clearAllCache();
+            BcUtil::clearAllCache();
             $this->_update($name);
             $this->BcMessage->setInfo(__d('baser', 'アップデート処理が完了しました。画面下部のアップデートログを確認してください。'));
             $this->_writeUpdateLog();
-            clearAllCache();
+            BcUtil::clearAllCache();
             $this->redirect(['action' => 'plugin', $name]);
         }
 
@@ -447,7 +449,6 @@ class UpdatersController extends AppController
         }
 
         ClassRegistry::flush();
-        BcSite::flash();
 
         if (!isset($updaters['test'])) {
             if (!$plugin) {
@@ -488,7 +489,6 @@ class UpdatersController extends AppController
     public function _execScript($__plugin, $__version)
     {
         ClassRegistry::flush();
-        BcSite::flash();
         $__path = $this->_getUpdateFolder($__plugin) . $__version . DS . 'updater.php';
 
         if (!file_exists($__path)) {
@@ -520,7 +520,7 @@ class UpdatersController extends AppController
      * スキーマファイルを読み込みデータベースのテーブル構造を変更する
      *
      * @param string $version アップデート対象のバージョン番号を指定します。（例）'4.0.0'
-     * @param string $plugin プラグイン内のスキーマを読み込むにはプラグイン名を指定します。（例）'Mail'
+     * @param string $plugin プラグイン内のスキーマを読み込むにはプラグイン名を指定します。（例）'BcMail'
      * @param string $filterTable 指定したテーブルのみを追加・更新する場合は、プレフィックス部分を除外したテーブル名を指定します。（例）'permissions'
      *        指定しない場合は全てのスキーマファイルが対象となります。
      * @param string $filterType 指定した更新タイプ（create / alter / drop）のみを対象とする場合は更新タイプを指定します。（例）'create'
@@ -536,7 +536,7 @@ class UpdatersController extends AppController
         }
         // アップデートの場合 drop field は実行しない
         $result = $this->Updater->loadSchema('default', $path, $filterTable, $filterType, ['updater.php'], false);
-        clearAllCache();
+        BcUtil::clearAllCache();
         return $result;
     }
 
@@ -544,7 +544,7 @@ class UpdatersController extends AppController
      * CSVファイルで作成されたデータをインポートする
      *
      * @param string $version アップデート対象のバージョン番号を指定します。（例）'4.0.0'
-     * @param string $plugin プラグイン内のCSVを読み込むにはプラグイン名を指定します。（例）'Mail'
+     * @param string $plugin プラグイン内のCSVを読み込むにはプラグイン名を指定します。（例）'BcMail'
      * @param string $filterTable 指定したテーブルのみCSVファイルを読み込む場合は、プレフィックス部分を除外したテーブル名を指定します。（例）'permissions'
      *        指定しない場合は全てのテーブルが対象になります。
      * @return boolean

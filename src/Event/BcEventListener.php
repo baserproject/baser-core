@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Event;
@@ -61,7 +61,8 @@ class BcEventListener implements EventListenerInterface
      */
     public function __construct()
     {
-        $class = get_class($this);
+        $classArray = explode('\\', get_class($this));
+        $class = $classArray[count($classArray) -1];
         $this->plugin = str_replace($this->layer . 'EventListener', '', $class);
     }
 

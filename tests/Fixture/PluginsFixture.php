@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Test\Fixture;
@@ -49,16 +49,16 @@ class PluginsFixture extends TestFixture
             'created' => '2021-05-03 10:57:07',
             'modified' => '2021-05-03 10:57:07'
         ],
-        // [
-        //     'id' => 3,
-        //     'name' => 'BcUploader',
-        //     'title' => 'アップローダー',
-        //     'version' => '1.0.0',
-        //     'status' => '1',
-        //     'db_init' => '1',
-        //     'priority' => '3',
-        //     'created' => '2021-05-03 10:57:07',
-        //     'modified' => '2021-05-03 10:57:07'
-        // ],
+        [
+            'id' => 3,
+            'name' => 'BcUploader',
+            'title' => 'アップローダー',
+            'version' => '1.0.0',
+            'status' => '1',
+            'db_init' => '1',
+            'priority' => '3',
+            'created' => '2021-05-03 10:57:07',
+            'modified' => '2021-05-03 10:57:07'
+        ],
     ];
 }

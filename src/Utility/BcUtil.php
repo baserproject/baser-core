@@ -1,30 +1,36 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Utility;
 
-use Cake\Cache\Cache;
 use Cake\Core\App;
+use BcAuthComponent;
+use Cake\Cache\Cache;
 use Cake\Core\Plugin;
 use Cake\Core\Configure;
-use Cake\Database\Exception;
-use Cake\Datasource\ConnectionManager;
+use Cake\Routing\Router;
 use Cake\Filesystem\File;
 use Cake\Filesystem\Folder;
 use Cake\ORM\TableRegistry;
-use Cake\Routing\Router;
 use Cake\Utility\Inflector;
-use BaserCore\Annotation\UnitTest;
+use Cake\Database\Exception;
+use BaserCore\Annotation\Note;
 use BaserCore\Annotation\NoTodo;
+use BaserCore\Model\Entity\User;
 use BaserCore\Annotation\Checked;
+use BaserCore\Annotation\UnitTest;
+use Cake\Http\ServerRequestFactory;
+use Cake\Datasource\ConnectionManager;
+use Authentication\Authenticator\Result;
+use BaserCore\Service\SiteConfigsServiceInterface;
 
 /**
  * Class BcUtil
@@ -38,17 +44,51 @@ class BcUtil
      * 認証領域を指定してログインユーザーのデータを取得する
      * セッションクラスが設定されていない場合にはスーパーグローバル変数を利用する
      *
-     * @return mixed Entity|null
+     * @return User|false
      * @checked
      * @noTodo
      * @unitTest
      */
     public static function loginUser($prefix = 'Admin')
     {
-        $session = Router::getRequest()->getSession();
-        $sessionKey = Configure::read('BcPrefixAuth.' . $prefix . '.sessionKey');
-        $user = isset($_SESSION[$sessionKey])? $session->read($sessionKey) : null;
-        return $user;
+        $request = Router::getRequest();
+        if (!$request) return false;
+
+        $authenticator = $request->getAttribute('authentication');
+        if (!$authenticator) return BcUtil::loginUserFromSession($prefix);
+
+        /** @var Result $result */
+        $result = $authenticator->getResult();
+        if (isset($result) && $result->isValid()) {
+            /* @var User $user */
+            $user = $result->getData();
+            if (is_null($user->user_groups)) {
+                $userTable = TableRegistry::getTableLocator()->get('BaserCore.Users');
+                $user = $userTable->get($user->id, ['contain' => ['UserGroups']]);
+            }
+            return $user;
+        } else {
+            return BcUtil::loginUserFromSession($prefix);
+        }
+    }
+
+    /**
+     * セッションからログイン情報を取得する
+     * @param string $prefix
+     * @return array|false|mixed|null
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public static function loginUserFromSession($prefix = 'Admin')
+    {
+        $request = Router::getRequest();
+        $sessionKey = BcUtil::authSessionKey($prefix);
+        if($request->getSession()->check($sessionKey)) {
+            return $request->getSession()->read($sessionKey);
+        } else {
+            return false;
+        }
     }
 
     /**
@@ -185,7 +225,34 @@ class BcUtil
      */
     public static function getAdminPrefix()
     {
-        return Configure::read('BcPrefixAuth.Admin.alias');
+        return Configure::read('BcApp.adminPrefix');
+    }
+
+    /**
+     * baserCore用のプレフィックスを取得する
+     *
+     * @return string
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public static function getBaserCorePrefix()
+    {
+        return Configure::read('BcApp.baserCorePrefix');
+    }
+
+    /**
+     * プレフィックス全体を取得する
+     * @param bool $regex 正規表現時にエスケープするかどうか
+     * @return string
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public static function getPrefix($regex = false)
+    {
+        $prefix = '/' . self::getBaserCorePrefix() . '/' . self::getAdminPrefix();
+        return $regex ? str_replace('/', '\/',  substr($prefix, 1)) : $prefix;
     }
 
     /**
@@ -268,15 +335,16 @@ class BcUtil
      * @return void
      * @checked
      * @unitTest
+     * @note(value="viewキャッシュ／dataキャッシュ実装時に対応")
      */
     public static function clearAllCache(): void
     {
         Cache::clear('_cake_core_');
         Cache::clear('_cake_model_');
         Cache::clear('_bc_env_');
-        //TODO: viewキャッシュ削除
+        //TODO ucmitz : viewキャッシュ削除
         // clearCache();
-        //TODO: dataキャッシュ削除
+        //TODO ucmitz : dataキャッシュ削除
         // clearDataCache();
     }
 
@@ -287,20 +355,24 @@ class BcUtil
      * 処理の内容にCakeRequest や、Router::parse() を使おうとしたが、
      * Router::parse() を利用すると、Routing情報が書き換えられてしまうので利用できない。
      * Router::reload() や、Router::setRequestInfo() で調整しようとしたがうまくいかなかった。
-     *
      * @return boolean
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public static function isAdminSystem($url = null)
     {
         if (!$url) {
-            $request = Router::getRequest(true);
+            if(!$request = Router::getRequest()) {
+                $request = ServerRequestFactory::fromGlobals();
+            }
             if ($request) {
-                $url = $request->url;
+                $url = $request->getPath();
             } else {
                 return false;
             }
         }
-        $adminPrefix = Configure::read('Routing.prefixes.0');
+        $adminPrefix = BcUtil::getPrefix(true);
         return (boolean)(preg_match('/^(|\/)' . $adminPrefix . '\//', $url) || preg_match('/^(|\/)' . $adminPrefix . '$/', $url));
     }
 
@@ -314,9 +386,9 @@ class BcUtil
      */
     public static function isAdminUser($user = null): bool
     {
-        $User = $user? $user : self::loginUser('Admin');
-        $group_id = array_column($User->user_groups, 'id');
-        return in_array(Configure::read('BcApp.adminGroupId'), $group_id);
+        /** @var User $User */
+        $loginUser = $user ?? self::loginUser();
+        return ($loginUser)? $loginUser->isAdmin() : false;
     }
 
     /**
@@ -324,12 +396,16 @@ class BcUtil
      *
      * @param string $prefix ログイン認証プレフィックス
      * @return bool|mixed ユーザーグループ情報
+     * @checked
+     * @notodo
+     * @unitTest
      */
-    public static function loginUserGroup($prefix = 'Admin')
+    public static function loginUserGroup()
     {
-        $loginUser = self::loginUser($prefix);
-        if (!empty($loginUser['UserGroup'])) {
-            return $loginUser['UserGroup'];
+        $loginUser = self::loginUser();
+
+        if (!empty($loginUser->user_groups)) {
+            return $loginUser->user_groups;
         } else {
             return false;
         }
@@ -340,21 +416,13 @@ class BcUtil
      *
      * @param string $prefix
      * @return mixed
+     * @checked
+     * @notodo
+     * @unitTest
      */
-    public static function authSessionKey($prefix = 'admin')
+    public static function authSessionKey($prefix = 'Admin')
     {
-        return Configure::read('BcAuthPrefix.' . $prefix . '.sessionKey');
-    }
-
-    /**
-     * ログインしているユーザーのセッションキーを取得
-     *
-     * @return string
-     */
-    public static function getLoginUserSessionKey()
-    {
-        [, $sessionKey] = explode('.', BcAuthComponent::$sessionKey);
-        return $sessionKey;
+        return Configure::read('BcPrefixAuth.' . $prefix . '.sessionKey');
     }
 
     /**
@@ -411,12 +479,12 @@ class BcUtil
     {
 
         if (!$plugin) {
-            $plugin = 'Core';
+            $plugin = 'BaserCore';
         } else {
             $plugin = Inflector::camelize($plugin);
         }
 
-        if ($plugin == 'Core') {
+        if ($plugin == 'BaserCore') {
             return BASER_CONFIGS . 'Schema';
         }
 
@@ -446,22 +514,22 @@ class BcUtil
     {
 
         if (!$plugin) {
-            $plugin = 'Core';
+            $plugin = 'BaserCore';
         } else {
             $plugin = Inflector::camelize($plugin);
         }
 
         if (!$theme) {
-            $theme = 'core';
+            $theme = 'BcSample';
         }
 
         if (!$pattern) {
             $pattern = 'default';
         }
 
-        if ($plugin == 'Core') {
+        if ($plugin == 'BaserCore') {
             $paths = [BASER_CONFIGS . 'data' . DS . $pattern];
-            if ($theme != 'core') {
+            if ($theme != 'BcSample') {
                 $paths = array_merge([
                     BASER_THEMES . $theme . DS . 'Config' . DS . 'data' . DS . $pattern,
                     BASER_THEMES . $theme . DS . 'Config' . DS . 'Data' . DS . $pattern,
@@ -491,7 +559,7 @@ class BcUtil
                 $pluginPath . DS . 'Config' . DS . 'data' . DS . 'default',
                 $pluginPath . DS . 'Config' . DS . 'Data' . DS . 'default',
             ];
-            if ($theme != 'core') {
+            if ($theme != 'BcSample') {
                 $paths = array_merge([
                     BASER_THEMES . $theme . DS . 'Config' . DS . 'data' . DS . $pattern . DS . $plugin,
                     BASER_THEMES . $theme . DS . 'Config' . DS . 'Data' . DS . $pattern . DS . $plugin,
@@ -517,6 +585,9 @@ class BcUtil
      *
      * @param mixed $value 対象文字列
      * @return string
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public static function serialize($value)
     {
@@ -542,74 +613,42 @@ class BcUtil
     }
 
     /**
-     * URL用に文字列を変換する
-     *
-     * できるだけ可読性を高める為、不要な記号は除外する
-     *
-     * @param $value
-     * @return string
-     */
-    public static function urlencode($value)
-    {
-        $value = str_replace([
-            ' ', '　', '	', '\\', '\'', '|', '`', '^', '"', ')', '(', '}', '{', ']', '[', ';',
-            '/', '?', ':', '@', '&', '=', '+', '$', ',', '%', '<', '>', '#', '!'
-        ], '_', $value);
-        $value = preg_replace('/\_{2,}/', '_', $value);
-        $value = preg_replace('/(^_|_$)/', '', $value);
-        return urlencode($value);
-    }
-
-    /**
      * コンソールから実行されているかチェックする
-     *
+     * $_ENV は、bootstrap にて設定
+     * ユニットテストで状態を変更できる仕様とする
      * @return bool
      * @checked
+     * @noTodo
      * @unitTest
      */
     public static function isConsole()
     {
-        // TODO isConsoleのCAKEPHP_SHELLが非推奨&&未定義のため代替措置
-        // return defined('CAKEPHP_SHELL') && CAKEPHP_SHELL;
-        return substr(php_sapi_name(), 0, 3) == 'cli';
-
+        return (bool) $_ENV['IS_CONSOLE'];
     }
 
     /**
      * レイアウトテンプレートのリストを取得する
      *
      * @param string $path
-     * @param string $plugin
-     * @param string $theme
+     * @param array|string $plugin
      * @return array
      * @checked
      * @notodo
      * @unitTest
      */
-    public static function getTemplateList($path, $plugin, $theme = [])
+    public static function getTemplateList($path, $plugins)
     {
-        if (!$plugin) {
-            return [];
-        }
-        $templatePaths = [];
-        $templatePath = self::getTemplatePath($plugin);
-        if ($templatePath) {
-            $templatePaths[] = $templatePath;
-        }
-
-        if ($theme) {
-            $templatePath = self::getTemplatePath($theme);
-            if ($templatePath) {
-                $templatePaths[] = $templatePath;
-            }
-        }
+        if (!$plugins) return [];
+        if (!is_array($plugins)) $plugins = [$plugins];
 
         $_templates = [];
-        foreach($templatePaths as $templatePath) {
+        foreach($plugins as $plugin) {
+            if (is_null($plugin)) continue;
+            $templatePath = self::getTemplatePath($plugin);
             $folder = new Folder($templatePath . $path . DS);
-            $files = $folder->read(true, true);
-            if ($files[1]) {
-                $_templates = $_templates? array_merge($_templates, $files[1]) : $files[1];
+            $files = $folder->read(true, true)[1];
+            if ($files) {
+                $_templates = array_merge($_templates, $files);
             }
         }
         $templates = [];
@@ -643,19 +682,30 @@ class BcUtil
     /**
      * 全てのテーマを取得する
      * @return array
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public static function getAllThemeList()
     {
-        $paths = [WWW_ROOT . 'theme', BASER_VIEWS . 'Themed'];
+        $themeTypes = ['Theme', 'AdminTheme'];
+        $paths = [ROOT . DS . 'plugins'];
         $themes = [];
         foreach($paths as $path) {
             $folder = new Folder($path);
-            $files = $folder->read(true, true);
-            if ($files[0]) {
-                foreach($files[0] as $theme) {
-                    if ($theme !== 'core' && $theme !== '_notes') {
-                        $themes[$theme] = $theme;
-                    }
+            $files = $folder->read(true);
+            if (!$files[0]) {
+                continue;
+            }
+            foreach($files[0] as $name) {
+                $appConfigPath = BcUtil::getPluginPath($name) . 'config.php';
+                if ($name === '_notes' || !file_exists($appConfigPath)) {
+                    continue;
+                }
+                $config = include $appConfigPath;
+                if(!empty($config['type']) && in_array($config['type'], $themeTypes)) {
+                    $name = Inflector::camelize(Inflector::underscore($name));
+                    $themes[$name] = $name;
                 }
             }
         }
@@ -666,14 +716,16 @@ class BcUtil
      * テーマリストを取得する
      *
      * @return array
+     * @checked
+     * @notodo
+     * @unitTest
      */
     public static function getThemeList()
     {
         $themes = self::getAllThemeList();
         foreach($themes as $key => $theme) {
-            if (preg_match('/^admin\-/', $theme)) {
-                unset($themes[$key]);
-            }
+            $config = include BcUtil::getPluginPath($theme) . 'config.php';
+            if($config['type'] !== 'Theme') unset($themes[$key]);
         }
         return $themes;
     }
@@ -682,14 +734,16 @@ class BcUtil
      * テーマリストを取得する
      *
      * @return array
+     * @checked
+     * @notodo
+     * @unitTest
      */
     public static function getAdminThemeList()
     {
         $themes = self::getAllThemeList();
         foreach($themes as $key => $theme) {
-            if (!preg_match('/^admin\-/', $theme)) {
-                unset($themes[$key]);
-            }
+            $config = include BcUtil::getPluginPath($theme) . 'config.php';
+            if($config['type'] !== 'AdminTheme') unset($themes[$key]);
         }
         return $themes;
     }
@@ -701,11 +755,11 @@ class BcUtil
      */
     public static function getSubDomain($host = null)
     {
-        $currentDomain = BcUtil::getCurrentDomain();
-        if (!$currentDomain && !$host) {
+        $currentDomain = self::getCurrentDomain();
+        if (empty($currentDomain) && empty($host)) {
             return '';
         }
-        if (!$host) {
+        if (empty($host)) {
             $host = $currentDomain;
         }
         if (strpos($host, '.') === false) {
@@ -715,7 +769,7 @@ class BcUtil
         if ($host == $mainHost) {
             return '';
         }
-        if (strpos($host, $mainHost) === false) {
+        if (!empty($mainHost) && strpos($host, $mainHost) === false) {
             return '';
         }
         $subDomain = str_replace($mainHost, '', $host);
@@ -730,11 +784,14 @@ class BcUtil
      *
      * @param $url URL
      * @return string
+     * @checked
+     * @notodo
+     * @unitTest
      */
     public static function getDomain($url)
     {
         $mainUrlInfo = parse_url($url);
-        $host = $mainUrlInfo['host'];
+        $host = $mainUrlInfo['host'] ?? '';
         if (!empty($mainUrlInfo['port'])) {
             $host .= ':' . $mainUrlInfo['port'];
         }
@@ -745,21 +802,23 @@ class BcUtil
      * メインとなるドメインを取得する
      *
      * @return string
+     * @checked
+     * @notodo
+     * @unitTest
      */
     public static function getMainDomain()
     {
         $mainDomain = Configure::read('BcEnv.mainDomain');
-        if ($mainDomain) {
-            return $mainDomain;
-        } else {
-            return BcUtil::getDomain(Configure::read('BcEnv.siteUrl'));
-        }
+        return !empty($mainDomain) ? $mainDomain : self::getDomain(Configure::read('BcEnv.siteUrl'));
     }
 
     /**
      * 現在のドメインを取得する
      *
      * @return string
+     * @checked
+     * @notodo
+     * @unitTest
      */
     public static function getCurrentDomain()
     {
@@ -804,4 +863,414 @@ class BcUtil
         return false;
     }
 
+    /**
+     * getContentsItem
+     * コンテンツ一覧用にアイテムを整形して返す
+     * @return array
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public static function getContentsItem(): array
+    {
+        $items = Configure::read('BcContents.items');
+        $createdItems = [];
+        foreach($items as $name => $items) {
+            foreach($items as $type => $item) {
+                $item['plugin'] = $name;
+                $item['type'] = $type;
+                $createdItems[$type] = $item;
+            }
+        }
+        return $createdItems;
+    }
+
+
+    /**
+     * baserCMSのインストールが完了しているかチェックする
+     * @return    boolean
+     * @checked
+     * @note(value="インストーラーを実装完了後に対応")
+     */
+    public static function isInstalled()
+    {
+        // TODO 未移行のため暫定措置
+        // >>>
+        return true;
+        // <<<
+        if (getDbConfig() && file_exists(APP . 'Config' . DS . 'install.php')) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * サイズの単位を変換する
+     *
+     * @param string $size 変換前のサイズ
+     * @param string $outExt 変換後の単位
+     * @param string $inExt 変換元の単位
+     * @return int 変換後のサイズ
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public static function convertSize($size, $outExt = 'B', $inExt = null)
+    {
+        if(!$size) return 0;
+        preg_match('/\A\d+(\.\d+)?/', $size, $num);
+        $sizeNum = (isset($num[0]))? $num[0] : 0;
+
+        $extArray = ['B', 'K', 'M', 'G', 'T'];
+        $extRegex = implode('|', $extArray);
+        if (empty($inExt)) {
+            $inExt = (preg_match("/($extRegex)B?\z/i", $size, $ext))? strtoupper($ext[1]) : 'B';
+        }
+        $inExt = (preg_match("/\A($extRegex)B?\z/i", $inExt, $ext))? strtoupper($ext[1]) : 'B';
+        $outExt = (preg_match("/\A($extRegex)B?\z/i", $outExt, $ext))? strtoupper($ext[1]) : 'B';
+
+        $index = array_search($inExt, $extArray) - array_search($outExt, $extArray);
+
+        $outSize = pow(1024, $index) * $sizeNum;
+        return $outSize;
+    }
+
+    /**
+     * 送信されたPOSTがpost_max_sizeを超えているかチェックする
+     *
+     * @return boolean
+     */
+    public static function isOverPostSize()
+    {
+        if (empty($_POST) &&
+            env('REQUEST_METHOD') === 'POST' &&
+            env('CONTENT_LENGTH') > self::convertSize(ini_get('post_max_size'))) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * サイトのトップレベルのURLを取得する
+     *
+     * @param boolean $lastSlash
+     * @return string
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public static function topLevelUrl($lastSlash = true)
+    {
+        if (self::isConsole() && !Configure::check('BcEnv.host')) {
+            return Configure::read('App.fullBaseUrl');
+        }
+        $request = Router::getRequest();
+        $protocol = 'http://';
+        if (!empty($request) && $request->is('ssl')) {
+            $protocol = 'https://';
+        }
+        $host = Configure::read('BcEnv.host');
+        $url = $protocol . $host;
+        if ($lastSlash) {
+            $url .= '/';
+        }
+        return $url;
+    }
+
+    /**
+     * 現在のビューディレクトリのパスを取得する
+     *
+     * @return string
+     */
+    public static function getViewPath()
+    {
+        if(BcUtil::isAdminSystem()) {
+            $theme = BcUtil::getCurrentAdminTheme();
+        } else {
+            $theme = BcUtil::getCurrentTheme();
+        }
+        $pluginPath = ROOT . DS . 'plugins' . DS;
+        if(is_dir($pluginPath . $theme)) {
+            return $pluginPath . $theme . DS;
+        } elseif(is_dir($pluginPath . Inflector::dasherize($theme))) {
+            return $pluginPath . Inflector::dasherize($theme) . DS;
+        }
+        return false;
+    }
+
+    /**
+     * 現在のテーマ名を取得する
+     * キャメルケースが前提
+     * @return string
+     */
+    public static function getCurrentTheme()
+    {
+        $theme = Inflector::camelize(Inflector::underscore(Configure::read('BcApp.defaultFrontTheme')));
+        $request = Router::getRequest();
+        $site = $request->getParam('Site');
+        if (!$site) {
+            $sites = TableRegistry::getTableLocator()->get('BaserCore.Sites');
+            $site = $sites->getRootMain();
+        }
+        if ($site && $site->theme) {
+            $theme = $site->theme;
+        }
+        return $theme;
+    }
+
+    /**
+     * 現在の管理画面のテーマ名を取得する
+     * キャメルケースが前提
+     * @return mixed|string
+     */
+    public static function getCurrentAdminTheme()
+    {
+        $adminTheme = Inflector::camelize(Inflector::underscore(Configure::read('BcApp.defaultAdminTheme')));
+        if (!empty(BcSiteConfig::get('admin_theme'))) {
+            $adminTheme = BcSiteConfig::get('admin_theme');
+        }
+        return $adminTheme;
+    }
+
+    /**
+     * 日本語ファイル名対応版basename
+     *
+     * @param string $str
+     * @param string $suffix
+     * @return type
+     */
+    public static function mb_basename($str, $suffix = null)
+    {
+        $tmp = preg_split('/[\/\\\\]/', $str);
+        $res = end($tmp);
+        if ($suffix && strlen($suffix)) {
+            $suffix = preg_quote($suffix);
+            $res = preg_replace("/({$suffix})$/u", "", $res);
+        }
+        return $res;
+    }
+
+    /**
+     * 拡張子を取得する
+     * @param string    mimeタイプ
+     * @return    string    拡張子
+     * @access    public
+     */
+    public static function decodeContent($content, $fileName = null)
+    {
+
+        $contentsMaping = [
+            "image/gif" => "gif",
+            "image/jpeg" => "jpg",
+            "image/pjpeg" => "jpg",
+            "image/x-png" => "png",
+            "image/jpg" => "jpg",
+            "image/png" => "png",
+            "application/x-shockwave-flash" => "swf",
+            /* "application/pdf" => "pdf", */ // TODO windows で ai ファイルをアップロードをした場合、headerがpdfとして出力されるのでコメントアウト
+            "application/pgp-signature" => "sig",
+            "application/futuresplash" => "spl",
+            "application/msword" => "doc",
+            "application/postscript" => "ai",
+            "application/x-bittorrent" => "torrent",
+            "application/x-dvi" => "dvi",
+            "application/x-gzip" => "gz",
+            "application/x-ns-proxy-autoconfig" => "pac",
+            "application/x-shockwave-flash" => "swf",
+            "application/x-tgz" => "tar.gz",
+            "application/x-tar" => "tar",
+            "application/zip" => "zip",
+            "audio/mpeg" => "mp3",
+            "audio/x-mpegurl" => "m3u",
+            "audio/x-ms-wma" => "wma",
+            "audio/x-ms-wax" => "wax",
+            "audio/x-wav" => "wav",
+            "image/x-xbitmap" => "xbm",
+            "image/x-xpixmap" => "xpm",
+            "image/x-xwindowdump" => "xwd",
+            "text/css" => "css",
+            "text/html" => "html",
+            "text/javascript" => "js",
+            "text/plain" => "txt",
+            "text/xml" => "xml",
+            "video/mpeg" => "mpeg",
+            "video/quicktime" => "mov",
+            "video/x-msvideo" => "avi",
+            "video/x-ms-asf" => "asf",
+            "video/x-ms-wmv" => "wmv"
+        ];
+
+        if (isset($contentsMaping[$content])) {
+            return $contentsMaping[$content];
+        } elseif ($fileName) {
+            $info = pathinfo($fileName);
+            if (!empty($info['extension'])) {
+                return $info['extension'];
+            } else {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * サイトの設置URLを取得する
+     *
+     * index.phpは含まない
+     *
+     * @return    string
+     */
+    public static function siteUrl()
+    {
+        $baseUrl = preg_replace('/' . preg_quote(basename($_SERVER['SCRIPT_FILENAME']), '/') . '\/$/', '', BcUtil::baseUrl());
+        $topLevelUrl = BcUtil::topLevelUrl(false);
+        if ($topLevelUrl) {
+            return $topLevelUrl . $baseUrl;
+        } else {
+            return '';
+        }
+    }
+
+    /**
+     * WebサイトのベースとなるURLを取得する
+     *
+     * コントローラーが初期化される前など {$this->base} が利用できない場合に利用する
+     * / | /index.php/ | /subdir/ | /subdir/index.php/
+     *
+     * ※ プログラムフォルダ内の画像やCSSの読み込み時もbootstrap.php で呼び出されるのでサーバーキャッシュは利用しない
+     *
+     * @return string ベースURL
+     */
+    public static function baseUrl()
+    {
+        $baseUrl = Configure::read('App.baseUrl');
+        if ($baseUrl) {
+            if (!preg_match('/\/$/', $baseUrl)) {
+                $baseUrl .= '/';
+            }
+        } else {
+            $script = $_SERVER['SCRIPT_FILENAME'];
+            $script = str_replace(['\\', '/'], DS, $script);
+            $docroot = BcUtil::docRoot();
+            $script = str_replace($docroot, '', $script);
+            $baseUrl = preg_replace('/' . preg_quote('webroot' . DS . 'index.php', '/') . '/', '', $script);
+            $baseUrl = preg_replace('/' . preg_quote('webroot' . DS . 'test.php', '/') . '/', '', $baseUrl);
+            // ↓ Windows Azure 対策 SCRIPT_FILENAMEに期待した値が入ってこない為
+            $baseUrl = preg_replace('/index\.php/', '', $baseUrl);
+            $baseUrl = preg_replace("/index$/", '', $baseUrl);
+        }
+
+        $baseUrl = str_replace(DS, '/', $baseUrl);
+        if (!$baseUrl) {
+            $baseUrl = '/';
+        }
+        return $baseUrl;
+    }
+
+    /**
+     * ドキュメントルートを取得する
+     *
+     * サブドメインの場合など、$_SERVER['DOCUMENT_ROOT'] が正常に取得できない場合に利用する
+     * UserDir に対応
+     *
+     * @return string   ドキュメントルートの絶対パス
+     */
+    public static function docRoot()
+    {
+        if (empty($_SERVER['SCRIPT_NAME'])) {
+            return '';
+        }
+        if (strpos($_SERVER['SCRIPT_NAME'], '.php') === false) {
+            // さくらの場合、/index を呼びだすと、拡張子が付加されない
+            $scriptName = $_SERVER['SCRIPT_NAME'] . '.php';
+        } else {
+            $scriptName = $_SERVER['SCRIPT_NAME'];
+        }
+        $path = explode('/', $scriptName);
+        krsort($path);
+        // WINDOWS環境の場合、SCRIPT_NAMEのDIRECTORY_SEPARATORがスラッシュの場合があるので
+        // スラッシュに一旦置換してスラッシュベースで解析
+        $docRoot = str_replace('\\', '/', $_SERVER['SCRIPT_FILENAME']);
+        foreach($path as $value) {
+            $reg = "/\/" . $value . "$/";
+            $docRoot = preg_replace($reg, '', $docRoot);
+        }
+        return str_replace('/', DS, $docRoot);
+    }
+
+    /**
+     * 実行環境のOSがWindowsであるかどうかを返す
+     *
+     * @return bool
+     */
+    public static function isWindows()
+    {
+        return DIRECTORY_SEPARATOR == '\\';
+    }
+
+    /**
+     * URLにセッションIDを付加する
+     * 既に付加されている場合は重複しない
+     *
+     * @param mixed $url
+     * @return mixed
+     */
+    public static function addSessionId($url, $force = false)
+    {
+        if (BcUtil::isAdminSystem()) {
+            return $url;
+        }
+        $sessionId = session_id();
+        if (!$sessionId) {
+            return $url;
+        }
+
+        $site = null;
+        if (!Configure::read('BcRequest.isUpdater')) {
+            $currentUrl = \Cake\Routing\Router::getRequest()->getPath();
+            $sites = \Cake\ORM\TableRegistry::getTableLocator()->get('BaserCore.Sites');
+            $site = $sites->findByUrl($currentUrl);
+        }
+        // use_trans_sid が有効になっている場合、２重で付加されてしまう
+        if ($site && $site->device == 'mobile' && Configure::read('BcAgent.mobile.sessionId') && (!ini_get('session.use_trans_sid') || $force)) {
+            if (is_array($url)) {
+                $url["?"][session_name()] = $sessionId;
+            } else {
+                if (strpos($url, '?') !== false) {
+                    $args = [];
+                    $_url = explode('?', $url);
+                    if (!empty($_url[1])) {
+                        if (strpos($_url[1], '&') !== false) {
+                            $aryUrl = explode('&', $_url[1]);
+                            foreach($aryUrl as $pass) {
+                                if (strpos($pass, '=') !== false) {
+                                    [$key, $value] = explode('=', $pass);
+                                    $args[$key] = $value;
+                                }
+                            }
+                        } else {
+                            if (strpos($_url[1], '=') !== false) {
+                                [$key, $value] = explode('=', $_url[1]);
+                                $args[$key] = $value;
+                            }
+                        }
+                    }
+                    $args[session_name()] = $sessionId;
+                    $pass = '';
+                    foreach($args as $key => $value) {
+                        if ($pass) {
+                            $pass .= '&';
+                        }
+                        $pass .= $key . '=' . $value;
+                    }
+                    $url = $_url[0] . '?' . $pass;
+                } else {
+                    $url .= '?' . session_name() . '=' . $sessionId;
+                }
+            }
+        }
+        return $url;
+    }
 }

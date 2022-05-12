@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Test\TestCase\Service;
@@ -15,6 +15,7 @@ use BaserCore\Service\PluginsService;
 use BaserCore\TestSuite\BcTestCase;
 use Cake\Filesystem\Folder;
 use Cake\Core\App;
+use Cake\ORM\TableRegistry;
 
 /**
  * Class PluginsServiceTest
@@ -31,6 +32,8 @@ class PluginsServiceTest extends BcTestCase
      */
     public $fixtures = [
         'plugin.BaserCore.Plugins',
+        'plugin.BaserCore.Permissions',
+        'plugin.BaserCore.UserGroups'
     ];
 
     /**
@@ -82,15 +85,15 @@ class PluginsServiceTest extends BcTestCase
         foreach($plugins as $plugin) {
             $pluginNames[] = $plugin->name;
         }
+        //期待されるプラグインを含むか
+        $this->assertContains($expectedPlugin, $pluginNames);
+        // プラグイン数
+        $this->assertEquals($expectedCount, count($plugins));
         $folder->delete($pluginPath);
         if ($sortMode) {
             // フォルダ内プラグインが含まれてないか
             $this->assertNotContains('BcTest', $pluginNames);
         }
-        //期待されるプラグインを含むか
-        $this->assertContains($expectedPlugin, $pluginNames);
-        // プラグイン数
-        $this->assertEquals(count($plugins), $expectedCount);
     }
     public function indexDataprovider()
     {
@@ -98,9 +101,10 @@ class PluginsServiceTest extends BcTestCase
             // 普通の場合 | DBに登録されてるプラグインとプラグインファイル全て
             ["0", 'BcTest', "5"],
             // ソートモードの場合 | DBに登録されてるプラグインのみ
-            ["1", 'BcBlog', "2"],
+            ["1", 'BcBlog', "3"],
         ];
     }
+
     /**
      * test install
      */
@@ -169,4 +173,37 @@ class PluginsServiceTest extends BcTestCase
         $this->assertEquals('BcBlog', $plugin->name);
     }
 
+    /**
+     * アクセス制限設定を追加する
+     */
+    public function testAllow()
+    {
+        $data = [
+            'name' => 'BcTest',
+            'title' => 'テスト',
+            'status' => "0",
+            'version' => "1.0.0",
+            'permission' => "1"
+        ];
+
+        $this->Plugins->allow($data);
+        $permissions = TableRegistry::getTableLocator()->get('BaserCore.Permissions');
+        $result = $permissions->find('all')->all();
+
+        $this->assertEquals($data['title'] ." 管理", $result->last()->name);
+    }
+
+    /**
+     * test getInstallStatusMessage
+     */
+    public function testGetInstallStatusMessage()
+    {
+        $this->assertEquals('既にインストール済のプラグインです。', $this->Plugins->getInstallStatusMessage('BcBlog'));
+        $this->assertEquals('インストールしようとしているプラグインのフォルダが存在しません。', $this->Plugins->getInstallStatusMessage('BcTest'));
+        $pluginPath = App::path('plugins')[0] . DS . 'BcTest';
+        $folder = new Folder($pluginPath);
+        $folder->create($pluginPath, 0777);
+        $this->assertEquals('', $this->Plugins->getInstallStatusMessage('BcTest'));
+        $folder->delete($pluginPath);
+    }
 }

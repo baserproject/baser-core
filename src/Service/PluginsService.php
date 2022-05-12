@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Service;
@@ -15,23 +15,23 @@ use BaserCore\Model\Table\PluginsTable;
 use Cake\Cache\Cache;
 use Cake\Http\Client;
 use Cake\ORM\TableRegistry;
+use Cake\Utility\Hash;
 use Cake\Utility\Inflector;
 use Cake\Core\Configure;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\App;
 use Cake\Filesystem\Folder;
-use BaserCore\Model\Entity\Plugin;
 use Cake\Core\Plugin as CakePlugin;
 use Cake\Datasource\EntityInterface;
+use Cake\Utility\Xml;
+use Exception;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
-use Cake\Utility\Xml;
-use Exception;
+use BaserCore\Annotation\Note;
 
 /**
  * Class PluginsService
- * @package BaserCore\Service
  * @property PluginsTable $Plugins
  */
 class PluginsService implements PluginsServiceInterface
@@ -49,6 +49,7 @@ class PluginsService implements PluginsServiceInterface
     public function __construct()
     {
         $this->Plugins = TableRegistry::getTableLocator()->get('BaserCore.Plugins');
+        $this->UserGroups = TableRegistry::getTableLocator()->get('BaserCore.UserGroups');
     }
 
     /**
@@ -65,37 +66,40 @@ class PluginsService implements PluginsServiceInterface
     }
 
     /**
-     * ユーザー一覧を取得
+     * プラグイン一覧を取得
      * @param string $sortMode
      * @return array $plugins
      * @checked
      * @unitTest
+     * @noTodo
      */
     public function getIndex(string $sortMode): array
     {
+        $plugins = $this->Plugins->find()
+            ->order(['priority'])
+            ->all()
+            ->toArray();
         if($sortMode) {
-            // DBに登録されてる場合
-            $registered = $this->Plugins->find()
-                ->order(['priority'])
-                ->all()
-                ->toArray();
-            return $registered;
+            return $plugins;
         } else {
+            $registeredName = Hash::extract($plugins, '{n}.name');
             // DBに登録されてないもの含めて、プラグインフォルダから取得
-            // TODO: チェック必要
+            if(!$plugins) {
+                $plugins = [];
+            }
             $paths = App::path('plugins');
-            $pluginConfigs = [];
             foreach($paths as $path) {
                 $Folder = new Folder($path);
                 $files = $Folder->read(true, true, true);
                 foreach($files[0] as $file) {
                     $name = Inflector::camelize(Inflector::underscore(basename($file)));
-                    if (!in_array(basename($file), Configure::read('BcApp.core'))) {
-                        $pluginConfigs[$name] = $this->Plugins->getPluginConfig($name);
+                    if (!in_array(basename($file), Configure::read('BcApp.core'))
+                            && !in_array($name, $registeredName)) {
+                        $plugins[] = $this->Plugins->getPluginConfig($name);
                     }
                 }
             }
-            return array_values($pluginConfigs);
+            return $plugins;
         }
     }
 
@@ -104,10 +108,10 @@ class PluginsService implements PluginsServiceInterface
      * @param string $name プラグイン名
      * @return bool|null
      * @param string $connection test connection指定用
+     * @throws Exception
      * @checked
      * @noTodo
      * @unitTest
-     * @throws Exception
      */
     public function install($name, $connection = 'default'): ?bool
     {
@@ -138,6 +142,9 @@ class PluginsService implements PluginsServiceInterface
      * プラグイン名からプラグインエンティティを取得
      * @param string $name
      * @return array|EntityInterface|null
+     * @checked
+     * @unitTest
+     * @noTodo
      */
     public function getByName(string $name)
     {
@@ -184,7 +191,7 @@ class PluginsService implements PluginsServiceInterface
     public function uninstall(string $name, $connection = 'default'): void
     {
         $options = ['connection' => $connection];
-        $name = urldecode($name);
+        $name = rawurldecode($name);
         BcUtil::includePluginClass($name);
         $plugins = CakePlugin::getCollection();
         $plugin = $plugins->create($name);
@@ -209,7 +216,6 @@ class PluginsService implements PluginsServiceInterface
     public function changePriority(int $id, int $offset, array $conditions = []): bool
     {
         $result = $this->Plugins->changePriority($id, $offset, $conditions);
-        BcUtil::clearAllCache();
         return $result;
     }
 
@@ -228,7 +234,7 @@ class PluginsService implements PluginsServiceInterface
                 $client = new Client([
                     'host' => ''
                 ]);
-                $response = $client->get(Configure::read('BcApp.marketPluginRss'));
+                $response = $client->get(Configure::read('BcLinks.marketPluginRss'));
                 if ($response->getStatusCode() !== 200) {
                     return [];
                 }
@@ -244,6 +250,105 @@ class PluginsService implements PluginsServiceInterface
             return $baserPlugins;
         }
         return [];
+    }
+
+    /**
+     * ユーザーグループにアクセス許可設定を追加する
+     *
+     * @param array $data リクエストデータ
+     * @return void
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function allow($data): void
+    {
+        $permissions = TableRegistry::getTableLocator()->get('BaserCore.Permissions');
+        $userGroups = $permissions->UserGroups->find('all')->where(['UserGroups.id <>' => Configure::read('BcApp.adminGroupId')]);
+        if (!$userGroups) {
+            return;
+        }
+
+        foreach($userGroups as $userGroup) {
+
+            $permissionAuthPrefix = $this->UserGroups->getAuthPrefix($userGroup->id);
+            $url = '/baser/' . $permissionAuthPrefix . '/' . Inflector::underscore($data['name']) . '/*';
+
+            $prePermissions = $permissions->find()->where(['url' => $url])->first();
+            switch($data['permission']) {
+                case 1:
+                    if (!$prePermissions) {
+                        $permission = $permissions->newEmptyEntity();
+                        $permission->name = $data['title'] . ' ' . __d('baser', '管理');
+                        $permission->user_group_id = $userGroup->id;
+                        $permission->auth = 1;
+                        $permission->status = 1;
+                        $permission->url = $url;
+                        $permission->no = $permissions->getMax('no', ['user_group_id' => $userGroup->id]) + 1;
+                        $permission->sort = $permissions->getMax('sort', ['user_group_id' => $userGroup->id]) + 1;
+                        $permissions->save($permission);
+                    }
+                    break;
+                case 2:
+                    if ($prePermissions) {
+                        $permissions->delete($prePermissions->id);
+                    }
+                    break;
+            }
+        }
+    }
+
+    /**
+     * インストールに関するメッセージを取得する
+     *
+     * @param $pluginName
+     * @return string
+     * @checked
+     * @unitTest
+     * @noTodo
+     */
+    public function getInstallStatusMessage($pluginName): string
+    {
+        $pluginName = rawurldecode($pluginName);
+        $installedPlugin = $this->Plugins->find()->where([
+            'name' => $pluginName,
+            'status' => true,
+        ])->first();
+
+        // 既にプラグインがインストール済み
+        if ($installedPlugin) {
+            return '既にインストール済のプラグインです。';
+        }
+
+        $paths = App::path('plugins');
+        $existsPluginFolder = false;
+        $folder = $pluginName;
+        foreach($paths as $path) {
+            if (!is_dir($path . $folder)) {
+                $dasherize = Inflector::dasherize($folder);
+                if (!is_dir($path . $dasherize)) {
+                    continue;
+                }
+                $folder = $dasherize;
+            }
+            $existsPluginFolder = true;
+            $configPath = $path . $folder . DS . 'config.php';
+            if (file_exists($configPath)) {
+                $config = include $configPath;
+            }
+            break;
+        }
+
+        // プラグインのフォルダが存在しない
+        if (!$existsPluginFolder) {
+            return 'インストールしようとしているプラグインのフォルダが存在しません。';
+        }
+
+        // インストールしようとしているプラグイン名と、設定ファイル内のプラグイン名が違う
+        if (!empty($config['name']) && $pluginName !== $config['name']) {
+            return 'このプラグイン名のフォルダ名を' . $config['name'] . 'にしてください。';
+        }
+        return '';
     }
 
 }

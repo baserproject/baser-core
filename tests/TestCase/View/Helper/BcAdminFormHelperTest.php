@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Test\TestCase\View\Helper;
@@ -24,6 +24,21 @@ use BaserCore\View\Helper\BcFormHelper;
  */
 class BcAdminFormHelperTest extends BcTestCase
 {
+
+    /**
+     * Fixtures
+     *
+     * @var array
+     */
+    protected $fixtures = [
+        'plugin.BaserCore.Users',
+        'plugin.BaserCore.UserGroups',
+        'plugin.BaserCore.UsersUserGroups',
+        'plugin.BaserCore.Plugins',
+        'plugin.BaserCore.Permissions',
+        'plugin.BaserCore.Contents',
+        'plugin.BaserCore.Sites',
+    ];
 
     /**
      * setUp method
@@ -55,8 +70,11 @@ class BcAdminFormHelperTest extends BcTestCase
      */
     public function testControl()
     {
-        $name = 'test';
-
+        $name = 'Contents.test';
+        $contentsTable = $this->getTableLocator()->get('BaserCore.Contents');
+        $content = $contentsTable->find()->where(['id' => '4'])->first();
+        $this->BcForm->create($content);
+        $this->BcAdminForm->create($content);
         $this->assertEquals($this->BcForm->control($name), $this->BcAdminForm->control($name));
 
         $options = [

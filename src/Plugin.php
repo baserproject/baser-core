@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore;
@@ -15,6 +15,8 @@ use Authentication\AuthenticationService;
 use Authentication\AuthenticationServiceInterface;
 use Authentication\AuthenticationServiceProviderInterface;
 use Authentication\Middleware\AuthenticationMiddleware;
+use BaserCore\Middleware\BcAdminMiddleware;
+use BaserCore\Middleware\BcRequestFilterMiddleware;
 use BaserCore\ServiceProvider\BcServiceProvider;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\Configure;
@@ -23,9 +25,12 @@ use Cake\Core\PluginApplicationInterface;
 use Cake\Event\EventManager;
 use Cake\Http\Middleware\CsrfProtectionMiddleware;
 use Cake\Http\MiddlewareQueue;
+use Cake\Http\ServerRequestFactory;
+use Cake\ORM\TableRegistry;
 use Cake\Routing\Route\InflectedRoute;
 use Cake\Routing\RouteBuilder;
 use Cake\Routing\Router;
+use Cake\Utility\Inflector;
 use Cake\Utility\Security;
 use Exception;
 use Psr\Http\Message\ServerRequestInterface;
@@ -33,6 +38,7 @@ use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
 use ReflectionClass;
+use ReflectionProperty;
 
 /**
  * Class plugin
@@ -57,14 +63,40 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
 
         $application->addPlugin('Authentication');
         $application->addPlugin('Migrations');
-        $application->addPlugin('BcAdminThird');
+        if (Configure::read('debug')) {
+            $application->addPlugin('CakephpFixtureFactories');
+        }
+        $application->addPlugin(Inflector::camelize(Configure::read('BcApp.defaultAdminTheme'), '-'));
+        $application->addPlugin(Inflector::camelize(Configure::read('BcApp.defaultFrontTheme'), '-'));
 
         $plugins = BcUtil::getEnablePlugins();
-        foreach($plugins as $plugin) {
-            if (BcUtil::includePluginClass($plugin->name)) {
-                $this->loadPlugin($application, $plugin->name, $plugin->priority);
+        if ($plugins) {
+            foreach($plugins as $plugin) {
+                if (BcUtil::includePluginClass($plugin->name)) {
+                    $this->loadPlugin($application, $plugin->name, $plugin->priority);
+                }
             }
         }
+        $this->setupDefaultTemplatesPath();
+    }
+
+    /**
+     * デフォルトテンプレートを設定する
+     * @checked
+     * @unitTest
+     * @noTodo
+     */
+    public function setupDefaultTemplatesPath()
+    {
+        if(BcUtil::isAdminSystem()) {
+            $template = Configure::read('BcApp.defaultAdminTheme');
+        } else {
+            $template = Configure::read('BcApp.defaultFrontTheme');
+        }
+        Configure::write('App.paths.templates', array_merge(
+            [ROOT . DS . 'plugins' . DS . $template . DS . 'templates' . DS],
+            Configure::read('App.paths.templates')
+        ));
     }
 
     /**
@@ -75,19 +107,17 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
      * @return bool
      * @unitTest
      * @checked
+     * @noTodo
      */
     function loadPlugin(PluginApplicationInterface $application, $plugin, $priority)
     {
         $application->addPlugin($plugin);
         $pluginPath = BcUtil::getPluginPath($plugin);
-        if (file_exists($pluginPath . 'Config' . DS . 'setting.php')) {
+        if (file_exists($pluginPath . 'config' . DS . 'setting.php')) {
             // DBに接続できない場合、CakePHPのエラーメッセージが表示されてしまう為、 try を利用
             // ※ プラグインの setting.php で、DBへの接続処理が書かれている可能性がある為
             try {
-                // TODO 未確認
-                /* >>>
                 Configure::load($plugin . '.setting');
-                <<< */
             } catch (Exception $ex) {
             }
         }
@@ -130,15 +160,17 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
     {
         $middlewareQueue
             // Authorization (AuthComponent to Authorization)
-            ->add(new AuthenticationMiddleware($this));
+            ->add(new AuthenticationMiddleware($this))
+            ->add(new BcAdminMiddleware())
+            ->add(new BcRequestFilterMiddleware());
 
         // APIへのアクセスの場合、CSRFを強制的に利用しない設定に変更
         $ref = new ReflectionClass($middlewareQueue);
         $queue = $ref->getProperty('queue');
         $queue->setAccessible(true);
         foreach($queue->getValue($middlewareQueue) as $middleware) {
-            if($middleware instanceof CsrfProtectionMiddleware) {
-                $middleware->skipCheckCallback(function ($request) {
+            if ($middleware instanceof CsrfProtectionMiddleware) {
+                $middleware->skipCheckCallback(function($request) {
                     if ($request->getParam('prefix') === 'Api') {
                         return true;
                     }
@@ -163,8 +195,11 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
     {
         $service = new AuthenticationService();
         $prefix = $request->getParam('prefix');
-        $authSetting = Configure::read('BcPrefixAuth.Admin');
-        if (!$authSetting) {
+        $authSetting = Configure::read('BcPrefixAuth.' . $prefix);
+        if(!$authSetting && $prefix === 'Api') {
+            $authSetting = Configure::read('BcPrefixAuth.Admin');
+        }
+        if (!$authSetting || !Configure::read('BcRequest.isInstalled')) {
             $service->loadAuthenticator('Authentication.Form');
             return $service;
         }
@@ -181,7 +216,7 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
                 }
                 $service->loadAuthenticator('Authentication.Jwt', [
                     'secretKey' => $secretKey,
-                    'algorithms' => ['RS256'],
+                    'algorithm' => 'RS256',
                     'returnPayload' => false,
                     'resolver' => [
                         'className' => 'Authentication.Orm',
@@ -213,6 +248,14 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
                     ],
                     'contain' => 'UserGroups',
                 ]);
+                // ログインの際のみ、管理画面へのログイン状態を維持するためセッションの設定を追加
+                // TODO ログインURLの判定方法を検討必要
+                // Api用の認証設定をAdminと分けて loginAction と リクエストのURLで判定させる
+                if($request->getParam('controller') === 'Users' && $request->getParam('action') === 'login') {
+                    $service->loadAuthenticator('Authentication.Session', [
+                        'sessionKey' => $authSetting['sessionKey'],
+                    ]);
+                }
                 break;
 
             default:
@@ -255,13 +298,52 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
      * Routes
      * App として管理画面を作成するためのルーティングを設定
      * @param RouteBuilder $routes
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function routes($routes): void
     {
+
+        // migrations コマンドの場合は実行しない
+        if(isset($_SERVER['argv'][1]) && $_SERVER['argv'][1] === 'migrations') {
+            parent::routes($routes);
+            return;
+        }
+
+        $request = Router::getRequest();
+        if(!$request) {
+            $request = ServerRequestFactory::fromGlobals();
+        }
+        if(!BcUtil::isConsole() && !preg_match('/^\/debug-kit\//', $request->getPath())) {
+            // ユニットテストでは実行しない
+            $property = new ReflectionProperty(get_class($routes), '_collection');
+            $property->setAccessible(true);
+            $collection = $property->getValue($routes);
+            $property = new ReflectionProperty(get_class($collection), '_routeTable');
+            $property->setAccessible(true);
+            $property->setValue($collection, []);
+            $property = new ReflectionProperty(get_class($collection), '_paths');
+            $property->setAccessible(true);
+            $property->setValue($collection, []);
+        }
+
+        /**
+         * インストーラー
+         */
+        if (!Configure::read('BcRequest.isInstalled')) {
+            parent::routes($routes);
+            return;
+        }
+
+        $routes->connect('/*', [], ['routeClass' => 'BaserCore.BcContentsRoute']);
+
         $routes->prefix(
             'Admin',
-            ['path' => Configure::read('BcApp.baserCorePrefix') . Configure::read('BcApp.adminPrefix')],
+            ['path' => BcUtil::getPrefix()],
             function(RouteBuilder $routes) {
+                // ダッシュボード
+                $routes->connect('', ['plugin' => 'BaserCore', 'controller' => 'Dashboard', 'action' => 'index']);
                 $routes->connect('/{controller}/index', [], ['routeClass' => InflectedRoute::class]);
                 $routes->fallbacks(InflectedRoute::class);
             }
@@ -271,7 +353,7 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
         // /baser/api/baser-core/.well-known/jwks.json でアクセス
         $routes->prefix(
             'Api',
-            ['path' => Configure::read('BcApp.baserCorePrefix') . '/api'],
+            ['path' => '/' . Configure::read('BcApp.baserCorePrefix') . '/api'],
             function(RouteBuilder $routes) {
                 $routes->plugin(
                     'BaserCore',
@@ -283,12 +365,52 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
                 );
             }
         );
+
+        if (!BcUtil::isAdminSystem()) {
+
+            /**
+             * サブサイト標準ルーティング
+             */
+            try {
+                $sites = TableRegistry::getTableLocator()->get('BaserCore.Sites');
+                $site = $sites->findByUrl($request->getPath());
+                $siteAlias = $sitePrefix = '';
+                if ($site) {
+                    $siteAlias = $site->alias;
+                    $sitePrefix = $site->name;
+                }
+                if ($siteAlias) {
+                    // プラグイン
+                    $routes->connect("/{$siteAlias}/:plugin/:controller", ['prefix' => $sitePrefix, 'action' => 'index']);
+                    $routes->connect("/{$siteAlias}/:plugin/:controller/:action/*", ['prefix' => $sitePrefix]);
+                    // TODO baserCMS4のコード
+                    // 使うタイミングまでコメントアウト、テストもなし
+                    /* >>>
+                    $routes->connect("/{$siteAlias}/:plugin/:action/*", ['prefix' => $sitePrefix]);
+                    // モバイルノーマル
+                    $routes->connect("/{$siteAlias}/:controller/:action/*", ['prefix' => $sitePrefix]);
+                    $routes->connect("/{$siteAlias}/:controller", ['prefix' => $sitePrefix, 'action' => 'index']);
+                    <<< */
+                }
+            } catch (Exception $e) {
+            }
+
+            /**
+             * フィード出力
+             * 拡張子rssの場合は、rssディレクトリ内のビューを利用する
+             */
+            $routes->setExtensions('rss');
+
+        }
         parent::routes($routes);
     }
 
     /**
      * services
      * @param ContainerInterface $container
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function services(ContainerInterface $container): void
     {

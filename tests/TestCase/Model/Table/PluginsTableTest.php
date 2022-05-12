@@ -1,20 +1,19 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Test\TestCase\Model\Table;
 
 use BaserCore\Model\Table\PluginsTable;
 use BaserCore\TestSuite\BcTestCase;
-use Cake\Core\App;
-use Cake\Filesystem\Folder;
+use Cake\Validation\Validator;
 
 /**
  * Class PluginsTableTest
@@ -78,10 +77,10 @@ class PluginsTableTest extends BcTestCase
         // test Install
         $this->Plugins->install('BcTest');
         $plugin = $this->Plugins->find()->where(['name' => 'BcTest'])->first();
-        $this->assertEquals(3, $plugin->priority);
+        $this->assertEquals(4, $plugin->priority);
         // test Uninstall
         $this->Plugins->uninstall('BcTest');
-        $this->assertEquals(2, $this->Plugins->find()->count());
+        $this->assertEquals(3, $this->Plugins->find()->count());
     }
 
     /**
@@ -110,9 +109,44 @@ class PluginsTableTest extends BcTestCase
     public function testChangePriority()
     {
         $this->Plugins->changePriority(1, 2);
-        $this->assertEquals(2, $this->Plugins->get(1)->priority);
+        $this->assertEquals(3, $this->Plugins->get(1)->priority);
         $this->Plugins->changePriority(2, -1);
         $this->assertEquals(1, $this->Plugins->get(2)->priority);
+    }
+
+    /**
+     * Test validationDefault
+     * @return void
+     * @dataProvider validationDefaultDataProvider
+     */
+    public function testValidationDefault($isValid, $data)
+    {
+        $validator = $this->Plugins->validationDefault(new Validator());
+        $validator->setProvider('table', $this->Plugins);
+        if ($isValid) {
+            $this->assertEmpty($validator->validate($data));
+        } else {
+            $this->assertNotEmpty($validator->validate($data));
+        }
+    }
+
+    public function validationDefaultDataProvider()
+    {
+        $exceedMax = "123456789012345678901234567890123456789012345678901234567890"; // 60文字
+        return [
+            // 妥当な例
+            [true, ['name' => 'aA-_1', 'title' => 'testtest']],
+            // nameがnull
+            [false, ['name' => '', 'title' => 'testtest']],
+            // nameに許可されない文字がある
+            [false, ['name' => '@@@@@', 'title' => 'testtest']],
+            // nameの文字数が長い
+            [false, ['name' => $exceedMax, 'title' => 'testtest']],
+            // titleの文字数が長い
+            [false, ['name' => 'aA-_1', 'title' => $exceedMax]],
+            // 重複
+            [false, ['name' => 'BcBlog', 'title' => 'testtest']],
+        ];
     }
 
 }

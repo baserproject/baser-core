@@ -1,22 +1,21 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Test\TestCase\Utility;
 
 use App\Application;
-use BaserCore\Plugin;
-use BaserCore\Service\UserManageServiceInterface;
+use BaserCore\Service\UsersService;
+use BaserCore\Service\UsersServiceInterface;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Utility\BcContainerTrait;
-use Cake\Core\Container;
 
 /**
  * Class BcContainerTraitTest
@@ -51,7 +50,7 @@ class BcContainerTraitTest extends BcTestCase
         $app = new Application(ROOT . '/config');
         $app->getContainer();
         $bcContainerTrait = new class { use BcContainerTrait; };
-        $this->assertEquals('BaserCore\Service\UserManageService', get_class($bcContainerTrait->getService(UserManageServiceInterface::class)));
+        $this->assertEquals('BaserCore\Service\UsersService', get_class($bcContainerTrait->getService(UsersServiceInterface::class)));
     }
 
 }

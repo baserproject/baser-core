@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Event;
@@ -39,7 +39,7 @@ class BcContainerEventListener implements EventListenerInterface
      * コンテナをシングルトンとしてヘルパなどで利用できるようにしている
      * 利用時は、BaserCore\Utility\BcContainerTrait を実装することで getService() にて
      * インターフェイスを指定して取得できる
-     * 例）$this->getService(UserManageServiceInterface::class);
+     * 例）$this->getService(UsersServiceInterface::class);
      * @param Event $event
      */
     public function buildContainer(Event $event)

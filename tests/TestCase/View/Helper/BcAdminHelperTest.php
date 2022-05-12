@@ -1,19 +1,22 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Test\TestCase\View\Helper;
 
-use BaserCore\TestSuite\BcTestCase;
+use BaserCore\Service\BcAdminAppServiceInterface;
+use BaserCore\Utility\BcContainerTrait;
+use BaserCore\View\Helper\BcPageHelper;
 use Cake\Core\Configure;
 use BaserCore\View\BcAdminAppView;
+use BaserCore\TestSuite\BcTestCase;
 use BaserCore\View\Helper\BcAdminHelper;
 
 /**
@@ -25,12 +28,24 @@ class BcAdminHelperTest extends BcTestCase
 {
 
     /**
+     * Trait
+     */
+    use BcContainerTrait;
+
+    /**
      * Fixtures
      *
      * @var array
      */
     public $fixtures = [
+        'plugin.BaserCore.Users',
         'plugin.BaserCore.UserGroups',
+        'plugin.BaserCore.UsersUserGroups',
+        'plugin.BaserCore.Dblogs',
+        'plugin.BaserCore.Sites',
+        'plugin.BaserCore.Contents',
+        'plugin.BaserCore.Pages',
+        'plugin.BaserCore.Permissions',
     ];
 
     /**
@@ -68,13 +83,15 @@ class BcAdminHelperTest extends BcTestCase
         $results = $this->BcAdmin->isAvailableSideBar();
         $this->assertEquals(false, $results);
         // ログイン済
-        $this->BcAdmin->getView()->setRequest($this->getRequest('/baser/admin'));
+        $request = $this->loginAdmin($this->getRequest('/baser/admin'));
+        $this->BcAdmin->getView()->setRequest($request);
         $session = $this->BcAdmin->getView()->getRequest()->getSession();
         $session->write('AuthAdmin', true);
         $results = $this->BcAdmin->isAvailableSideBar();
         $this->assertEquals(true, $results);
         // ログイン画面
-        $this->BcAdmin->getView()->setRequest($this->getRequest('/baser/admin/users/login'));
+        $request = $this->getRequest('/baser/admin/users/login');
+        $this->BcAdmin->getView()->setRequest($request);
         $results = $this->BcAdmin->isAvailableSideBar();
         $this->assertEquals(false, $results);
         $results = $this->BcAdmin->isAvailableSideBar();
@@ -178,7 +195,7 @@ class BcAdminHelperTest extends BcTestCase
         ob_start();
         $this->BcAdmin->search();
         $actual = ob_get_clean();
-        $this->assertRegExp('/class="bca-search">(.*)<form/s', $actual);
+        $this->assertMatchesRegularExpression('/class="bca-search">(.*)<form/s', $actual);
     }
 
     /**
@@ -215,9 +232,20 @@ class BcAdminHelperTest extends BcTestCase
      */
     public function testGetJsonMenu(): void
     {
+        // 未ログイン
+        $result = $this->BcAdmin->getJsonMenu();
+        $this->assertNull($result);
+
+        // ログイン済
+        $request = $this->loginAdmin($this->getRequest('/baser/admin'));
+        $this->BcAdmin->getView()->setRequest($request);
+        $session = $this->BcAdmin->getView()->getRequest()->getSession();
+        $session->write('AuthAdmin', true);
+
         $jsonMenu = json_decode($this->BcAdmin->getJsonMenu());
+
         // $currentSiteIdのテスト
-        $this->assertEquals($jsonMenu->currentSiteId, "0");
+        $this->assertEquals($jsonMenu->currentSiteId, 1);
         // $adminMenuGroupsの取得
         $adminMenuGroups = $this->execPrivateMethod($this->BcAdmin, 'getAdminMenuGroups');
         // $menuListに項目が入ってるかテスト
@@ -226,7 +254,7 @@ class BcAdminHelperTest extends BcTestCase
         }
         // adminNavigationがnullの場合 nullが返る
         Configure::write('BcApp.adminNavigation', null);
-        $this->assertNull(json_decode($this->BcAdmin->getJsonMenu()));
+        $this->assertNull($this->BcAdmin->getJsonMenu());
 
     }
 
@@ -237,11 +265,13 @@ class BcAdminHelperTest extends BcTestCase
      */
     public function testContentsMenu()
     {
+        $this->BcAdmin->getView()->set($this->getService(BcAdminAppServiceInterface::class)->getViewVarsForAll());
         $this->BcAdmin->getView()->setRequest($this->getRequest('/baser/admin'));
         // ヘルプなし 未ログイン
         $expected = $this->BcAdmin->getView()->element('contents_menu', [
             'isHelp' => false,
-            'isLogin' => false
+            'isLogin' => false,
+            'isSuperUser' => false
         ]);
         ob_start();
         $this->BcAdmin->contentsMenu();
@@ -251,7 +281,8 @@ class BcAdminHelperTest extends BcTestCase
         // ヘルプあり 未ログイン
         $expectedIsHelp = $this->BcAdmin->getView()->element('contents_menu', [
             'isHelp' => true,
-            'isLogin' => false
+            'isLogin' => false,
+            'isSuperUser' => false
         ]);
         $this->BcAdmin->getView()->set('help', 'test');
         ob_start();
@@ -262,10 +293,12 @@ class BcAdminHelperTest extends BcTestCase
         $session = $this->BcAdmin->getView()->getRequest()->getSession();
         $session->write('AuthAdmin', true);
 
-        // ヘルプなし ログイン済
+        // ヘルプなし ログイン済 スーパーユーザー以外
+        $this->BcAdmin->getView()->setRequest($this->loginAdmin($this->getRequest('/baser/admin'), 2));
         $expectedIsLogin = $this->BcAdmin->getView()->element('contents_menu', [
             'isHelp' => false,
-            'isLogin' => true
+            'isLogin' => true,
+            'isSuperUser' => false
         ]);
         $this->BcAdmin->getView()->set('help', null);
         ob_start();
@@ -273,16 +306,28 @@ class BcAdminHelperTest extends BcTestCase
         $actualIsLogin = ob_get_clean();
         $this->assertEquals($expectedIsLogin, $actualIsLogin);
 
-        // ヘルプあり ログイン済
+        // ヘルプあり ログイン済 スーパーユーザー以外
+        $this->BcAdmin->getView()->setRequest($this->loginAdmin($this->getRequest('/baser/admin'), 2));
         $expectedIsHelpIsLogin = $this->BcAdmin->getView()->element('contents_menu', [
             'isHelp' => true,
-            'isLogin' => true
+            'isLogin' => true,
+            'isSuperUser' => false
         ]);
         $this->BcAdmin->setHelp('test');
         ob_start();
         $this->BcAdmin->contentsMenu();
         $actualIsHelpIsLogin = ob_get_clean();
         $this->assertEquals($expectedIsHelpIsLogin, $actualIsHelpIsLogin);
+
+        // ヘルプあり ログイン済 スーパーユーザー
+        $this->BcAdmin->getView()->setRequest($this->loginAdmin($this->getRequest('/baser/admin')));
+        $expectedIsSuperUser = $this->BcAdmin->getView()->element('contents_menu', [
+            'isHelp' => true,
+            'isLogin' => true,
+            'isSuperUser' => true
+        ]);
+        $needText = '<div id="PermissionDialog" title="アクセス制限登録" hidden>';
+        $this->assertNotFalse(strpos($expectedIsSuperUser, $needText));
     }
 
     /**
@@ -296,41 +341,6 @@ class BcAdminHelperTest extends BcTestCase
         $this->BcAdmin->addAdminMainBodyHeaderLinks($expected);
         $result = $this->BcAdmin->getView()->get('mainBodyHeaderLinks');
         $this->assertEquals($expected, array_pop($result));
-    }
-
-    /**
-     * 管理システムグローバルメニューの利用可否確認
-     *
-     * @param mixed $admin request->params['admin']の値
-     * @param int $groupId ユーザーグループID
-     * @param boolean $expected 期待値
-     * @param string $message テストが失敗した場合に表示されるメッセージ
-     * @dataProvider isAdminGlobalmenuUsedDataProvider
-     */
-    public function testIsAdminGlobalmenuUsed($admin, $groupId, $expected, $message = null)
-    {
-        $this->markTestIncomplete('Not implemented yet.');
-        // TODO : 要コード確認
-        /* >>>
-		$this->BcAdmin->request = $this->BcAdmin->request->withParam('admin',  $admin);
-		$this->BcAdmin->_View->viewVars['user'] = [
-			'user_group_id' => $groupId
-		];
-
-		$result = $this->BcAdmin->isAdminGlobalmenuUsed();
-		$this->assertEquals($expected, $result, $message);
-        <<< */
-    }
-
-    public function isAdminGlobalmenuUsedDataProvider()
-    {
-        return [
-            ['', null, false, '管理システムグローバルメニューの利用可否確認が正しくありません'],
-            [1, null, false, '管理システムグローバルメニューの利用可否確認が正しくありません'],
-            ['', 1, true, '管理システムグローバルメニューの利用可否確認が正しくありません'],
-            ['1', 1, true, '管理ユーザーの管理システムグローバルメニューの利用可否確認が正しくありません'],
-            ['1', 2, 0, '運営ユーザーの管理システムグローバルメニューの利用可否確認が正しくありません'],
-        ];
     }
 
     /**
@@ -367,4 +377,108 @@ class BcAdminHelperTest extends BcTestCase
             ['1', 2, false, '運営ユーザーのシステム管理者チェックが正しくありません'],
         ];
     }
+
+    /**
+     * test setEditLink
+     */
+    public function testSetEditLink()
+    {
+        $this->BcAdmin->setEditLink('aaa');
+        $this->assertEquals('aaa', $this->BcAdmin->getView()->get('editLink'));
+    }
+
+    /**
+     * test setPublishLink
+     */
+    public function testSetPublishLink()
+    {
+        $this->BcAdmin->setPublishLink('aaa');
+        $this->assertEquals('aaa', $this->BcAdmin->getView()->get('publishLink'));
+    }
+
+    /**
+     * 編集画面へのリンクが存在するかチェックする
+     */
+    public function testExistsEditLink()
+    {
+        // 存在しない
+        $request = $this->loginAdmin($this->getRequest('/hoge'));
+        $this->BcAdmin->getView()->setRequest($request);
+        $this->BcAdmin->getView()->set('editLink', '');
+        $this->assertEquals(false, $this->BcAdmin->existsEditLink());
+        // 存在する
+        $request = $this->loginAdmin($this->getRequest('/service/service1'));
+        $this->BcAdmin->getView()->setRequest($request);
+        $this->BcAdmin->getView()->set('editLink', 'hoge');
+        new BcPageHelper($this->BcAdmin->getView());
+        $this->assertEquals(true, $this->BcAdmin->existsEditLink());
+    }
+
+    /**
+     * 公開ページへのリンクが存在するかチェックする
+     * @return void
+     */
+    public function testExistsPublishLink()
+    {
+        // 存在しない
+        $request = $this->loginAdmin($this->getRequest('/hoge'));
+        $this->BcAdmin->getView()->setRequest($request);
+        $this->BcAdmin->getView()->set('publishLink', '');
+        $this->assertEquals(false, $this->BcAdmin->existsPublishLink());
+        // 存在する
+        $request = $this->loginAdmin($this->getRequest('/baser/admin/baser-core/pages/edit/2'));
+        $this->BcAdmin->getView()->setRequest($request);
+        $this->BcAdmin->getView()->set('publishLink', 'test');
+        $this->assertEquals(true, $this->BcAdmin->existsPublishLink());
+    }
+
+    /**
+     * 編集画面へのリンクを出力する
+     *
+     * @return void
+     */
+    public function testEditLink()
+    {
+        // リンクなし
+        $request = $this->loginAdmin($this->getRequest('/hoge'));
+        $this->BcAdmin->getView()->setRequest($request);
+        $this->BcAdmin->getView()->set('editLink', '');
+        ob_start();
+        $this->BcAdmin->editLink();
+        $result = ob_get_clean();
+        $this->assertEmpty($result);
+        // リンクあり
+        $request = $this->loginAdmin($this->getRequest('/service/service1'));
+        $this->BcAdmin->getView()->setRequest($request);
+        $this->BcAdmin->getView()->set('editLink', '/baser/admin/baser-core/pages/edit/5');
+        ob_start();
+        $this->BcAdmin->editLink();
+        $result = ob_get_clean();
+        $this->assertEquals('<a href="/baser/admin/baser-core/pages/edit/5" class="tool-menu">編集する</a>', $result);
+    }
+
+    /**
+     * 公開ページへのリンクを出力する
+     * @return void
+     */
+    public function testPublishLink()
+    {
+        // リンクなし
+        $request = $this->loginAdmin($this->getRequest('/hoge'));
+        $this->BcAdmin->getView()->setRequest($request);
+        $this->BcAdmin->getView()->set('publishLink', '');
+        ob_start();
+        $this->BcAdmin->publishLink();
+        $result = ob_get_clean();
+        $this->assertEmpty($result);
+        // リンクあり
+        $request = $this->loginAdmin($this->getRequest('/baser/admin/baser-core/pages/edit/2'));
+        $this->BcAdmin->getView()->setRequest($request);
+        $this->BcAdmin->getView()->set('publishLink', 'https://localhost/');
+        ob_start();
+        $this->BcAdmin->publishLink();
+        $result = ob_get_clean();
+        $this->assertEquals('<a href="https://localhost/" class="tool-menu">サイト確認</a>', $result);
+    }
+
 }

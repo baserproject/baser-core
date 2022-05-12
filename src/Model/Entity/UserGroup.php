@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 declare(strict_types=1);
@@ -23,8 +23,6 @@ use Cake\ORM\Entity;
  * @property string $name
  * @property string|null $title
  * @property string|null $auth_prefix
- * @property bool $use_admin_globalmenu
- * @property string|null $default_favorites
  * @property bool|null $use_move_contents
  * @property FrozenTime|null $modified
  * @property FrozenTime|null $created
@@ -42,8 +40,6 @@ class UserGroup extends Entity
         'name' => true,
         'title' => true,
         'auth_prefix' => true,
-        'use_admin_globalmenu' => true,
-        'default_favorites' => true,
         'use_move_contents' => true,
         'modified' => true,
         'created' => true,

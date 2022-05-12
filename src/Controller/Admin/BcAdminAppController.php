@@ -1,46 +1,99 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Controller\Admin;
 
+use Authentication\Controller\Component\AuthenticationComponent;
 use BaserCore\Controller\BcAppController;
+use BaserCore\Service\BcAdminAppServiceInterface;
+use BaserCore\Service\PermissionsServiceInterface;
+use BaserCore\Service\UsersServiceInterface;
+use BaserCore\Service\UsersService;
+use BaserCore\Utility\BcContainerTrait;
 use Cake\Core\Configure;
 use Cake\Event\EventInterface;
+use Cake\Http\Response;
 use Cake\Routing\Router;
+use Cake\Utility\Hash;
 use Cake\Utility\Inflector;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
+use BaserCore\Annotation\Note;
 use BaserCore\Utility\BcUtil;
 use Cake\Http\Exception\NotFoundException;
 
 /**
  * Class BcAdminAppController
- * @package BaserCore\Controller\Admin
+ * @property AuthenticationComponent $Authentication
  */
 class BcAdminAppController extends BcAppController
 {
+
+    /**
+     * BcContainerTrait
+     */
+    use BcContainerTrait;
+
     /**
      * Initialize
      * @checked
-     * @noTodo
      * @unitTest
+     * @note(value="インストーラーを実装してから対応する")
      */
     public function initialize(): void
     {
         parent::initialize();
+
         $this->loadComponent('Authentication.Authentication', [
             'logoutRedirect' => Router::url(Configure::read('BcPrefixAuth.Admin.loginAction'), true),
         ]);
-        $this->checkAutoLogin();
+
+        $this->Security->setConfig('validatePost', false);
+        if (Configure::read('BcApp.adminSsl') && !BcUtil::isConsole()) $this->Security->requireSecure();
+
+        // TODO ucmitz 未移行のためコメントアウト
+        // >>>
+//        $this->loadComponent('BaserCore.BcManager');
+        // <<<
+
+        /** @var UsersService $usersService */
+        $usersService = $this->getService(UsersServiceInterface::class);
+        $this->response = $usersService->checkAutoLogin($this->request, $this->response);
+
+        // ログインユーザ再読込
+        if (!$usersService->reload($this->request)) {
+            $this->redirect($this->Authentication->logout());
+        }
+    }
+
+
+    /**
+     * Before Filter
+     * @param EventInterface $event
+     * @return Response|void
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function beforeFilter(EventInterface $event)
+    {
+        parent::beforeFilter($event);
+        $user = BcUtil::loginUser();
+        /* @var PermissionsServiceInterface $permission */
+        $permission = $this->getService(PermissionsServiceInterface::class);
+        if ($user && !$permission->check($this->getRequest()->getPath(), Hash::extract($user->toArray()['user_groups'], '{n}.id'))) {
+            $this->BcMessage->setError(__d('baser', '指定されたページへのアクセスは許可されていません。'));
+            $this->redirect($this->Authentication->getLoginRedirect());
+        }
     }
 
     /**
@@ -50,6 +103,7 @@ class BcAdminAppController extends BcAppController
      * @param array $options オプション
      * @checked
      * @noTodo
+     * @unitTest
      */
     protected function setViewConditions($targetModel = [], $options = []): void
     {
@@ -63,6 +117,9 @@ class BcAdminAppController extends BcAppController
      * @param array $targetModel
      * @param array $options オプション
      * @return void
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     protected function saveViewConditions($targetModel = [], $options = []): void
     {
@@ -71,7 +128,8 @@ class BcAdminAppController extends BcAppController
             'group' => '',
             'post' => true,
             'get' => true,
-            'named' => true
+            'named' => true,
+            'query' => true,
         ], $options);
 
         if (!$options['action']) {
@@ -105,14 +163,26 @@ class BcAdminAppController extends BcAppController
         if ($options['get'] && $this->request->getQuery()) {
             $session->write("BcApp.viewConditions.{$contentsName}.query", $this->request->getQuery());
         }
-
-        if ($options['named'] && $this->request->getParam('named')) {
+        if (($options['named']) && $this->request->getParam('named')) {
             if ($session->check("BcApp.viewConditions.{$contentsName}.named")) {
                 $named = array_merge($session->read("BcApp.viewConditions.{$contentsName}.named"), $this->request->getParam('named'));
             } else {
                 $named = $this->request->getParam('named');
             }
             $session->write("BcApp.viewConditions.{$contentsName}.named", $named);
+        }
+        if ($options['query'] && $this->request->getQuery()) {
+            if (isset($options['default']['query'])) {
+                if ($session->check("BcApp.viewConditions.{$contentsName}.query")) {
+                    $query = array_merge($options['default']['query'], $this->request->getQueryParams());
+                } else {
+                    $query = $options['default']['query'];
+                }
+            } else {
+                $query = $this->request->getQueryParams();
+            }
+
+            $session->write("BcApp.viewConditions.{$contentsName}.query", $query);
         }
     }
 
@@ -121,6 +191,9 @@ class BcAdminAppController extends BcAppController
      *
      * @param array $targetModel
      * @param array|string $options オプション
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     protected function loadViewConditions($targetModel = [], $options = []): void
     {
@@ -186,6 +259,7 @@ class BcAdminAppController extends BcAppController
         }
 
         $named['?'] = $query;
+
         $this->request = $this->request->withParam('pass', $named);
     }
 
@@ -199,22 +273,30 @@ class BcAdminAppController extends BcAppController
      */
     public function beforeRender(EventInterface $event): void
     {
+        parent::beforeRender($event);
         if (!isset($this->RequestHandler) || !$this->RequestHandler->prefers('json')) {
-            $this->viewBuilder()->setClassName('BaserCore.BcAdminApp');
+            if ($this->getName() !== 'Preview') {
+                $this->viewBuilder()->setClassName('BaserCore.BcAdminApp');
+                $this->setAdminTheme();
+                $this->set($this->getService(BcAdminAppServiceInterface::class)->getViewVarsForAll());
+            }
         }
-        $this->viewBuilder()->setTheme('BcAdminThird');
     }
 
     /**
-     * Set Title
-     * @param string $title
+     * 管理画面用テーマをセットする
+     *
+     * 優先順位
+     * BcSiteConfig::get('admin_theme') > Configure::read('BcApp.adminTheme')
+     *
+     * @return void
      * @checked
      * @noTodo
      * @unitTest
      */
-    protected function setTitle($title): void
+    protected function setAdminTheme()
     {
-        $this->set('title', $title);
+        $this->viewBuilder()->setTheme(BcUtil::getCurrentAdminTheme());
     }
 
     /**
@@ -255,7 +337,7 @@ class BcAdminAppController extends BcAppController
             return false;
         }
         $refererDomain = BcUtil::getDomain($_SERVER['HTTP_REFERER']);
-        if (!preg_match('/^' . preg_quote($siteDomain, '/') . '/', $refererDomain)) {
+        if (!$siteDomain || !preg_match('/^' . preg_quote($siteDomain, '/') . '/', $refererDomain)) {
             throw new NotFoundException();
         }
         return true;

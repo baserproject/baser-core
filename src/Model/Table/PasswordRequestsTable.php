@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Model\Table;
@@ -75,6 +75,7 @@ class PasswordRequestsTable extends Table
             ->scalar('email')
             ->email('email', true, __d('baser', 'Eメールの形式が不正です。'))
             ->maxLength('email', 255, __d('baser', 'Eメールは255文字以内で入力してください。'))
+            ->requirePresence('email', 'create', __d('baser', 'Eメールを入力してください。'))
             ->notEmptyString('email', __d('baser', 'Eメールを入力してください。'));
         return $validator;
     }

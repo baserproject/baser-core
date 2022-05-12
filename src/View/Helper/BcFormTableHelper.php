@@ -1,21 +1,22 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\View\Helper;
 
 use BaserCore\Event\BcEventDispatcherTrait;
-use \Cake\View\Helper;
+use Cake\View\Helper;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
+use BaserCore\Annotation\Note;
 
 /**
  * Class BcFormTableHelper
@@ -24,6 +25,7 @@ use BaserCore\Annotation\Checked;
  */
 class BcFormTableHelper extends Helper
 {
+
     /**
      * Trait
      */
@@ -34,17 +36,13 @@ class BcFormTableHelper extends Helper
      *
      * @return string
      * @checked
+     * @noTodo
+     * @unitTest
      */
     public function dispatchBefore()
     {
-
-        // TODO 未実装のため代替措置
-        // >>>
-        return '';
-        // <<<
-
         $event = $this->dispatchLayerEvent('before', [
-            'id' => $this->_View->BcForm->getId(),
+            'id' => $this->_View->BcAdminForm->getId(),
             'out' => ''
         ], ['class' => 'BcFormTable', 'plugin' => '']);
         $output = '';
@@ -59,17 +57,13 @@ class BcFormTableHelper extends Helper
      *
      * @return string
      * @checked
+     * @noTodo
+     * @unitTest
      */
     public function dispatchAfter()
     {
-
-        // TODO 未実装のため代替措置
-        // >>>
-        return '';
-        // <<<
-
         $event = $this->dispatchLayerEvent('after', [
-            'id' => $this->_View->BcForm->getId(),
+            'id' => $this->_View->BcAdminForm->getId(),
             'out' => ''
         ], ['class' => 'BcFormTable', 'plugin' => '']);
         $output = '';

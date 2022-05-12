@@ -1,29 +1,34 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\View\Helper;
 
-use BaserCore\Event\BcEventDispatcherTrait;
 use Cake\ORM\Query;
 use Cake\ORM\TableRegistry;
+use Cake\Utility\Inflector;
+use Cake\View\Form\EntityContext;
 use Cake\View\Helper\FormHelper;
-use BaserCore\Annotation\UnitTest;
+use Cake\Datasource\EntityInterface;
+use BaserCore\Event\BcEventDispatcherTrait;
+use BaserCore\Annotation\Note;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
+use BaserCore\Annotation\UnitTest;
 
 /**
  * FormHelper 拡張クラス
  *
  * @package Baser.View.Helper
  * @property BcHtmlHelper $BcHtml
+ * @property BcUploadHelper $BcUpload
  */
 class BcFormHelper extends FormHelper
 {
@@ -62,7 +67,7 @@ class BcFormHelper extends FormHelper
      *
      * @var string
      */
-    private $__id = null;
+    private $formId = null;
 // <<<
 
     /**
@@ -95,26 +100,21 @@ class BcFormHelper extends FormHelper
      * @param string $type フォームのタイプ タイプごとにイベントの登録ができる
      * @return string 行データ
      * @checked
+     * @note(value="フォームの最後のフィールドの後に発動するイベント")
      */
     public function dispatchAfterForm($type = ''): string
     {
-        // TODO 未実装のため代替措置
-        // >>>
-        return '';
-        // <<<
-
         if ($type) {
             $type = Inflector::camelize($type);
         }
-
         $event = $this->dispatchLayerEvent('after' . $type . 'Form', ['fields' => [], 'id' => $this->__id], ['class' => 'Form', 'plugin' => '']);
         $out = '';
         if ($event !== false) {
             if (!empty($event->getData('fields'))) {
                 foreach($event->getData('fields') as $field) {
                     $out .= "<tr>";
-                    $out .= "<th class=\"col-head bca-form-table__label\">" . $field['title'] . "</th>\n";
-                    $out .= "<td class=\"col-input bca-form-table__input\">" . $field['input'] . "</td>\n";
+                    $out .= "<th class=\"bca-form-table__label\">" . $field['title'] . "</th>\n";
+                    $out .= "<td class=\"bca-form-table__input\">" . $field['input'] . "</td>\n";
                     $out .= "</tr>";
                 }
             }
@@ -346,15 +346,12 @@ SCRIPT_END;
      * @return string An formatted opening FORM tag.
      * @link https://book.cakephp.org/4/en/views/helpers/form.html#Cake\View\Helper\FormHelper::
      * @checked
+     * @noTodo
+     * @unitTest
      */
     public function create($context = null, $options = []): string
     {
 
-        // TODO 未実装のため代替措置
-        // 第１引数の $model が $context に変わった
-        // >>>
-        return parent::create($context, $options);
-        // <<<
 
         // CUSTOMIZE ADD 2014/07/03 ryuring
         // ブラウザの妥当性のチェックを除外する
@@ -363,11 +360,11 @@ SCRIPT_END;
             'novalidate' => true
         ], $options);
 
-        $this->__id = $this->_getId($model, $options);
+        $formId = $this->setId($this->createId($context, $options));
 
         /*** beforeCreate ***/
         $event = $this->dispatchLayerEvent('beforeCreate', [
-            'id' => $this->__id,
+            'id' => $formId,
             'options' => $options
         ], ['class' => 'Form', 'plugin' => '']);
         if ($event !== false) {
@@ -375,13 +372,16 @@ SCRIPT_END;
         }
         // <<<
 
-        $out = parent::create($model, $options);
+        // 第１引数の $model が $context に変わった
+        // >>>
+        $out = parent::create($context, $options);
+        // <<<
 
         // CUSTOMIZE ADD 2014/07/03 ryuring
         // >>>
         /*** afterCreate ***/
         $event = $this->dispatchLayerEvent('afterCreate', [
-            'id' => $this->__id,
+            'id' => $formId,
             'out' => $out
         ], ['class' => 'Form', 'plugin' => '']);
         if ($event !== false) {
@@ -404,38 +404,28 @@ SCRIPT_END;
      * @return string A closing FORM tag.
      * @link https://book.cakephp.org/4/en/views/helpers/form.html#closing-the-form
      * @checked
+     * @noTodo
+     * @unitTest
      */
     public function end(array $secureAttributes = []): string
     {
+        $formId = $this->getId();
+        $this->setId(null);
 
-        // TODO 未実装のため代替措置
-        // 第１引数の $options が なくなった
-        // >>>
-        return parent::end($secureAttributes);
-        // <<<
-
-        // CUSTOMIZE ADD 2014/07/03 ryuring
-        // >>>
-        $id = $this->__id;
-        $this->__id = null;
-
-        /*** beforeEnd ***/
+        // EVENT Form.beforeEnd
         $event = $this->dispatchLayerEvent('beforeEnd', [
-            'id' => $id,
-            'options' => $options
+            'id' => $formId,
+            'secureAttributes' => $secureAttributes
         ], ['class' => 'Form', 'plugin' => '']);
         if ($event !== false) {
-            $options = ($event->getResult() === null || $event->getResult() === true)? $event->getData('options') : $event->getResult();
+            $secureAttributes = ($event->getResult() === null || $event->getResult() === true)? $event->getData('secureAttributes') : $event->getResult();
         }
-        // <<<
 
-        $out = parent::end($options);
+        $out = parent::end($secureAttributes);
 
-        // CUSTOMIZE ADD 2014/07/03 ryuring
-        // >>>
-        /*** afterEnd ***/
+        // EVENT Form.afterEnd
         $event = $this->dispatchLayerEvent('afterEnd', [
-            'id' => $id,
+            'id' => $formId,
             'out' => $out
         ], ['class' => 'Form', 'plugin' => '']);
         if ($event !== false) {
@@ -443,7 +433,6 @@ SCRIPT_END;
         }
 
         return $out;
-        // <<<
     }
 
     /**
@@ -760,110 +749,6 @@ DOC_END;
     }
 
     /**
-     * Creates a checkbox input widget.
-     * MODIFIED 2008/10/24 egashira
-     *          hiddenタグを出力しないオプションを追加
-     *
-     * ### Options:
-     *
-     * - `value` - the value of the checkbox
-     * - `checked` - boolean indicate that this checkbox is checked.
-     * - `hiddenField` - boolean to indicate if you want the results of checkbox() to include
-     *    a hidden input with a value of ''.
-     * - `disabled` - create a disabled input.
-     * - `default` - Set the default value for the checkbox. This allows you to start checkboxes
-     *    as checked, without having to check the POST data. A matching POST data value, will overwrite
-     *    the default value.
-     *
-     * @param string $fieldName Name of a field, like this "Modelname.fieldname"
-     * @param array $options Array of HTML attributes.
-     * @return string An HTML text input element.
-     * @link https://book.cakephp.org/2.0/en/core-libraries/helpers/form.html#options-for-select-checkbox-and-radio-inputs
-     * @checked
-     */
-    public function checkbox($fieldName, $options = [])
-    {
-
-        // TODO 未実装のため代替措置
-        // >>>
-        return parent::checkbox($fieldName, $options);
-        // <<<
-
-        // CUSTOMIZE ADD 2011/05/07 ryuring
-        // >>> hiddenをデフォルトオプションに追加
-        $options = array_merge([
-            'hidden' => true
-        ], $options);
-        $hidden = $options['hidden'];
-        $labelOptions = [];
-        if (!empty($options['label'])) {
-            if (is_array($options['label'])) {
-                $label = $options['label']['text'];
-                unset($options['label']['text']);
-                $labelOptions = $options['label'];
-            } else {
-                $label = $options['label'];
-            }
-        }
-        unset($options['label'], $options['hidden']);
-        // <<<
-
-        $valueOptions = [];
-        if (isset($options['default'])) {
-            $valueOptions['default'] = $options['default'];
-            unset($options['default']);
-        }
-
-        $options += ['value' => 1, 'required' => false];
-        $options = $this->_initInputField($fieldName, $options) + ['hiddenField' => true];
-        $value = current($this->value($valueOptions));
-        $output = '';
-
-        if ((!isset($options['checked']) && !empty($value) && $value == $options['value']) ||
-            !empty($options['checked'])
-        ) {
-            $options['checked'] = 'checked';
-        }
-
-        // CUSTOMIZE MODIFY 2011/05/07 ryuring
-        // >>> hiddenオプションがある場合のみ、hiddenタグを出力
-        // 2014/03/23 ryuring CakePHP側が実装していたが互換性のために残す
-        //if ($options['hiddenField']) {
-        // ---
-        if ($hidden !== false && $options['hiddenField'] !== false) {
-            // <<<
-            $hiddenOptions = [
-                'id' => $options['id'] . '_',
-                'name' => $options['name'],
-                'value' => ($options['hiddenField'] !== true? $options['hiddenField'] : '0'),
-                'form' => isset($options['form'])? $options['form'] : null,
-                'secure' => false,
-            ];
-            if (isset($options['disabled']) && $options['disabled']) {
-                $hiddenOptions['disabled'] = 'disabled';
-            }
-            $output = $this->hidden($fieldName, $hiddenOptions);
-        }
-        unset($options['hiddenField']);
-
-        // CUSTOMIZE MODIFY 2011/05/07 ryuring
-        // label を追加
-        // CUSTOMIZE MODIRY 2014/10/27 ryuring
-        // チェックボックスをラベルで囲う仕様に変更
-        // CUSTOMIZE MODIRY 2017/2/19 ryuring
-        // チェックボックスをラベルタグで囲わない仕様に変更した
-        // >>>
-        //return $output . $this->Html->useTag('checkbox', $options['name'], array_diff_key($options, array('name' => null)));
-        // ---
-        if (!empty($label)) {
-            return $output . $this->Html->useTag('checkbox', $options['name'], array_diff_key($options, ['name' => null])) . parent::label($fieldName, $label, $labelOptions);
-        } else {
-            return $output . $this->Html->useTag('checkbox', $options['name'], array_diff_key($options, ['name' => null]));
-        }
-        // <<<
-    }
-
-    /**
      * Creates a hidden input field.
      *
      * @param string $fieldName Name of a field, in the form of "Modelname.fieldname"
@@ -871,15 +756,10 @@ DOC_END;
      * @return string A generated hidden input
      * @link https://book.cakephp.org/2.0/en/core-libraries/helpers/form.html#FormHelper::hidden
      * @checked
+     * @note(value="未実装につき継承元のコントロールを返却している")
      */
     public function hidden($fieldName, $options = []): string
     {
-
-        // TODO 未実装のため代替措置
-        // >>>
-        return parent::hidden($fieldName, $options);
-        // <<<
-
         $options += ['required' => false, 'secure' => true];
 
         $secure = $options['secure'];
@@ -897,53 +777,61 @@ DOC_END;
         // >>>
         if (!empty($options['multiple'])) {
             $secure = false;
-            $this->_secure(true); //lock
         }
         // <<<
 
         $options = $this->_initInputField($fieldName, array_merge(
-            $options, ['secure' => static::SECURE_SKIP]
+            $options,
+            ['secure' => static::SECURE_SKIP]
         ));
 
-        if ($secure === true) {
-            $this->_secure(true, null, '' . $options['value']);
+        if ($secure === true && $this->formProtector) {
+            $this->formProtector->addField(
+                $options['name'],
+                true,
+                $options['val'] === false ? '0' : (string)$options['val']
+            );
         }
 
-        // CUSTOMIZE 2010/07/24 ryuring
+        $options['type'] = 'hidden';
+
+        // CUSTOMIZE ADD 2010/07/24 ryuring
         // 配列用のhiddenタグを出力できるオプションを追加
         // CUSTOMIZE 2010/08/01 ryuring
         // class属性を指定できるようにした
         // CUSTOMIZE 2011/03/11 ryuring
         // multiple で送信する値が配列の添字となっていたので配列の値に変更した
-        // >>> ADD
+        // >>>
         $multiple = false;
         $value = '';
         if (!empty($options['multiple'])) {
             $multiple = true;
             $options['id'] = null;
-            if (!isset($options['value'])) {
-                $value = $this->value($fieldName);
+            if (!isset($options['val'])) {
+                $value = $this->getSourceValue($fieldName);
             } else {
-                $value = $options['value'];
+                $value = $options['val'];
             }
             if (is_array($value) && !$value) {
-                unset($options['value']);
+                unset($options['val']);
             }
             unset($options['multiple']);
         }
         // <<<
-        // >>> MODIFY
-        // $this->Html->useTag('hidden', $options['name'], array_diff_key($options, array('name' => null)));
+
+        // CUSTOMIZE MODIFY 2010/07/24 ryuring
+        // >>>
+        // return $this->widget('hidden', $options);
         // ---
         if ($multiple && is_array($value)) {
             $out = [];
-            foreach($value as $_value) {
-                $options['value'] = $_value;
-                $out[] = $this->Html->useTag('hiddenmultiple', $options['name'], array_diff_key($options, ['name' => '']));
+            foreach($value as $v) {
+                $options['val'] = $v;
+                $out[] = $this->widget('hidden', $options);;
             }
             return implode("\n", $out);
         } else {
-            return $this->Html->useTag('hidden', $options['name'], array_diff_key($options, ['name' => '']));
+            return $this->widget('hidden', $options);
         }
         // <<<
     }
@@ -976,20 +864,17 @@ DOC_END;
      * @param array $options Array of options. See above.
      * @return string A HTML submit button
      * @link https://book.cakephp.org/2.0/en/core-libraries/helpers/form.html#FormHelper::submit
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function submit($caption = null, $options = []): string
     {
-
-        // TODO 暫定措置
-        // >>>
-        return parent::submit($caption, $options);
-        // <<<
-
         // CUSTOMIZE ADD 2016/06/08 ryuring
         // >>>
         /*** beforeInput ***/
         $event = $this->dispatchLayerEvent('beforeSubmit', [
-            'id' => $this->__id,
+            'id' => $this->getId(),
             'caption' => $caption,
             'options' => $options
         ], ['class' => 'Form', 'plugin' => '']);
@@ -1001,7 +886,7 @@ DOC_END;
 
         /*** afterInput ***/
         $event = $this->dispatchLayerEvent('afterSubmit', [
-            'id' => $this->__id,
+            'id' => $this->getId(),
             'caption' => $caption,
             'out' => $output
         ], ['class' => 'Form', 'plugin' => '']);
@@ -1044,7 +929,7 @@ DOC_END;
         $year = $month = $day = $hour = $min = $meridian = null;
 
         if (empty($attributes['value'])) {
-            $attributes = $this->value($attributes, $fieldName);
+            $attributes = $this->getSourceValue($attributes, $fieldName);
         }
 
         if ($attributes['value'] === null && $attributes['empty'] != true) {
@@ -1219,209 +1104,6 @@ DOC_END;
                 break;
         }
         return $opt;
-    }
-
-    /**
-     * Returns a formatted SELECT element.
-     *
-     * ### Attributes:
-     *
-     * - `showParents` - If included in the array and set to true, an additional option element
-     *   will be added for the parent of each option group. You can set an option with the same name
-     *   and it's key will be used for the value of the option.
-     * - `multiple` - show a multiple select box. If set to 'checkbox' multiple checkboxes will be
-     *   created instead.
-     * - `empty` - If true, the empty select option is shown. If a string,
-     *   that string is displayed as the empty element.
-     * - `escape` - If true contents of options will be HTML entity encoded. Defaults to true.
-     * - `value` The selected value of the input.
-     * - `class` - When using multiple = checkbox the class name to apply to the divs. Defaults to 'checkbox'.
-     * - `disabled` - Control the disabled attribute. When creating a select box, set to true to disable the
-     *   select box. When creating checkboxes, `true` will disable all checkboxes. You can also set disabled
-     *   to a list of values you want to disable when creating checkboxes.
-     *
-     * ### Using options
-     *
-     * A simple array will create normal options:
-     *
-     * ```
-     * $options = array(1 => 'one', 2 => 'two);
-     * $this->Form->select('Model.field', $options));
-     * ```
-     *
-     * While a nested options array will create optgroups with options inside them.
-     * ```
-     * $options = array(
-     *  1 => 'bill',
-     *  'fred' => array(
-     *     2 => 'fred',
-     *     3 => 'fred jr.'
-     *  )
-     * );
-     * $this->Form->select('Model.field', $options);
-     * ```
-     *
-     * In the above `2 => 'fred'` will not generate an option element. You should enable the `showParents`
-     * attribute to show the fred option.
-     *
-     * If you have multiple options that need to have the same value attribute, you can
-     * use an array of arrays to express this:
-     *
-     * ```
-     * $options = array(
-     *  array('name' => 'United states', 'value' => 'USA'),
-     *  array('name' => 'USA', 'value' => 'USA'),
-     * );
-     * ```
-     *
-     * @param string $fieldName Name attribute of the SELECT
-     * @param array $options Array of the OPTION elements (as 'value'=>'Text' pairs) to be used in the
-     *    SELECT element
-     * @param array $attributes The HTML attributes of the select element.
-     * @return string Formatted SELECT element
-     * @link http://book.cakephp.org/2.0/en/core-libraries/helpers/form.html#options-for-select-checkbox-and-radio-inputs
-     * @checked
-     */
-    public function select($fieldName, $options = [], $attributes = []): string
-    {
-        // TODO 未実装のため代替措置
-        // >>>
-        return parent::select($fieldName, $options, $attributes);
-        // <<<
-
-        $select = [];
-        $style = null;
-        $tag = null;
-        $attributes += [
-            'class' => null,
-            'escape' => true,
-            'secure' => true,
-            'empty' => '',
-            'showParents' => false,
-            'hiddenField' => true,
-            'disabled' => false,
-            // CUSTOMIZE ADD 2016/01/26 ryuring
-            // checkboxのdivを外せるオプションを追加
-            // CUSTOMIZE ADD 2018/10/14 ryuring
-            // label のオプションを指定できるようにした
-            // >>>
-            'div' => true,
-            'label' => false
-            // <<<
-        ];
-
-        // CUSTOMIZE ADD 2016/01/28 ryuring
-        // checkboxのdivを外せるオプションを追加
-        // >>>
-        if ($attributes['div'] === 'false' || $attributes['div'] === '0') {
-            $attributes['div'] = false;
-        }
-        $div = $this->_extractOption('div', $attributes);
-        unset($attributes['div']);
-        // <<<
-
-        $escapeOptions = $this->_extractOption('escape', $attributes);
-        $secure = $this->_extractOption('secure', $attributes);
-        $showEmpty = $this->_extractOption('empty', $attributes);
-        $showParents = $this->_extractOption('showParents', $attributes);
-        $hiddenField = $this->_extractOption('hiddenField', $attributes);
-        unset($attributes['escape'], $attributes['secure'], $attributes['empty'], $attributes['showParents'], $attributes['hiddenField']);
-        $id = $this->_extractOption('id', $attributes);
-
-        $attributes = $this->_initInputField($fieldName, array_merge(
-            (array)$attributes, ['secure' => static::SECURE_SKIP]
-        ));
-
-        if (is_string($options) && isset($this->_options[$options])) {
-            $options = $this->_generateOptions($options);
-        } elseif (!is_array($options)) {
-            $options = [];
-        }
-        if (isset($attributes['type'])) {
-            unset($attributes['type']);
-        }
-
-        if (!empty($attributes['multiple'])) {
-            $style = ($attributes['multiple'] === 'checkbox')? 'checkbox' : null;
-            $template = ($style)? 'checkboxmultiplestart' : 'selectmultiplestart';
-            $tag = $template;
-            if ($hiddenField) {
-                $hiddenAttributes = [
-                    'value' => '',
-                    'id' => $attributes['id'] . ($style? '' : '_'),
-                    'secure' => false,
-                    'form' => isset($attributes['form'])? $attributes['form'] : null,
-                    'name' => $attributes['name'],
-                    'disabled' => $attributes['disabled'] === true || $attributes['disabled'] === 'disabled'
-                ];
-                $select[] = $this->hidden(null, $hiddenAttributes);
-            }
-        } else {
-            $tag = 'selectstart';
-        }
-
-        if ($tag === 'checkboxmultiplestart') {
-            unset($attributes['required']);
-        }
-
-        if (!empty($tag) || isset($template)) {
-            $hasOptions = (count($options) > 0 || $showEmpty);
-            // Secure the field if there are options, or its a multi select.
-            // Single selects with no options don't submit, but multiselects do.
-            if ((!isset($secure) || $secure) &&
-                empty($attributes['disabled']) &&
-                (!empty($attributes['multiple']) || $hasOptions)
-            ) {
-                $this->_secure(true, $this->_secureFieldName($attributes));
-            }
-            $filter = ['name' => null, 'value' => null];
-            if (is_array($attributes['disabled'])) {
-                $filter['disabled'] = null;
-            }
-            $select[] = $this->Html->useTag($tag, $attributes['name'], array_diff_key($attributes, $filter));
-        }
-        $emptyMulti = (
-            $showEmpty !== null && $showEmpty !== false && !(
-                empty($showEmpty) && (isset($attributes) &&
-                    array_key_exists('multiple', $attributes))
-            )
-        );
-
-        if ($emptyMulti) {
-            $showEmpty = ($showEmpty === true)? '' : $showEmpty;
-            $options = ['' => $showEmpty] + $options;
-        }
-
-        if (!$id) {
-            $attributes['id'] = Inflector::camelize($attributes['id']);
-        }
-
-        $select = array_merge($select, $this->_selectOptions(
-            array_reverse($options, true),
-            [],
-            $showParents,
-            [
-                'escape' => $escapeOptions,
-                'style' => $style,
-                'name' => $attributes['name'],
-                'value' => $attributes['value'],
-                'class' => $attributes['class'],
-                'id' => $attributes['id'],
-                'disabled' => $attributes['disabled'],
-                // CUSTOMIZE ADD 2016/01/26 ryuring
-                // checkboxのdivを外せるオプションを追加
-                // CUSTOMIZE ADD 2018/10/14 ryuring
-                // label のオプションを指定できるようにした
-                // >>>
-                'div' => $div,
-                'label' => $attributes['label']
-                // <<<
-            ]
-        ));
-
-        $template = ($style === 'checkbox')? 'checkboxmultipleend' : 'selectend';
-        $select[] = $this->Html->useTag($template);
-        return implode("\n", $select);
     }
 
     /**
@@ -1808,7 +1490,7 @@ DOC_END;
         if (isset($attributes['value'])) {
             $value = $attributes['value'];
         } else {
-            $value = $this->value($fieldName);
+            $value = $this->getSourceValue($fieldName);
         }
 
         $disabled = [];
@@ -1923,33 +1605,38 @@ DOC_END;
 // CUSTOMIZE ADD 2014/07/02 ryuring
 
     /**
-     * フォームのIDを取得する
+     * フォームのIDを作成する
      * BcForm::create より呼出される事が前提
      *
-     * @param string $model
+     * @param EntityInterface $context
      * @param array $options
      * @return string
+     * @checked
+     * @noTodo
+     * @unitTest
      */
-    protected function _getId($model = null, $options = [])
+    protected function createId($context, $options = [])
     {
-
+        $request = $this->getView()->getRequest();
         if (!isset($options['id'])) {
-            if (empty($model) && $model !== false && !empty($this->request->getParam('models'))) {
-                $model = key($this->request->getParam('models'));
-            } elseif (empty($model) && empty($this->request->getParam('models'))) {
-                $model = false;
+            if (!empty($context)) {
+                if (is_array($context)) {
+                    // 複数$contextに設定されてる場合先頭のエンティティを優先
+                    $context = array_shift($context);
+                }
+                [, $context] = pluginSplit($context->getSource());
+            } else {
+                $context = empty($request->getParam('controller')) ? false : $request->getParam('controller');
             }
-            if ($model !== false) {
-                [, $model] = pluginSplit($model, true);
-                $this->setEntity($model, true);
+            if ($domId = isset($options['url']['action'])? $options['url']['action'] : $request->getParam('action')) {
+                $formId = Inflector::classify($context) . $request->getParam('prefix') . Inflector::camelize($domId) . 'Form' ;
+            } else {
+                $formId = null;
             }
-            $domId = isset($options['url']['action'])? $options['url']['action'] : $this->request->getParam('action');
-            $id = $this->domId($domId . 'Form');
         } else {
-            $id = $options['id'];
+            $formId = $options['id'];
         }
-
-        return $id;
+        return $formId;
     }
 
     /**
@@ -1958,10 +1645,28 @@ DOC_END;
      * BcFormHelper::create() の後に呼び出される事を前提とする
      *
      * @return string フォームID
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function getId()
     {
-        return $this->__id;
+        return $this->formId;
+    }
+
+    /**
+     * フォームのIDを設定する
+     *
+     * BcFormHelper::create() の後に呼び出される事を前提とする
+     * @param $id フォームID
+     * @return string 新規フォームID
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function setId($id)
+    {
+        return $this->formId = $id;
     }
 
     /**
@@ -1996,8 +1701,8 @@ DOC_END;
             'style' => 'width:99%;height:540px'
         ], $options);
         [$plugin, $editor] = pluginSplit($options['editor']);
-        if (!empty($this->_View->{$editor})) {
-            return $this->_View->{$editor}->editor($fieldName, $options);
+        if (!empty($this->getView()->{$editor})) {
+            return $this->getView()->{$editor}->editor($fieldName, $options);
         } elseif ($editor == 'none') {
             $_options = [];
             foreach($options as $key => $value) {
@@ -2007,7 +1712,9 @@ DOC_END;
             }
             return $this->input($fieldName, array_merge(['type' => 'textarea'], $_options));
         } else {
-            return $this->_View->BcCkeditor->editor($fieldName, $options);
+            /** @var BcCkeditorHelper $bcCkeditor  */
+            $bcCkeditor = $this->getView()->BcCkeditor;
+            return $bcCkeditor->editor($fieldName, $options);
         }
     }
 
@@ -2054,7 +1761,7 @@ DOC_END;
     public function wyear($fieldName, $minYear = null, $maxYear = null, $selected = null, $attributes = [], $showEmpty = true)
     {
 
-        if ((empty($selected) || $selected === true) && $value = $this->value($fieldName)) {
+        if ((empty($selected) || $selected === true) && $value = $this->getSourceValue($fieldName)) {
             if (is_array($value)) {
                 if (isset($value['year'])) {
                     $selected = $value['year'];
@@ -2075,8 +1782,8 @@ DOC_END;
         if (strlen($selected) > 4 || $selected === 'now') {
 
             $wareki = $this->BcTime->convertToWareki(date('Y-m-d', strtotime($selected)));
-            if (!is_null($this->value($fieldName))) {
-                $wareki = $this->BcTime->convertToWareki($this->value($fieldName));
+            if (!is_null($this->getSourceValue($fieldName))) {
+                $wareki = $this->BcTime->convertToWareki($this->getSourceValue($fieldName));
             }
 
             $w = $this->BcTime->wareki($wareki);
@@ -2086,7 +1793,7 @@ DOC_END;
         } elseif ($selected === false) {
             $selected = null;
         } elseif (strpos($selected, '-') === false) {
-            $wareki = $this->BcTime->convertToWareki($this->value($fieldName));
+            $wareki = $this->BcTime->convertToWareki($this->getSourceValue($fieldName));
             if ($wareki) {
                 $w = $this->BcTime->wareki($wareki);
                 $wyear = $this->BcTime->wyear($wareki);
@@ -2242,22 +1949,17 @@ DOC_END;
      * @param array $options
      * @return string
      * @checked
+     * @noTodo
+     * @unitTest
      */
     public function file($fieldName, $options = []): string
     {
-        // TODO 未実装のため代替措置
-        // >>>
-        return parent::file($fieldName, $options);
-        // <<<
-
         $options = $this->_initInputField($fieldName, $options);
-        $entity = $this->entity();
-        $modelName = $this->model();
-        $Model = ClassRegistry::init($modelName);
-        if (empty($Model->Behaviors->BcUpload)) {
+
+        $table = $this->getTable($fieldName);
+        if (!$table || !$table->hasBehavior('BcUpload')) {
             return parent::file($fieldName, $options);
         }
-        $fieldName = implode('.', $entity);
 
         $options = array_merge([
             'imgsize' => 'medium', // 画像サイズ
@@ -2275,7 +1977,7 @@ DOC_END;
             'deleteLabel' => [],
             'figure' => [],
             'img' => ['class' => ''],
-            'figcaption' => []
+            'figcaption' => [],
         ], $options);
 
         $linkOptions = [
@@ -2317,7 +2019,7 @@ DOC_END;
         $fileTag = parent::file($fieldName, $options);
 
         if (empty($options['value'])) {
-            $value = $this->value($fieldName);
+            $value = $this->getSourceValue($fieldName);
         } else {
             $value = $options['value'];
         }
@@ -2327,8 +2029,8 @@ DOC_END;
         if ($fileLinkTag && $linkOptions['delCheck'] && (is_string($value) || empty($value['session_key']))) {
             $delCheckTag = $this->Html->tag('span', $this->checkbox($fieldName . '_delete', $deleteCheckboxOptions) . $this->label($fieldName . '_delete', __d('baser', '削除する'), $deleteLabelOptions), $deleteSpanOptions);
         }
-        $hiddenValue = $this->value($fieldName . '_');
-        $fileValue = $this->value($fieldName);
+        $hiddenValue = $this->getSourceValue($fieldName . '_');
+        $fileValue = $this->getSourceValue($fieldName);
 
         $hiddenTag = '';
         if ($fileLinkTag) {
@@ -2369,6 +2071,41 @@ DOC_END;
         } else {
             return $out;
         }
+    }
+
+    /**
+     * フィールドに紐づくテーブルを取得する
+     * @param string $fieldName
+     * @return \Cake\ORM\Table|false
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function getTable($fieldName)
+    {
+        $context = $this->context();
+        if(!($context instanceof EntityContext)) return false;
+        $entity = $context->entity();
+        if(!$entity) return false;
+
+        $fieldArray = explode('.', $fieldName);
+
+        if(count($fieldArray) === 3) {
+            if ($entity && $entity->get($fieldArray[1])) {
+                $entity = $entity->get($fieldArray[1]);
+            }
+        } elseif(!in_array(count($fieldArray), [1, 2])) {
+            return false;
+        }
+
+        $alias = $entity->getSource();
+        $plugin = '';
+        if (strpos($alias, '.')) {
+            [$plugin, $name] = pluginSplit($alias);
+        }
+        $name = Inflector::camelize(Inflector::tableize($name));
+        if($plugin) $name = $plugin . '.' . $name;
+        return TableRegistry::getTableLocator()->get($name);
     }
 
 // <<<

@@ -1,5 +1,8 @@
 <?php
 // TODO : コード確認要
+use BaserCore\Service\BcFrontServiceInterface;
+use BaserCore\Utility\BcSiteConfig;
+
 return;
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
@@ -26,6 +29,11 @@ App::uses('HttpSocket', 'Core.Network/Http');
  */
 class SearchIndicesController extends AppController
 {
+
+    /**
+     * Trait
+     */
+    use \BaserCore\Utility\BcContainerTrait;
 
     /**
      * クラス名
@@ -74,19 +82,13 @@ class SearchIndicesController extends AppController
         // 認証設定
         $this->BcAuth->allow('search', 'smartphone_search');
 
-        if ($this->request->getParam('prefix') === 'Admin') {
-            $this->crumbs = [
-                ['name' => __d('baser', 'システム設定'), 'url' => ['controller' => 'site_configs', 'action' => 'form']],
-                ['name' => __d('baser', '検索インデックス管理'), 'url' => ['controller' => 'search_indices', 'action' => 'index']]
-            ];
-        }
-
         if (BcUtil::isAdminSystem()) {
             return;
         }
 
         $Content = ClassRegistry::init('Content');
-        $currentSite = BcSite::findCurrent(true);
+        $sites = $this->getTableLocator()->get('BaserCore.Sites');
+        $currentSite = $sites->findByUrl($this->getRequest()->getPath());
         $url = '/';
         if ($this->request->getParam('action') !== 'search') {
             $prefix = str_replace('_search', '', $this->request->getParam('action'));
@@ -98,7 +100,7 @@ class SearchIndicesController extends AppController
         }
         $content = $Content->find('first', ['conditions' => ['Content.url' => $url], 'recursive' => 0]);
         if (is_null($content['Site']['id'])) {
-            $content['Site'] = $this->Site->getRootMain()['Site'];
+            $content['Site'] = $this->Site->getRootMain();
         }
         $this->request = $this->request->withParam('Content', $content['Content']);
         $this->request = $this->request->withParam('Site', $content['Site']);
@@ -216,7 +218,7 @@ class SearchIndicesController extends AppController
 
         /* 画面情報設定 */
         $default = [
-            'named' => ['num' => $this->siteConfigs['admin_list_num']],
+            'named' => ['num' => BcSiteConfig::get('admin_list_num')],
             'SearchIndex' => ['site_id' => 0]
         ];
         $this->setViewConditions('SearchIndex', ['default' => $default]);
@@ -235,7 +237,7 @@ class SearchIndicesController extends AppController
         }
 
         $this->set('folders', $this->Content->getContentFolderList((int)$this->request->getData('SearchIndex.site_id'), ['conditions' => ['Content.site_root' => false]]));
-        $this->set('sites', $this->Site->getSiteList());
+        $this->set('sites', $this->Site->getList());
         $this->setSearch('search_indices_index');
         $this->setHelp('search_indices_index');
     }
@@ -280,7 +282,7 @@ class SearchIndicesController extends AppController
 //					App::uses('HttpSocket', 'Network/Http');
 //					$socket = new HttpSocket();
 //					// ※ Router::url() では、スマートURLオフの場合、/app/webroot/ 内のURLが正常に取得できない
-//					$HttpSocketResponse = $socket->get(siteUrl() . preg_replace('/^\//', '', $url));
+//					$HttpSocketResponse = $socket->get(BcUtil::siteUrl() . preg_replace('/^\//', '', $url));
 //					$code = $HttpSocketResponse->code;
 //					if ($code != 200) {
 //						unset($searchIndex);

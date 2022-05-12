@@ -1,5 +1,7 @@
 <?php
 // TODO : コード確認要
+use BaserCore\Service\BcFrontServiceInterface;
+
 return;
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
@@ -23,6 +25,11 @@ class BcRedirectSubSiteFilter extends DispatcherFilter
 {
 
     /**
+     * Trait
+     */
+    use \BaserCore\Utility\BcContainerTrait;
+
+    /**
      * 優先順位
      *
      * 先にキャッシュを読まれると意味がない為
@@ -40,7 +47,6 @@ class BcRedirectSubSiteFilter extends DispatcherFilter
      */
     public function beforeDispatch(\Cake\Event\Event $event)
     {
-
         $request = $event->getData('request');
         if (Configure::read('BcRequest.isUpdater')) {
             return;
@@ -49,7 +55,9 @@ class BcRedirectSubSiteFilter extends DispatcherFilter
         if ($request->is('admin')) {
             return;
         }
-        $subSite = BcSite::findCurrentSub();
+
+        $sites = \Cake\ORM\TableRegistry::getTableLocator()->get('BaserCore.Sites');
+        $subSite = $sites->getSubByUrl($request->getPath());
         if (!is_null($subSite) && $subSite->shouldRedirects($request)) {
             $response->header('Location', $request->base . $subSite->makeUrl($request));
             $response->statusCode(302);

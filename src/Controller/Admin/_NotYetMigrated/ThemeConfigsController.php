@@ -52,19 +52,6 @@ class ThemeConfigsController extends AppController
     public $subMenuElements = ['themes'];
 
     /**
-     * Before Filter
-     *
-     * @return void
-     */
-    public function beforeFilter()
-    {
-        parent::beforeFilter();
-        $this->crumbs = [
-            ['name' => __d('baser', 'テーマ管理'), 'url' => ['controller' => 'themes', 'action' => 'index']]
-        ];
-    }
-
-    /**
      * [ADMIN] 設定編集
      */
     public function admin_form()
@@ -73,7 +60,7 @@ class ThemeConfigsController extends AppController
         $this->setHelp('theme_configs_form');
 
         if (!$this->request->is(['post', 'put'])) {
-            $this->request->data = ['ThemeConfig' => $this->ThemeConfig->findExpanded()];
+            $this->request->data = ['ThemeConfig' => $this->ThemeConfig->getKeyValue()];
             return;
         }
 

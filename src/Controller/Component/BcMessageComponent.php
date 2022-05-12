@@ -1,17 +1,18 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Controller\Component;
 
-use BaserCore\Error\BcException;
+use BaserCore\Service\DblogsServiceInterface;
+use BaserCore\Utility\BcContainerTrait;
 use Cake\Controller\Component;
 use Cake\Controller\Component\FlashComponent;
 use BaserCore\Annotation\UnitTest;
@@ -28,6 +29,11 @@ class BcMessageComponent extends Component
 {
 
     /**
+     * Trait
+     */
+    use BcContainerTrait;
+
+    /**
      * @var array
      */
     public $components = ['Flash'];
@@ -42,6 +48,7 @@ class BcMessageComponent extends Component
      * @param null|string $class 付与するクラス名
      * @checked
      * @unitTest
+     * @noTodo
      */
     public function set($message, $alert = false, $saveDblog = false, $setFlash = true, $class = null)
     {
@@ -59,9 +66,15 @@ class BcMessageComponent extends Component
         }
 
         if ($saveDblog) {
-            // TODO: DbLogの仕組み未実装
-            // $AppModel = ClassRegistry::init('AppModel');
-            // $AppModel->saveDblog($message);
+            try {
+                $dblogs = $this->getService(DblogsServiceInterface::class);
+                $dblogs->create(['message' => $message]);
+            } catch (\Exception $e) {
+                $this->Flash->set(__d('baser', 'DBログの保存に失敗しました。'), [
+                    'element' => 'default',
+                    'params' => ['class' => 'alert-message']
+                ]);
+            }
         }
     }
 

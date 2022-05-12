@@ -1,22 +1,24 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Controller\Api;
 
 use Authentication\Authenticator\JwtAuthenticator;
+use Authentication\Authenticator\ResultInterface;
 use Authentication\Controller\Component\AuthenticationComponent;
 use BaserCore\Controller\AppController;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
+use BaserCore\Utility\BcApiUtil;
 use Cake\Event\EventInterface;
 
 /**
@@ -41,10 +43,30 @@ class BcApiController extends AppController
     }
 
     /**
+     * トークンを取得する
+     * @param ResultInterface $result
+     * @return array
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function getAccessToken(ResultInterface $result): array
+    {
+        if ($result->isValid()) {
+            return BcApiUtil::createAccessToken($result->getData()->id);
+        } else {
+            return [];
+        }
+    }
+
+    /**
      * Before Filter
      * @param EventInterface $event
      * @return \Cake\Http\Response|void|null
      * @throws \Exception
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function beforeFilter(EventInterface $event)
     {
@@ -69,6 +91,20 @@ class BcApiController extends AppController
                 $this->setResponse($this->response->withStatus(401));
             }
         }
+    }
+
+    /**
+     * Before render
+     * 日本語を Unicode エスケープしないようにする
+     * @param EventInterface $event
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function beforeRender(EventInterface $event): void
+    {
+        parent::beforeRender($event);
+        $this->viewBuilder()->setOption('jsonOptions', JSON_UNESCAPED_UNICODE);
     }
 
 }

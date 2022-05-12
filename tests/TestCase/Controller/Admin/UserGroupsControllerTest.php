@@ -1,19 +1,18 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Test\TestCase\Controller\Admin;
 
 use Cake\TestSuite\IntegrationTestTrait;
 use BaserCore\TestSuite\BcTestCase;
-use Cake\Event\Event;
 use BaserCore\Controller\Admin\UserGroupsController;
 
 /**
@@ -33,6 +32,10 @@ class UserGroupsControllerTest extends BcTestCase
         'plugin.BaserCore.UsersUserGroups',
         'plugin.BaserCore.UserGroups',
         'plugin.BaserCore.Controller/UserGroupsController/UserGroupsPagination',
+        'plugin.BaserCore.Sites',
+        'plugin.BaserCore.SiteConfigs',
+        'plugin.BaserCore.LoginStores',
+        'plugin.BaserCore.Permissions',
     ];
 
     public $autoFixtures = false;
@@ -43,14 +46,13 @@ class UserGroupsControllerTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
-        $this->loadFixtures('UsersUserGroups', 'Users');
+        $this->loadFixtures('UsersUserGroups', 'Users', 'Sites', 'SiteConfigs', 'LoginStores', 'Permissions');
         if ($this->getName() == 'testIndex_pagination') {
             $this->loadFixtures('Controller\UserGroupsController\UserGroupsPagination');
         } else {
             $this->loadFixtures('UserGroups');
         }
-        $this->loginAdmin();
-        $this->UserGroupsController = new UserGroupsController($this->getRequest());
+        $this->UserGroupsController = new UserGroupsController($this->loginAdmin($this->getRequest()));
     }
 
     public function tearDown(): void
@@ -59,16 +61,6 @@ class UserGroupsControllerTest extends BcTestCase
         parent::tearDown();
     }
 
-    /**
-     * Test constructor
-     *
-     * @return void
-     */
-    public function testConstruct()
-    {
-        $UserGroupsController = new UserGroupsController();
-        $this->assertNotEmpty($UserGroupsController->crumbs);
-    }
 
     /**
      * Test index method
@@ -88,7 +80,7 @@ class UserGroupsControllerTest extends BcTestCase
      */
     public function testIndex_pagination()
     {
-        $this->get('/baser/admin/baser-core/user_groups/?num=1&page=21');
+        $this->get('/baser/admin/baser-core/user_groups/?limit=1&page=21');
         $this->assertResponseOk();
     }
 
@@ -138,6 +130,7 @@ class UserGroupsControllerTest extends BcTestCase
             'title' => 'test',
             'use_move_contents' => '1'
         ];
+        $this->loginAdmin($this->getRequest('/'));
         $this->post('/baser/admin/baser-core/user_groups/edit/1', $data);
         $this->assertRedirect('/baser/admin/baser-core/user_groups/index');
     }
@@ -174,21 +167,4 @@ class UserGroupsControllerTest extends BcTestCase
         $this->assertEquals(1, $query->count());
     }
 
-    /**
-     * beforeFilter
-     */
-    public function testBeforeFilter()
-    {
-        $event = new Event('Controller.beforeRender', $this->UserGroupsController);
-        $this->UserGroupsController->beforeFilter($event);
-        $this->assertEquals($this->UserGroupsController->siteConfigs['admin_list_num'], 30);
-    }
-
-    /**
-     * ユーザーグループのよく使う項目の初期値を登録する
-     */
-    public function testSet_default_favorites()
-    {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-    }
 }

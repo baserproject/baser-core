@@ -1,23 +1,26 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Test\TestCase;
 
 use App\Application;
 use BaserCore\Plugin;
+use BaserCore\Service\SiteConfigsServiceInterface;
 use BaserCore\TestSuite\BcTestCase;
+use Cake\Core\Configure;
+use Cake\Core\Container;
 use Cake\Http\MiddlewareQueue;
 use Authentication\Middleware\AuthenticationMiddleware;
+use Cake\Http\ServerRequest;
 use Cake\Routing\Router;
-use Cake\Utility\Security;
 
 /**
  * Class PluginTest
@@ -38,7 +41,11 @@ class PluginTest extends BcTestCase
      */
     protected $fixtures = [
         'plugin.BaserCore.Users',
+        'plugin.BaserCore.UsersUserGroups',
+        'plugin.BaserCore.UserGroups',
         'plugin.BaserCore.Plugins',
+        'plugin.BaserCore.Sites',
+        'plugin.BaserCore.Contents'
     ];
 
     /**
@@ -50,7 +57,7 @@ class PluginTest extends BcTestCase
     {
         parent::setUp();
         $this->application = new Application(CONFIG);
-        $this->Plugin = new Plugin(['name' => 'BcBlog']);
+        $this->Plugin = new Plugin(['name' => 'BaserCore']);
     }
 
     /**
@@ -115,6 +122,9 @@ class PluginTest extends BcTestCase
         $service = $this->Plugin->getAuthenticationService($request);
         if($config) {
             foreach ($config as $key => $value) {
+                if($key === 'unauthenticatedRedirect') {
+                    $value = Router::url($value, true);
+                }
                 $this->assertEquals($service->getConfig($key), $value);
             }
         }
@@ -132,7 +142,7 @@ class PluginTest extends BcTestCase
             // APIの場合
             ['Api', ['Jwt', 'Form'], 'JwtSubject', []],
             // Adminの場合
-            ['Admin', ['Session', 'Form'], 'Password', ['unauthenticatedRedirect' => Router::url('/baser/admin/baser-core/users/login', true)]],
+            ['Admin', ['Session', 'Form'], 'Password', ['unauthenticatedRedirect' => '/baser/admin/baser-core/users/login']],
             // // それ以外の場合
             ['', ['Form'], '', []]
         ];
@@ -145,7 +155,29 @@ class PluginTest extends BcTestCase
      */
     public function testRoutes(): void
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
+        $routes = Router::createRouteBuilder('/');
+        $this->Plugin->routes($routes);
+
+        // トップページ
+        $result = Router::parseRequest($this->getRequest('/'));
+        $this->assertEquals('index', $result['pass'][0]);
+        // 管理画面（index付）
+        $this->loginAdmin($this->getRequest());
+        $result = Router::parseRequest($this->getRequest('/baser/admin/users/index'));
+        $this->assertEquals('Users', $result['controller']);
+        // API（.well-known）
+        $result = Router::parseRequest($this->getRequest('/baser/api/baser-core/.well-known/jwks.json'));
+        $this->assertEquals('json', $result['_ext']);
+        // サイト
+        Router::reload();
+        $builder = Router::createRouteBuilder('/');
+        // ルーティング設定をするために一旦　Router::setRequest() を実施
+        Router::setRequest(new ServerRequest(['url' => '/en/']));
+        $this->Plugin->routes($builder);
+        $result = Router::parseRequest(new ServerRequest(['url' => '/en/baser-core/users/']));
+        $this->assertEquals('index', $result['action']);
+        $result = Router::parseRequest(new ServerRequest(['url' => '/en/baser-core/users/view']));
+        $this->assertEquals('view', $result['action']);
     }
 
     /**
@@ -155,6 +187,21 @@ class PluginTest extends BcTestCase
      */
     public function testServices(): void
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
+        $container = new Container();
+        $this->Plugin->services($container);
+        $this->assertTrue($container->has(SiteConfigsServiceInterface::class));
     }
+
+    /**
+     * test setupDefaultTemplatesPath
+     * テストの前に実行されていることが前提
+     */
+    public function testSetupDefaultTemplatesPath()
+    {
+        $this->assertEquals([
+            ROOT . DS . 'plugins' . DS . 'bc-front' . DS . 'templates' . DS,
+            ROOT . DS . 'templates' . DS
+        ], Configure::read('App.paths.templates'));
+    }
+
 }

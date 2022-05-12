@@ -1,5 +1,7 @@
 <?php
 // TODO : コード確認要
+use BaserCore\Service\BcFrontServiceInterface;
+
 return;
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
@@ -23,6 +25,11 @@ App::uses('BcSmartphoneHelper', 'View/Helper');
  */
 class BcSmartphoneHelperTest extends BcTestCase
 {
+
+    /**
+     * Trait
+     */
+    use \BaserCore\Utility\BcContainerTrait;
 
     public $fixtures = [
         'baser.Default.Content',
@@ -64,13 +71,6 @@ class BcSmartphoneHelperTest extends BcTestCase
     public function testAfterLayout()
     {
         $this->markTestIncomplete('このテストは、まだ実装されていません。');
-
-        //afterLayoutの条件分岐、$this->request->params['Site']をempty以外にしたい
-        $this->_getRequest('/s/');
-        $site = BcSite::findCurrent();
-        pr($site->device);
-        $this->BcSmartphone->afterLayout('');
-
     }
 
 }

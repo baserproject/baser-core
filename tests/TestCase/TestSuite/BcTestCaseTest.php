@@ -1,19 +1,22 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Test\TestCase\TestSuite;
 
-use BaserCore\TestSuite\BcTestCase;
+use BaserCore\Utility\BcContainer;
+use Cake\Event\EventManager;
+use Cake\Http\Session;
 use Cake\Core\Configure;
 use Cake\Routing\Router;
+use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Controller\AnalyseController;
 
 /**
@@ -32,6 +35,8 @@ class BcTestCaseTest extends BcTestCase
         'plugin.BaserCore.UsersUserGroups',
         'plugin.BaserCore.UserGroups',
         'plugin.BaserCore.LoginStores',
+        'plugin.BaserCore.Sites',
+        'plugin.BaserCore.Contents',
     ];
 
     /**
@@ -51,6 +56,26 @@ class BcTestCaseTest extends BcTestCase
     }
 
     /**
+     * test setup
+     */
+    public function testSetup()
+    {
+        $this->assertEquals('App\Application', get_class($this->Application));
+        $plugins = $this->Application->getPlugins();
+        $this->assertTrue($plugins->has('BaserCore'));
+        $this->assertEquals('BaserCore\Plugin', get_class($this->BaserCore));
+    }
+
+    /**
+     * test tearDown
+     */
+    public function testTearDown()
+    {
+        $this->tearDown();
+        $this->assertNull(BcContainer::$container);
+    }
+
+    /**
      * Request を取得するテスト
      *
      * @return void
@@ -58,7 +83,7 @@ class BcTestCaseTest extends BcTestCase
     public function testGetRequest(): void
     {
         // デフォルトURL $url = '/'
-        $urlList = ['' => '/', '/test' => '/{controller}', '/test/test' => '/{controller}/{action}/*'];
+        $urlList = ['' => '/*', '/about' => '/*', '/baser/admin/users/login' => '/baser/admin/{controller}/{action}/*'];
         foreach($urlList as $url => $route) {
             $request = $this->getRequest($url);
             $this->assertEquals($route, $request->getParam('_matchedRoute'));
@@ -67,6 +92,12 @@ class BcTestCaseTest extends BcTestCase
         $request = $this->getRequest();
         $this->assertObjectHasAttribute('params', $request);
         $this->assertSame($request, Router::getRequest());
+        // configを設定する場合
+        $session = new Session();
+        $session->write('test', 'testGetRequest');
+        $request = $this->getRequest('/', [], 'GET', ['session' => $session]);
+        $this->assertEquals('testGetRequest', $request->getSession()->read('test'));
+
     }
 
     /**
@@ -91,10 +122,10 @@ class BcTestCaseTest extends BcTestCase
     public function testLoginAdmin(): void
     {
         // デフォルト引数が1かテスト
-        $this->assertEquals($this->loginAdmin()->id, "1");
+        $this->assertEquals($this->loginAdmin($this->getRequest())->getAttribute('authentication')->getIdentity()->getOriginalData()->id, "1");
         // session書かれているかテスト
-        $this->assertSession($this->loginAdmin(1), Configure::read('BcPrefixAuth.Admin.sessionKey'));
-        $this->assertSession($this->loginAdmin(2), Configure::read('BcPrefixAuth.Admin.sessionKey'));
+        $this->assertSession($this->loginAdmin($this->getRequest('/baser/admin'))->getAttribute('authentication')->getIdentity()->getOriginalData(), Configure::read('BcPrefixAuth.Admin.sessionKey'));
+        $this->assertSession($this->loginAdmin($this->getRequest('/baser/admin'), 2)->getAttribute('authentication')->getIdentity()->getOriginalData(), Configure::read('BcPrefixAuth.Admin.sessionKey'));
     }
 
     /**
@@ -113,10 +144,22 @@ class BcTestCaseTest extends BcTestCase
      */
     public function testExecPrivateMethod(): void
     {
-        $sampleClass = new AnalyseController();
+        $sampleClass = new AnalyseController($this->getRequest());
         $samplePrivateMethod = 'pathToClass';
         $result = $this->execPrivateMethod($sampleClass, $samplePrivateMethod, [ROOT . DS . "plugins"]);
         $this->assertEquals("", $result);
+    }
+
+    /**
+     * test attachEvent
+     */
+    public function testAttachEventAndResetEvent()
+    {
+        $this->attachEvent(['testEvent' => null]);
+        $eventManager = EventManager::instance();
+        $this->assertNotNull($eventManager->listeners('testEvent'));
+        $this->resetEvent();
+        $this->assertEmpty($eventManager->listeners('testEvent'));
     }
 
 }

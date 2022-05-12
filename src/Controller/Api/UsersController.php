@@ -1,24 +1,24 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Controller\Api;
 
 use Authentication\Controller\Component\AuthenticationComponent;
-use BaserCore\Service\UserApiServiceInterface;
 use BaserCore\Service\UsersServiceInterface;
+use Cake\Core\Configure;
 use Cake\Core\Exception\Exception;
-use Firebase\JWT\JWT;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
+use Cake\Routing\Router;
 
 /**
  * Class UsersController
@@ -43,10 +43,21 @@ class UsersController extends BcApiController
     /**
      * ログイン
      */
-    public function login(UserApiServiceInterface $userApi)
+    public function login(UsersServiceInterface $users)
     {
-        if (!$json = $userApi->getAccessToken($this->Authentication->getResult())) {
+        $result = $this->Authentication->getResult();
+        $json = [];
+        if (!$result->isValid() || !$json = $this->getAccessToken($this->Authentication->getResult())) {
             $this->setResponse($this->response->withStatus(401));
+        } else {
+            $redirect = $this->Authentication->getLoginRedirect() ?? Router::url(Configure::read('BcPrefixAuth.Admin.loginRedirect'));
+            $user = $result->getData();
+            $users->removeLoginKey($user->id);
+            if ($this->request->is('ssl') && $this->request->getData('saved')) {
+                $this->response = $users->setCookieAutoLoginKey($this->response, $user->id);
+            }
+            $this->BcMessage->setInfo(__d('baser', 'ようこそ、' . $user->getDisplayName() . 'さん。'));
+            $json['redirect'] = $redirect;
         }
         $this->set('json', $json);
         $this->viewBuilder()->setOption('serialize', 'json');
@@ -55,11 +66,11 @@ class UsersController extends BcApiController
     /**
      * リフレッシュトークン取得
      */
-    public function refresh_token(UserApiServiceInterface $userApi)
+    public function refresh_token()
     {
         $json = [];
         $payload = $this->Authentication->getAuthenticationService()->getAuthenticationProvider()->getPayload();
-        if ($payload->token_type !== 'refresh_token' || !$json = $userApi->getAccessToken($this->Authentication->getResult())) {
+        if ($payload->token_type !== 'refresh_token' || !$json = $this->getAccessToken($this->Authentication->getResult())) {
             $this->setResponse($this->response->withStatus(401));
         }
         $this->set('json', $json);
@@ -107,16 +118,20 @@ class UsersController extends BcApiController
     public function add(UsersServiceInterface $users)
     {
         $this->request->allowMethod(['post', 'delete']);
-        if ($user = $users->create($this->request->getData())) {
+        try {
+            $user = $users->create($this->request->getData());
             $message = __d('baser', 'ユーザー「{0}」を追加しました。', $user->name);
-        } else {
+        } catch (\Cake\ORM\Exception\PersistenceFailedException $e) {
+            $user = $e->getEntity();
+            $this->setResponse($this->response->withStatus(400));
             $message = __d('baser', '入力エラーです。内容を修正してください。');
         }
         $this->set([
             'message' => $message,
-            'user' => $user
+            'user' => $user,
+            'errors' => $user->getErrors(),
         ]);
-        $this->viewBuilder()->setOption('serialize', ['message', 'user']);
+        $this->viewBuilder()->setOption('serialize', ['message', 'user', 'errors']);
     }
 
     /**
@@ -131,16 +146,19 @@ class UsersController extends BcApiController
     {
         $this->request->allowMethod(['post', 'put']);
         $user = $users->get($id);
-        if ($user = $users->update($user, $this->request->getData())) {
+        try {
+            $user = $users->update($user, $this->request->getData());
             $message = __d('baser', 'ユーザー「{0}」を更新しました。', $user->name);
-        } else {
+        } catch (\Exception $e) {
+            $this->setResponse($this->response->withStatus(400));
             $message = __d('baser', '入力エラーです。内容を修正してください。');
         }
         $this->set([
             'message' => $message,
-            'user' => $user
+            'user' => $user,
+            'errors' => $user->getErrors(),
         ]);
-        $this->viewBuilder()->setOption('serialize', ['user', 'message']);
+        $this->viewBuilder()->setOption('serialize', ['user', 'message', 'errors']);
     }
 
     /**
@@ -160,6 +178,7 @@ class UsersController extends BcApiController
                 $message = __d('baser', 'ユーザー: {0} を削除しました。', $user->name);
             }
         } catch (Exception $e) {
+            $this->setResponse($this->response->withStatus(400));
             $message = __d('baser', 'データベース処理中にエラーが発生しました。') . $e->getMessage();
         }
         $this->set([

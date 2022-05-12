@@ -1,67 +1,97 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Service;
 
-use BaserCore\Model\Entity\User;
-use Cake\Datasource\EntityInterface;
-use Cake\ORM\Query;
+use Cake\Http\ServerRequest;
+use Cake\Core\Exception\Exception;
+use Psr\Http\Message\ResponseInterface;
 
 /**
  * Interface UsersServiceInterface
  * @package BaserCore\Service
  */
-interface UsersServiceInterface
+interface UsersServiceInterface extends CrudBaseServiceInterface
 {
 
     /**
-     * ユーザーを取得する
+     * ログイン
+     * @param ServerRequest $request
+     * @param ResponseInterface $response
+     * @param $id
+     * @return array|false
+     */
+    public function login(ServerRequest $request, ResponseInterface $response, $id);
+
+    /**
+     * ログアウト
+     * @param ServerRequest $request
+     * @param ResponseInterface $response
+     * @return array|false
+     */
+    public function logout(ServerRequest $request, ResponseInterface $response, $id);
+
+    /**
+     * 再ログイン
+     * @param ServerRequest $request
+     * @param ResponseInterface $response
+     * @return array|false
+     */
+    public function reLogin(ServerRequest $request, ResponseInterface $response);
+
+    /**
+     * ログイン状態の保存のキー送信
+     * @param ResponseInterface
      * @param int $id
-     * @return EntityInterface
+     * @return ResponseInterface
+     * @see https://book.cakephp.org/4/ja/controllers/request-response.html#response-cookies
      */
-    public function get($id): EntityInterface;
+    public function setCookieAutoLoginKey($response, $id): ResponseInterface;
 
     /**
-     * ユーザー一覧を取得
-     * @param array $queryParams
-     * @return Query
-     */
-    public function getIndex(array $queryParams): Query;
-
-    /**
-     * 新しいデータの初期値を取得する
-     * @return EntityInterface
-     */
-    public function getNew(): User;
-
-    /**
-     * 新規登録する
-     * @param array $postData
-     * @return EntityInterface|false
-     */
-    public function create(array $postData);
-
-    /**
-     * 編集する
-     * @param EntityInterface $target
-     * @param array $postData
-     * @return mixed
-     */
-    public function update(EntityInterface $target, array $postData);
-
-    /**
-     * 削除する
+     * ログインキーを削除する
      * @param int $id
-     * @return mixed
+     * @return int 削除行数
      */
-    public function delete(int $id);
+    public function removeLoginKey($id);
+
+    /**
+     * ログイン状態の保存確認
+     * @return ResponseInterface
+     */
+    public function checkAutoLogin(ServerRequest $request, ResponseInterface $response): ResponseInterface;
+
+    /**
+     * 代理ログインを行う
+     * @param ServerRequest $request
+     * @param int $id
+     * @param string $referer
+     */
+    public function loginToAgent(ServerRequest $request, ResponseInterface $response, $id, $referer = ''): bool;
+
+    /**
+     * 代理ログインから元のユーザーに戻る
+     * @param ServerRequest $request
+     * @param ResponseInterface $response
+     * @return array|mixed|string
+     * @throws Exception
+     */
+    public function returnLoginUserFromAgent(ServerRequest $request, ResponseInterface $response);
+
+    /**
+     * ログイン情報をリロードする
+     *
+     * @param ServerRequest $request
+     * @return bool
+     */
+    public function reload(ServerRequest $request);
 
 }

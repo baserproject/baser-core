@@ -1,19 +1,20 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Test\TestCase\Model\Validation;
 
-use BaserCore\Model\Validation\BcValidation;
+use Cake\Routing\Router;
+use Cake\I18n\FrozenTime;
 use BaserCore\TestSuite\BcTestCase;
-use BaserCore\Model\AppTable;
+use BaserCore\Model\Validation\BcValidation;
 
 /**
  * Class BcValidationTest
@@ -23,6 +24,16 @@ use BaserCore\Model\AppTable;
 class BcValidationTest extends BcTestCase
 {
 
+    /**
+     * Fixtures
+     *
+     * @var array
+     */
+    protected $fixtures = [
+        'plugin.BaserCore.Users',
+        'plugin.BaserCore.UserGroups',
+        'plugin.BaserCore.UsersUserGroups',
+    ];
     /**
      * Test subject
      *
@@ -49,6 +60,7 @@ class BcValidationTest extends BcTestCase
     public function tearDown(): void
     {
         unset($this->BcValidation);
+        Router::reload();
         parent::tearDown();
     }
 
@@ -382,11 +394,10 @@ class BcValidationTest extends BcTestCase
     public function checkDateDataProvider()
     {
         return [
-            ['2015-01-01', true],
-            ['201511', false],
-            ['2015-01-01 00:00:00', true],
-            ['2015-0101 00:00:00', false],
-            ['1970-01-01 09:00:00', false],
+            [FrozenTime::now(), true],
+            [new FrozenTime('2015-01-01'), true],
+            ['', false],
+            ['2015-01-01 00:00:00', false],
         ];
     }
 
@@ -440,10 +451,10 @@ class BcValidationTest extends BcTestCase
     public function checkDataAfterThanDataProvider()
     {
         return [
-            ['2015-01-01 00:00:00', '2015-01-01 00:00:00', false],
-            ['2015-01-01 24:00:01', '2015-01-02 00:00:00', true],
-            ['2015-01-01 00:00:00', '2015-01-02 00:00:00', false],
-            ['2015-01-02 00:00:00', '2015-01-01 00:00:00', true],
+            [new FrozenTime('2015-01-01 00:00:00'), new FrozenTime('2015-01-01 00:00:00'), false],
+            [new FrozenTime('2015-01-01 24:00:01'), new FrozenTime('2015-01-02 00:00:00'), true],
+            [new FrozenTime('2015-01-01 00:00:00'), new FrozenTime('2015-01-02 00:00:00'), false],
+            [new FrozenTime('2015-01-02 00:00:00'), new FrozenTime('2015-01-01 00:00:00'), true],
         ];
     }
 
@@ -451,10 +462,28 @@ class BcValidationTest extends BcTestCase
      * Test containsScript
      *
      * @return void
+     * @dataProvider containsScriptDataProvider
      */
-    public function testContainsScript()
+    public function testContainsScript($value, $expect)
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
+        if ($expect) Router::setRequest($this->loginAdmin($this->getRequest()));
+        $result = $this->BcValidation->containsScript($value);
+        $this->assertEquals($expect, $result);
     }
 
+    public function containsScriptDataProvider()
+    {
+        return [
+            // phpコードの場合
+            ['<?php echo $test; ?>', false],
+            // jsコードの場合
+            ['<script type="text/javascript">', false],
+            // イベントが入ってる場合
+            ['<input type="text" onclick="select()"/>', false],
+            // jsコードへのリンクがある場合
+            ['<a href="javascript:doSomething();">click me</a>', false],
+            // アドミンユーザーでログインしてる場合
+            ['<a href="javascript:doSomething();">click me</a>', true],
+        ];
+    }
 }

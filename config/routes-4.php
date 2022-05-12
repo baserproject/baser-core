@@ -10,6 +10,7 @@
  * @license         https://basercms.net/license/index.html
  */
 
+use Cake\Core\Configure;
 // CakeRequest 判定できる関数があるが、CakeRequest での判定は、
 // routes.php の処理が完了している事が前提である為利用できない
 $isMaintenance = Configure::read('BcRequest.isMaintenance');
@@ -77,7 +78,7 @@ Router::connectNamed(['sortmode', 'num', 'page', 'sort', 'direction']);
 /**
  * 認証プレフィックス
  */
-$authPrefixes = Configure::read('BcAuthPrefix');
+$authPrefixes = Configure::read('BcPrefixAuth');
 if ($authPrefixes && is_array($authPrefixes)) {
     foreach($authPrefixes as $prefix => $authPrefix) {
         if (!empty($authPrefix['alias'])) {
@@ -96,43 +97,3 @@ if ($authPrefixes && is_array($authPrefixes)) {
     }
 }
 
-/**
- * コンテンツ管理ルーティング
- */
-App::uses('BcContentsRoute', 'Routing/Route');
-Router::connect('*', [], array_merge($pluginMatch, ['routeClass' => 'BcContentsRoute']));
-Router::promote();    // 優先順位を最優先とする
-
-if (!BcUtil::isAdminSystem()) {
-
-    /**
-     * サブサイト標準ルーティング
-     */
-    try {
-        $Site = ClassRegistry::init('Site');
-        $request = new CakeRequest();
-        $site = $Site->findByUrl($request->url);
-        $siteAlias = $sitePrefix = '';
-        if ($site) {
-            $siteAlias = $site['Site']['alias'];
-            $sitePrefix = $site['Site']['name'];
-        }
-        if ($siteAlias) {
-            // プラグイン
-            Router::connect("/{$siteAlias}/:plugin/:controller", ['prefix' => $sitePrefix, 'action' => 'index'], $pluginMatch);
-            Router::connect("/{$siteAlias}/:plugin/:controller/:action/*", ['prefix' => $sitePrefix], $pluginMatch);
-            Router::connect("/{$siteAlias}/:plugin/:action/*", ['prefix' => $sitePrefix], $pluginMatch);
-            // モバイルノーマル
-            Router::connect("/{$siteAlias}/:controller/:action/*", ['prefix' => $sitePrefix]);
-            Router::connect("/{$siteAlias}/:controller", ['prefix' => $sitePrefix, 'action' => 'index']);
-        }
-    } catch (Exception $e) {
-    }
-
-    /**
-     * フィード出力
-     * 拡張子rssの場合は、rssディレクトリ内のビューを利用する
-     */
-    Router::parseExtensions('rss');
-
-}

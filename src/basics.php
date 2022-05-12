@@ -13,11 +13,12 @@
 // App::uses('EmailComponent', 'Controller/Component');
 // App::uses('BcEmailComponent', 'Controller/Component');
 // App::uses('CakeText', 'Utility');
-use Cake\Utility\Inflector;
-use Cake\Utility\Text;
 use Cake\Cache\Cache;
-use Cake\Filesystem\Folder;
+use Cake\Utility\Text;
 use Cake\Filesystem\File;
+use Cake\Filesystem\Folder;
+use Cake\Utility\Inflector;
+use BaserCore\Utility\BcUtil;
 
 /**
  * baserCMS共通関数
@@ -26,89 +27,6 @@ use Cake\Filesystem\File;
  *
  * @package         Baser
  */
-
-/**
- * WebサイトのベースとなるURLを取得する
- *
- * コントローラーが初期化される前など {$this->base} が利用できない場合に利用する
- * / | /index.php/ | /subdir/ | /subdir/index.php/
- *
- * ※ プログラムフォルダ内の画像やCSSの読み込み時もbootstrap.php で呼び出されるのでサーバーキャッシュは利用しない
- *
- * @return string ベースURL
- */
-function baseUrl()
-{
-
-    $baseUrl = Configure::read('App.baseUrl');
-    if ($baseUrl) {
-        if (!preg_match('/\/$/', $baseUrl)) {
-            $baseUrl .= '/';
-        }
-    } else {
-        $script = $_SERVER['SCRIPT_FILENAME'];
-        if (isConsole()) {
-            $script = str_replace('app' . DS . 'Console' . DS . 'cake.php', '', $script);
-        }
-        $script = str_replace(['\\', '/'], DS, $script);
-        $docroot = docRoot();
-        $script = str_replace($docroot, '', $script);
-        if (BC_DEPLOY_PATTERN == 1) {
-            $baseUrl = preg_replace('/' . preg_quote('app' . DS . 'webroot' . DS . 'index.php', '/') . '/', '', $script);
-            $baseUrl = preg_replace('/' . preg_quote('app' . DS . 'webroot' . DS . 'test.php', '/') . '/', '', $baseUrl);
-            // ↓ Windows Azure 対策 SCRIPT_FILENAMEに期待した値が入ってこない為
-            $baseUrl = preg_replace('/index\.php/', '', $baseUrl);
-        } elseif (BC_DEPLOY_PATTERN == 2) {
-            $baseUrl = preg_replace('/' . preg_quote(basename($_SERVER['SCRIPT_FILENAME']), '/') . '/', '', $script);
-        }
-        $baseUrl = preg_replace("/index$/", '', $baseUrl);
-    }
-
-    $baseUrl = str_replace(DS, '/', $baseUrl);
-    if (!$baseUrl) {
-        $baseUrl = '/';
-    }
-    return $baseUrl;
-
-}
-
-/**
- * ドキュメントルートを取得する
- *
- * サブドメインの場合など、$_SERVER['DOCUMENT_ROOT'] が正常に取得できない場合に利用する
- * UserDir に対応
- *
- * @return string   ドキュメントルートの絶対パス
- */
-function docRoot()
-{
-
-    if (empty($_SERVER['SCRIPT_NAME'])) {
-        return '';
-    }
-
-    if (isConsole()) {
-        $script = $_SERVER['SCRIPT_NAME'];
-        return str_replace('app' . DS . 'Console' . DS . 'cake.php', '', $script);
-    }
-
-    if (strpos($_SERVER['SCRIPT_NAME'], '.php') === false) {
-        // さくらの場合、/index を呼びだすと、拡張子が付加されない
-        $scriptName = $_SERVER['SCRIPT_NAME'] . '.php';
-    } else {
-        $scriptName = $_SERVER['SCRIPT_NAME'];
-    }
-    $path = explode('/', $scriptName);
-    krsort($path);
-    // WINDOWS環境の場合、SCRIPT_NAMEのDIRECTORY_SEPARATORがスラッシュの場合があるので
-    // スラッシュに一旦置換してスラッシュベースで解析
-    $docRoot = str_replace('\\', '/', $_SERVER['SCRIPT_FILENAME']);
-    foreach($path as $value) {
-        $reg = "/\/" . $value . "$/";
-        $docRoot = preg_replace($reg, '', $docRoot);
-    }
-    return str_replace('/', DS, $docRoot);
-}
 
 /**
  * リビジョンを取得する
@@ -146,70 +64,6 @@ function verpoint($version)
         return $maches[1] * 1000000000 + $maches[2] * 1000000 + $maches[3] * 1000 + $maches[4];
     } else {
         return 0;
-    }
-}
-
-/**
- * 拡張子を取得する
- * @param string    mimeタイプ
- * @return    string    拡張子
- * @access    public
- */
-function decodeContent($content, $fileName = null)
-{
-
-    $contentsMaping = [
-        "image/gif" => "gif",
-        "image/jpeg" => "jpg",
-        "image/pjpeg" => "jpg",
-        "image/x-png" => "png",
-        "image/jpg" => "jpg",
-        "image/png" => "png",
-        "application/x-shockwave-flash" => "swf",
-        /* "application/pdf" => "pdf", */ // TODO windows で ai ファイルをアップロードをした場合、headerがpdfとして出力されるのでコメントアウト
-        "application/pgp-signature" => "sig",
-        "application/futuresplash" => "spl",
-        "application/msword" => "doc",
-        "application/postscript" => "ai",
-        "application/x-bittorrent" => "torrent",
-        "application/x-dvi" => "dvi",
-        "application/x-gzip" => "gz",
-        "application/x-ns-proxy-autoconfig" => "pac",
-        "application/x-shockwave-flash" => "swf",
-        "application/x-tgz" => "tar.gz",
-        "application/x-tar" => "tar",
-        "application/zip" => "zip",
-        "audio/mpeg" => "mp3",
-        "audio/x-mpegurl" => "m3u",
-        "audio/x-ms-wma" => "wma",
-        "audio/x-ms-wax" => "wax",
-        "audio/x-wav" => "wav",
-        "image/x-xbitmap" => "xbm",
-        "image/x-xpixmap" => "xpm",
-        "image/x-xwindowdump" => "xwd",
-        "text/css" => "css",
-        "text/html" => "html",
-        "text/javascript" => "js",
-        "text/plain" => "txt",
-        "text/xml" => "xml",
-        "video/mpeg" => "mpeg",
-        "video/quicktime" => "mov",
-        "video/x-msvideo" => "avi",
-        "video/x-ms-asf" => "asf",
-        "video/x-ms-wmv" => "wmv"
-    ];
-
-    if (isset($contentsMaping[$content])) {
-        return $contentsMaping[$content];
-    } elseif ($fileName) {
-        $info = pathinfo($fileName);
-        if (!empty($info['extension'])) {
-            return $info['extension'];
-        } else {
-            return false;
-        }
-    } else {
-        return false;
     }
 }
 
@@ -271,8 +125,8 @@ function getUrlFromEnv()
             $aryRequestUri = explode('?', $requestUri);
             $requestUri = $aryRequestUri[0];
         }
-        if (preg_match('/^' . str_replace('/', '\/', baseUrl()) . '/is', $requestUri)) {
-            $parameter = preg_replace('/^' . str_replace('/', '\/', baseUrl()) . '/is', '', $requestUri);
+        if (preg_match('/^' . str_replace('/', '\/', BcUtil::baseUrl()) . '/is', $requestUri)) {
+            $parameter = preg_replace('/^' . str_replace('/', '\/', BcUtil::baseUrl()) . '/is', '', $requestUri);
         } else {
             $parameter = $requestUri;
         }
@@ -334,7 +188,7 @@ function clearViewCache($url = null, $ext = '.php')
                     $home = 's';
                 }
             }
-            $baseUrl = baseUrl();
+            $baseUrl = BcUtil::baseUrl();
             if ($baseUrl) {
                 $baseUrl = str_replace(['/', '.'], '_', $baseUrl);
                 $baseUrl = preg_replace('/^_/', '', $baseUrl);
@@ -400,19 +254,6 @@ function clearAllCache()
     clearCache();
     // dataキャッシュ削除
     clearDataCache();
-}
-
-/**
- * baserCMSのインストールが完了しているかチェックする
- * @return    boolean
- */
-function isInstalled()
-{
-
-    if (getDbConfig() && file_exists(APP . 'Config' . DS . 'install.php')) {
-        return true;
-    }
-    return false;
 }
 
 /**
@@ -489,22 +330,6 @@ function emptyFolder($path)
 }
 
 /**
- * 現在のビューディレクトリのパスを取得する
- *
- * @return string
- */
-function getViewPath()
-{
-    $siteConfig = Configure::read('BcSite');
-    $theme = $siteConfig['theme'];
-    if ($theme) {
-        return WWW_ROOT . 'theme' . DS . $theme . DS;
-    } else {
-        return APP . 'View' . DS;
-    }
-}
-
-/**
  * ファイルポインタから行を取得し、CSVフィールドを処理する
  *
  * @param stream    handle
@@ -545,50 +370,7 @@ function fgetcsvReg(&$handle, $length = null, $d = ',', $e = '"')
 function fullUrl($url)
 {
     $url = Router::url($url);
-    return topLevelUrl(false) . $url;
-}
-
-/**
- * サイトのトップレベルのURLを取得する
- *
- * @param boolean $lastSlash
- * @return    string
- */
-function topLevelUrl($lastSlash = true)
-{
-
-    if (isConsole() && !Configure::check('BcEnv.host')) {
-        return Configure::read('App.fullBaseUrl');
-    }
-    $request = Router::getRequest();
-    $protocol = 'http://';
-    if (!empty($request) && $request->is('ssl')) {
-        $protocol = 'https://';
-    }
-    $host = Configure::read('BcEnv.host');
-    $url = $protocol . $host;
-    if ($lastSlash) {
-        $url .= '/';
-    }
-    return $url;
-}
-
-/**
- * サイトの設置URLを取得する
- *
- * index.phpは含まない
- *
- * @return    string
- */
-function siteUrl()
-{
-    $baseUrl = preg_replace('/' . preg_quote(basename($_SERVER['SCRIPT_FILENAME']), '/') . '\/$/', '', baseUrl());
-    $topLevelUrl = topLevelUrl(false);
-    if ($topLevelUrl) {
-        return $topLevelUrl . $baseUrl;
-    } else {
-        return '';
-    }
+    return \BaserCore\Utility\BcUtil::topLevelUrl(false) . $url;
 }
 
 /**
@@ -614,68 +396,6 @@ function amr($a, $b)
         $a[$k] = $v;
     }
     return $a;
-}
-
-/**
- * URLにセッションIDを付加する
- * 既に付加されている場合は重複しない
- *
- * @param mixed $url
- * @return mixed
- */
-function addSessionId($url, $force = false)
-{
-    if (BcUtil::isAdminSystem()) {
-        return $url;
-    }
-    $sessionId = session_id();
-    if (!$sessionId) {
-        return $url;
-    }
-
-    $site = null;
-    if (!Configure::read('BcRequest.isUpdater')) {
-        $site = BcSite::findCurrent();
-    }
-    // use_trans_sid が有効になっている場合、２重で付加されてしまう
-    if ($site && $site->device == 'mobile' && Configure::read('BcAgent.mobile.sessionId') && (!ini_get('session.use_trans_sid') || $force)) {
-        if (is_array($url)) {
-            $url["?"][session_name()] = $sessionId;
-        } else {
-            if (strpos($url, '?') !== false) {
-                $args = [];
-                $_url = explode('?', $url);
-                if (!empty($_url[1])) {
-                    if (strpos($_url[1], '&') !== false) {
-                        $aryUrl = explode('&', $_url[1]);
-                        foreach($aryUrl as $pass) {
-                            if (strpos($pass, '=') !== false) {
-                                [$key, $value] = explode('=', $pass);
-                                $args[$key] = $value;
-                            }
-                        }
-                    } else {
-                        if (strpos($_url[1], '=') !== false) {
-                            [$key, $value] = explode('=', $_url[1]);
-                            $args[$key] = $value;
-                        }
-                    }
-                }
-                $args[session_name()] = $sessionId;
-                $pass = '';
-                foreach($args as $key => $value) {
-                    if ($pass) {
-                        $pass .= '&';
-                    }
-                    $pass .= $key . '=' . $value;
-                }
-                $url = $_url[0] . '?' . $pass;
-            } else {
-                $url .= '?' . session_name() . '=' . $sessionId;
-            }
-        }
-    }
-    return $url;
 }
 
 /**
@@ -750,7 +470,7 @@ function loadSiteConfig($force = false)
     } catch (Exception $ex) {
         return false;
     }
-    Configure::write('BcSite', $SiteConfig->findExpanded());
+    Configure::write('BcSite', $SiteConfig->getKeyValue());
     ClassRegistry::removeObject('SiteConfig');
     return true;
 }
@@ -828,7 +548,7 @@ function sendUpdateMail()
     $BcEmail->from = $bcSite['name'] . ' <' . $bcSite['email'] . '>';
     $message = [];
     $message[] = __d('baser', '下記のURLよりbaserCMSのアップデートを完了してください。');
-    $message[] = topLevelUrl(false) . baseUrl() . 'updaters/index/' . $bcSite['update_id'];
+    $message[] = \BaserCore\Utility\BcUtil::topLevelUrl(false) . BcUtil::baseUrl() . 'updaters/index/' . $bcSite['update_id'];
     $BcEmail->send($message);
 }
 
@@ -899,24 +619,6 @@ function aa()
 }
 
 /**
- * 日本語ファイル名対応版basename
- *
- * @param string $str
- * @param string $suffix
- * @return type
- */
-function mb_basename($str, $suffix = null)
-{
-    $tmp = preg_split('/[\/\\\\]/', $str);
-    $res = end($tmp);
-    if (strlen($suffix)) {
-        $suffix = preg_quote($suffix);
-        $res = preg_replace("/({$suffix})$/u", "", $res);
-    }
-    return $res;
-}
-
-/**
  * プラグインを読み込む
  *
  * @param string $plugin
@@ -944,31 +646,6 @@ function loadPlugin($plugin, $priority)
         try {
             Configure::load($plugin . '.setting');
         } catch (Exception $ex) {
-        }
-    }
-    // プラグインイベント登録
-    $eventTargets = ['Controller', 'Model', 'View', 'Helper'];
-    foreach($eventTargets as $eventTarget) {
-        $eventClass = $plugin . $eventTarget . 'EventListener';
-        if (file_exists($pluginPath . 'Event' . DS . $eventClass . '.php')) {
-            App::uses($eventClass, $plugin . '.Event');
-            App::uses('CakeEventManager', 'Event');
-            $CakeEvent = CakeEventManager::instance();
-            $EventClass = new $eventClass();
-
-            foreach($EventClass->events as $key => $options) {
-                // プラグイン側で priority の設定がされてない場合に設定
-                if (is_array($options)) {
-                    if (empty($options['priority'])) {
-                        $options['priority'] = $priority;
-                        $EventClass->events[$key] = $options;
-                    }
-                } else {
-                    unset($EventClass->events[$key]);
-                    $EventClass->events[$options] = ['priority' => $priority];
-                }
-            }
-            $CakeEvent->attach($EventClass, null);
         }
     }
     return true;
@@ -1028,16 +705,6 @@ function base64UrlsafeDecode($val)
 {
     $val = str_replace(['_', '-', '.'], ['+', '/', '='], $val);
     return base64_decode($val);
-}
-
-/**
- * 実行環境のOSがWindowsであるかどうかを返す
- *
- * @return bool
- */
-function isWindows()
-{
-    return DIRECTORY_SEPARATOR == '\\';
 }
 
 /**

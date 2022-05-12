@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Test\TestCase\Model\Table;
@@ -178,9 +178,12 @@ class LoginStoresTableTest extends BcTestCase
         $enableLoginStore = $this->LoginStores->getEnableLoginStore($loginStore->store_key);
         $this->assertNotNull($enableLoginStore);
 
-        // 古いデータの削除
+        // 古いデータの削除確認
         $disableLoginStore = $this->LoginStores->find('all')
-            ->where(['created <=' => date('Y-m-d h:i:s', strtotime("-365 day"))])
+            ->where([
+                'user_id' => 1,
+                'created <=' => date('Y-m-d h:i:s', strtotime("-365 day"))
+            ])
             ->first();
         $this->assertNull($disableLoginStore);
     }

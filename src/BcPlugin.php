@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore;
@@ -15,6 +15,8 @@ use BaserCore\Error\BcException;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\BasePlugin;
 use Cake\Core\Configure;
+use Cake\Core\Configure\Engine\PhpConfig;
+use Cake\Core\PluginApplicationInterface;
 use Cake\Datasource\ConnectionManager;
 use Cake\Filesystem\Folder;
 use Cake\ORM\TableRegistry;
@@ -51,6 +53,26 @@ class BcPlugin extends BasePlugin
     }
 
     /**
+     * bootstrap
+     *
+     * @param PluginApplicationInterface $application
+     */
+    public function bootstrap(PluginApplicationInterface $application): void
+    {
+        $pluginPath = BcUtil::getPluginPath($this->name);
+        if (file_exists($pluginPath . 'config' . DS . 'setting.php')) {
+            try {
+                Configure::config('baser', new PhpConfig());
+                Configure::load($this->name . '.setting', 'baser');
+            } catch (BcException $e) {
+            }
+        }
+        // 親の bootstrap は、setting の読み込みの後でなければならない
+        // bootstrap 内で、setting の値を参照する場合があるため
+        parent::bootstrap($application);
+    }
+
+    /**
      * プラグインをインストールする
      *
      * マイグレーションファイルを読み込み、 plugins テーブルに登録する
@@ -81,6 +103,7 @@ class BcPlugin extends BasePlugin
                     $this->migrations->seed($options);
                 }
             }
+            BcUtil::clearAllCache();
             return $plugins->install($pluginName);
         } catch (BcException $e) {
             $this->migrations->rollback($options);
@@ -161,31 +184,57 @@ class BcPlugin extends BasePlugin
      */
     public function routes($routes): void
     {
-        $baserCorePrefix = Configure::read('BcApp.baserCorePrefix');
         $plugin = $this->getName();
 
-        // プラグインの管理画面用ルーティング
-        $routes->prefix(
-            'Admin',
-            ['path' => $baserCorePrefix . Configure::read('BcApp.adminPrefix')],
-            function(RouteBuilder $routes) use ($plugin) {
-                $routes->connect('', ['plugin' => 'BaserCore', 'controller' => 'Dashboard', 'action' => 'index']);
-                $routes->plugin(
-                    $plugin,
-                    ['path' => '/' . Inflector::dasherize($plugin)],
-                    function(RouteBuilder $routes) {
-                        // CakePHPのデフォルトで /index が省略する仕様のため、URLを生成する際は、強制的に /index を付ける仕様に変更
-                        $routes->connect('/{controller}/index', [], ['routeClass' => InflectedRoute::class]);
-                        $routes->fallbacks(InflectedRoute::class);
-                    }
-                );
+        /**
+         * インストーラー
+         */
+        if (!Configure::read('BcRequest.isInstalled')) {
+            $routes->connect('/', ['plugin' => 'BaserCore', 'controller' => 'Installations', 'action' => 'index']);
+            $routes->connect('/install', ['plugin' => 'BaserCore', 'controller' => 'Installations', 'action' => 'index']);
+            $routes->fallbacks(InflectedRoute::class);
+            parent::routes($routes);
+            return;
+        }
+
+        /**
+         * コンテンツ管理ルーティング
+         */
+        $routes->plugin(
+            $plugin,
+            ['path' => '/'],
+            function(RouteBuilder $routes) {
+                $routes->setRouteClass('BaserCore.BcContentsRoute');
+                $routes->connect('/', []);
+                $routes->connect('/{controller}/index', []);
+                $routes->connect('/:controller/:action/*', []);
             }
         );
+
+        // プラグインの管理画面用ルーティング
+        $prefixSettings = Configure::read('BcPrefixAuth');
+        foreach($prefixSettings as $prefix => $setting) {
+            $routes->prefix(
+                $prefix,
+                ['path' => '/' . BcUtil::getBaserCorePrefix() . '/' . $setting['alias']],
+                function(RouteBuilder $routes) use ($plugin) {
+                    $routes->plugin(
+                        $plugin,
+                        ['path' => '/' . Inflector::dasherize($plugin)],
+                        function(RouteBuilder $routes) {
+                            // CakePHPのデフォルトで /index が省略する仕様のため、URLを生成する際は、強制的に /index を付ける仕様に変更
+                            $routes->connect('/{controller}/index', [], ['routeClass' => InflectedRoute::class]);
+                            $routes->fallbacks(InflectedRoute::class);
+                        }
+                    );
+                }
+            );
+        }
 
         // プラグインのフロントエンド用ルーティング
         $routes->plugin(
             $plugin,
-            ['path' => $baserCorePrefix . '/' . Inflector::dasherize($plugin)],
+            ['path' => '/' . BcUtil:: getBaserCorePrefix() . '/' . Inflector::dasherize($plugin)],
             function(RouteBuilder $routes) {
                 // AnalyseController で利用
                 $routes->setExtensions(['json']);
@@ -197,7 +246,7 @@ class BcPlugin extends BasePlugin
         // API用ルーティング
         $routes->prefix(
             'Api',
-            ['path' => $baserCorePrefix . '/api'],
+            ['path' => '/' . BcUtil::getBaserCorePrefix() . '/api'],
             function(RouteBuilder $routes) use ($plugin) {
                 $routes->plugin(
                     $plugin,

@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Test\TestCase\Controller\Api;
@@ -35,6 +35,7 @@ class PluginsControllerTest extends BcTestCase
         'plugin.BaserCore.UsersUserGroups',
         'plugin.BaserCore.UserGroups',
         'plugin.BaserCore.Plugins',
+        'plugin.BaserCore.Permissions',
     ];
 
     /**
@@ -92,7 +93,7 @@ class PluginsControllerTest extends BcTestCase
         $this->get('/baser/api/baser-core/plugins/index.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
-        $this->assertEquals('BcSample', $result->plugins[0]->name);
+        $this->assertEquals('BcBlog', $result->plugins[0]->name);
     }
 
     /**
@@ -104,10 +105,18 @@ class PluginsControllerTest extends BcTestCase
     public function testInstall($pluginName, $message)
     {
         // フォルダはあるがインストールできない場合
+        $data = [
+            'connection' => 'test',
+            'name' => $pluginName,
+            'title' => $pluginName,
+            'status' => "0",
+            'version' => "1.0.0",
+            'permission' => "1"
+        ];
         $pluginPath = App::path('plugins')[0] . DS . 'BcTest';
         $folder = new Folder($pluginPath);
         $folder->create($pluginPath, 0777);
-        $this->post('/baser/api/baser-core/plugins/install/' . $pluginName .'.json?token=' . $this->accessToken, ['connection' => 'test']);
+        $this->post('/baser/api/baser-core/plugins/install/' . $pluginName .'.json?token=' . $this->accessToken, $data);
         $this->assertResponseSuccess();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals($message, $result->message);
@@ -142,6 +151,17 @@ class PluginsControllerTest extends BcTestCase
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('ブログ プラグインのデータを初期化しました。', $result->message);
+        $plugins = $this->getTableLocator()->get('BaserCore.Plugins');
+        $plugins->deleteAll(['name' => 'BcBlog']);
+        $data = [
+            'connection' => 'test',
+            'name' => 'BcBlog',
+            'title' => 'ブログ',
+            'status' => "0",
+            'version' => "1.0.0",
+            'permission' => "1"
+        ];
+        $this->post('/baser/api/baser-core/plugins/install/BcBlog.json?token=' . $this->accessToken, $data);
     }
 
     /**

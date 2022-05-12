@@ -1,12 +1,12 @@
 <?php
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
- * Copyright (c) baserCMS User Community <https://basercms.net/community/>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
  *
- * @copyright     Copyright (c) baserCMS User Community
+ * @copyright     Copyright (c) NPO baser foundation
  * @link          https://basercms.net baserCMS Project
  * @since         5.0.0
- * @license       http://basercms.net/license/index.html MIT License
+ * @license       https://basercms.net/license/index.html MIT License
  */
 
 namespace BaserCore\Test\TestCase\Service;
@@ -31,7 +31,8 @@ class UserGroupsServiceTest extends BcTestCase
         'plugin.BaserCore.Users',
         'plugin.BaserCore.UsersUserGroups',
         'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.LoginStores'
+        'plugin.BaserCore.LoginStores',
+        'plugin.BaserCore.Permissions',
     ];
 
     /**
@@ -62,6 +63,14 @@ class UserGroupsServiceTest extends BcTestCase
     }
 
     /**
+     * Test getNew
+     */
+    public function testGetNew()
+    {
+        $this->assertEquals('Admin', $this->UserGroups->getNew()->auth_prefix);
+    }
+
+    /**
      * Test get
      */
     public function testGet()
@@ -76,7 +85,7 @@ class UserGroupsServiceTest extends BcTestCase
     public function testGetIndex()
     {
         $userGroups = $this->UserGroups->getIndex();
-        $this->assertEquals(2, $userGroups->count());
+        $this->assertEquals(3, $userGroups->count());
     }
 
     /**
@@ -91,16 +100,18 @@ class UserGroupsServiceTest extends BcTestCase
             'use_move_contents' => '1',
             'auth_prefix' => $authPrefix
         ];
-        $a = $this->UserGroups->create($data);
+        $this->UserGroups->create($data);
         $group = $this->UserGroups->getIndex();
-        $this->assertEquals($group->last()->name, $data['name']);
-        $this->assertEquals($group->last()->auth_prefix, $expected);
+        $this->assertEquals($group->all()->last()->name, $data['name']);
+        $this->assertEquals($group->all()->last()->auth_prefix, $expected);
     }
     public function createDataProvider()
     {
         return [
             // auth_prefixがすでにある場合
-            ['test', 'test'],
+            [['test'], 'test'],
+            // auth_prefixが複数ある場合
+            [['test1', 'test2'], 'test1,test2'],
             // auth_prefixがない場合
             [null, 'Admin'],
         ];
@@ -123,8 +134,8 @@ class UserGroupsServiceTest extends BcTestCase
      */
     public function testDelete()
     {
-        $this->UserGroups->delete(2);
+        $this->UserGroups->delete(3);
         $group = $this->UserGroups->UserGroups->find('all');
-        $this->assertEquals(1, $group->count());
+        $this->assertEquals(2, $group->count());
     }
 }
