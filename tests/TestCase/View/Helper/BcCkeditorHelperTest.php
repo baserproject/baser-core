@@ -14,6 +14,8 @@ namespace BaserCore\Test\TestCase\View\Helper;
 use BaserCore\View\BcAdminAppView;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\View\Helper\BcCkeditorHelper;
+use Cake\Core\Plugin;
+use Cake\Core\PluginCollection;
 
 /**
  * text helper library.
@@ -30,17 +32,20 @@ class BcCkeditorHelperTest extends BcTestCase
      */
     protected $fixtures = [
         'plugin.BaserCore.Sites',
+        'plugin.BaserCore.Contents',
         'plugin.BaserCore.Users',
         'plugin.BaserCore.UserGroups',
         'plugin.BaserCore.UsersUserGroups',
+        'plugin.BaserCore.Plugins',
     ];
     /**
      * setUp
      */
     public function setUp(): void
     {
+        $this->setFixtureTruncate();
         parent::setUp();
-        $this->BcCkeditor = new BcCkeditorHelper(new BcAdminAppView($this->getRequest('/')));
+        $this->BcCkeditor = new BcCkeditorHelper(new BcAdminAppView($this->getRequest('/baser/admin')));
     }
 
     /**
@@ -72,8 +77,11 @@ class BcCkeditorHelperTest extends BcTestCase
     {
         $this->BcCkeditor->getView()->setTheme('BcAdminThird');
         $fieldName = 'Page.test';
+        $request = $this->getRequest('/')->withAttribute('formTokenData', ['test']);
+        $this->BcCkeditor->getView()->setRequest($request);
+        $this->BcCkeditor->BcAdminForm->create();
         $result = $this->BcCkeditor->editor($fieldName, []);
-        $tagList = ['/<span class="bca-textarea"/', '/<textarea name="Page\[test\]"/', '/<input type="hidden" id="DraftModeTest"/'];
+        $tagList = ['/<span class="bca-textarea"/', '/<textarea name="Page\[test\]"/'];
         foreach ($tagList as $requiredTag) {
             $this->assertMatchesRegularExpression($requiredTag, $result);
         }
@@ -84,7 +92,7 @@ class BcCkeditorHelperTest extends BcTestCase
      *
      * @return void
      */
-    public function testBuildTmpScript()
+    public function testBuild()
     {
         $this->BcCkeditor->getView()->setTheme('BcAdminThird');
         $options = [
@@ -108,34 +116,84 @@ class BcCkeditorHelperTest extends BcTestCase
                 ],
             'type' => 'textarea',
             ];
-        $result = $this->execPrivateMethod($this->BcCkeditor, 'buildTmpScript', ["Page.contents_tmp", $options]);
+        $request = $this->BcCkeditor->getView()->getRequest()->withAttribute('formTokenData', ['dummy']);
+        $this->BcCkeditor->getView()->setRequest($request);
+        $this->BcCkeditor->BcAdminForm->create();
+        $result = $this->execPrivateMethod($this->BcCkeditor, 'build', ["Page.contents", $options]);
+        $this->assertMatchesRegularExpression('/<input type="hidden" name="ckeditor\[setting\]\[Page\]\[contents_tmp\]"/', $result);
         $jsResult = $this->BcCkeditor->getView()->fetch('script');
-        $this->assertMatchesRegularExpression('/<input type="hidden" id="DraftModeContentsTmpTmp" value="publish">/', $result);
-        // ckeditor.jsがタグに含められてるか確認
-        $this->assertMatchesRegularExpression('/<script src="bc_admin_third\/js\/vendor\/ckeditor\/ckeditor.js">/', $jsResult);
-        // applyCkeditor.bundleがタグに含められてるか確認
-        $this->assertMatchesRegularExpression('/<script src="bc_admin_third\/js\/admin\/pages\/applyCkeditor.bundle.js">/', $jsResult);
-        // javascript側で使用する変数が埋め込まれてるかをテスト
-        $varList = [
-            "ckeditorField",
-            "editorStylesSet",
-            "editorEnterBr",
-            "editorDomId",
-            "editorUseDraft",
-            "draftAreaId",
-            "publishAreaId",
-            "editorReadonlyPublish",
-            "editorDisableDraft",
-            "editorDisablePublish",
-            "fieldCamelize",
-            "initialStyle",
-            "editorStyle",
-            "themeEditorCsses",
-            "editorOptions"
+        $this->assertMatchesRegularExpression('/let config = JSON\.parse\(\$\(\'#CkeditorSettingContentsTmp\'\)\.val\(\)\)/', $jsResult);
+    }
+
+    /**
+     * Test setEditorToolbar
+     */
+    public function testSetEditorToolbar()
+    {
+        $options = $this->BcCkeditor->setEditorToolbar(['editorToolbar' => [['Bold']]]);
+        $this->assertEquals(['editorToolbar' => [['Bold']]], $options);
+        $options = $this->BcCkeditor->setEditorToolbar([
+            'editorToolbar' => [['Bold']],
+            'editorUseTemplates' => false,
+            'editorToolType' => 'simple'
+        ]);
+        $this->assertIsArray($options['editorToolbar']);
+        (new \BcEditorTemplate\Plugin())->install(['connection' => 'test']);
+        $options = $this->BcCkeditor->setEditorToolbar([
+            'editorToolbar' => [],
+            'editorUseTemplates' => true,
+            'editorToolType' => 'simple'
+        ]);
+        $this->assertContains('Templates', $options['editorToolbar'][0]);
+        $options = $this->BcCkeditor->setEditorToolbar([
+            'editorToolbar' => [],
+            'editorUseTemplates' => true,
+            'editorToolType' => 'normal'
+        ]);
+        $this->assertContains('Templates', $options['editorToolbar'][1]);
+    }
+
+    /**
+     * Test setDraft
+     */
+    public function testSetDraft()
+    {
+        $request = $this->BcCkeditor->getView()->getRequest()->withAttribute('formTokenData', ['dummy']);
+        $this->BcCkeditor->getView()->setRequest($request);
+        $this->BcCkeditor->BcAdminForm->create();
+
+        $options = [
+            'editorToolbar' => [['Bold']],
+            'editorDisableCopyDraft' => ['test draft'],
+            'editorDisableCopyPublish' => ['test publish'],
+            'editorDraftField' => 'test',
         ];
-        foreach ($varList as $var) {
-            $this->assertEquals(1, preg_match("/var\s$var/",$jsResult));
-        }
+        $result = $this->BcCkeditor->setDraft('contents', $options);
+        $this->assertCount(5, $result['editorToolbar'][0]);
+
+        $options = [
+            'editorToolbar' => [['Bold']],
+            'editorDisableCopyDraft' => [],
+            'editorDisableCopyPublish' => [],
+            'editorDraftField' => 'test',
+        ];
+        $result = $this->BcCkeditor->setDraft('contents', $options);
+        $this->assertContains('CopyDraft', $result['editorToolbar'][0]);
+        $this->assertContains('CopyPublish', $result['editorToolbar'][0]);
+        $this->assertEquals('Contents', $result['publishAreaId']);
+        $this->assertEquals('Test', $result['draftAreaId']);
+
+        $result = $this->BcCkeditor->setDraft('page.contents', $options);
+        $this->assertEquals('PageContents', $result['publishAreaId']);
+        $this->assertEquals('PageTest', $result['draftAreaId']);
+    }
+
+    /**
+     * Test getThemeEditorCsses
+     */
+    public function testGetThemeEditorCsses()
+    {
+        $this->markTestIncomplete('このテストは、まだ実装されていません。');
     }
 
 }

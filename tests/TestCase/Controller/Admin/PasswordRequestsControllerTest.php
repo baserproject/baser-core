@@ -39,6 +39,25 @@ class PasswordRequestsControllerTest extends BcTestCase
         'plugin.BaserCore.SiteConfigs'
     ];
 
+
+    /**
+     * set up
+     */
+    public function setUp(): void
+    {
+        parent::setUp();
+    }
+
+    /**
+     * Tear Down
+     *
+     * @return void
+     */
+    public function tearDown(): void
+    {
+        parent::tearDown();
+    }
+
     /**
      * Test initialize
      */
@@ -53,7 +72,7 @@ class PasswordRequestsControllerTest extends BcTestCase
      */
     public function testEntry()
     {
-        $messages = TestEmailTransport::clearMessages();
+        TestEmailTransport::clearMessages();
 
         $this->enableSecurityToken();
         $this->enableCsrfToken();
@@ -66,7 +85,7 @@ class PasswordRequestsControllerTest extends BcTestCase
         $this->post('/baser/admin/baser-core/password_requests/entry', [
             'email' => 'testuser1@example.com',
         ]);
-        $this->assertResponseOk();
+        $this->assertRedirect('/baser/admin/baser-core/password_requests/entry');
         $this->assertMailSentTo('testuser1@example.com');
 
         // メール内のURLにアクセス

@@ -14,6 +14,7 @@ namespace BaserCore\Test\TestCase\Model\Table;
 use BaserCore\Model\Table\LoginStoresTable;
 use BaserCore\TestSuite\BcTestCase;
 use Cake\TestSuite\IntegrationTestTrait;
+use Exception;
 
 /**
  * BaserCore\Model\Table\LoginStoresTable Test Case
@@ -112,6 +113,7 @@ class LoginStoresTableTest extends BcTestCase
      */
     public function testAddKey()
     {
+        // LoginStoresにキーが追加される
         $beforeCount = $this->LoginStores->find('all')->count();
         $loginStore = $this->LoginStores->addKey('Admin', 1);
         $afterCount = $this->LoginStores->find('all')->count();
@@ -119,8 +121,8 @@ class LoginStoresTableTest extends BcTestCase
 
         // 同一prexi user_idの場合リフレッシュとなり追加されない
         $loginStore2 = $this->LoginStores->addKey('Admin', 1);
-        $loginStore2 = $this->LoginStores->addKey('Admin', 1);
-        $this->assertSame($beforeCount + 1, $afterCount);
+        $afterCount2 = $this->LoginStores->find('all')->count();
+        $this->assertSame($afterCount, $afterCount2);
 
         // キーは変更されている
         $this->assertNotSame($loginStore->store_key, $loginStore2->store_key);
@@ -207,6 +209,10 @@ class LoginStoresTableTest extends BcTestCase
                 $loginStore2->store_key
             ]
         ));
+
+        $this->expectException(Exception::class);
+        $this->LoginStores->refresh('Admin', 0);
+
     }
 
 }

@@ -12,23 +12,30 @@
 namespace BaserCore\Test\TestCase\Model\Table;
 
 use ArrayObject;
+use BaserCore\Service\BcDatabaseService;
+use BaserCore\Test\Scenario\SmallSetContentsScenario;
 use Cake\ORM\Entity;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 use ReflectionClass;
 use Cake\Core\Configure;
-use Cake\ORM\Marshaller;
 use Cake\I18n\FrozenTime;
 use Cake\Validation\Validator;
 use BaserCore\Model\Entity\Content;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Model\Table\ContentsTable;
+
 /**
  * Class ContentTest
  *
- * @package Baser.Test.Case.Model
  * @property ContentsTable $Contents
  */
 class ContentsTableTest extends BcTestCase
 {
+
+    /**
+     * Trait
+     */
+    use ScenarioAwareTrait;
 
     public $fixtures = [
         'plugin.BaserCore.Users',
@@ -38,7 +45,6 @@ class ContentsTableTest extends BcTestCase
         'plugin.BaserCore.Contents',
         'plugin.BaserCore.ContentFolders',
         'plugin.BaserCore.Pages',
-        'plugin.BaserCore.SearchIndexes',
         'plugin.BaserCore.SiteConfigs',
         'plugin.BaserCore.Model/Table/Content/ContentStatusCheck'
     ];
@@ -56,8 +62,8 @@ class ContentsTableTest extends BcTestCase
      */
     public function setUp(): void
     {
-        $this->loadFixtures('Contents', 'Sites', 'Users', 'UserGroups', 'UsersUserGroups');
         parent::setUp();
+        $this->loadFixtures('Contents', 'Sites', 'Users', 'UserGroups', 'UsersUserGroups');
         $config = $this->getTableLocator()->exists('Contents')? [] : ['className' => 'BaserCore\Model\Table\ContentsTable'];
         $this->Contents = $this->getTableLocator()->get('Contents', $config);
     }
@@ -99,27 +105,6 @@ class ContentsTableTest extends BcTestCase
     }
 
     /**
-     * testDelete
-     *
-     * @return void
-     */
-    public function testHardDel(): void
-    {
-        // treeBehavior falseの場合
-        $content1 = $this->Contents->getTrash(15);
-        $this->assertTrue($this->Contents->hardDel($content1));
-        $this->expectException('Cake\Datasource\Exception\RecordNotFoundException');
-        $this->Contents->getTrash(15);
-        // treeBehavior trueの場合
-        $content2 = $this->Contents->getTrash(16);
-        $this->assertTrue($this->Contents->hardDel($content2, true));
-        $this->expectException('Cake\Datasource\Exception\RecordNotFoundException');
-        $this->Contents->getTrash(16); // 親要素
-        $this->expectException('Cake\Datasource\Exception\RecordNotFoundException');
-        $this->Contents->getTrash(17); // 子要素
-    }
-
-    /**
      * Test validationDefault
      *
      * @return void
@@ -137,8 +122,8 @@ class ContentsTableTest extends BcTestCase
     /**
      * testValidationDefaultWithEntity
      *
-     * @param  mixed $fields
-     * @param  mixed $messages
+     * @param mixed $fields
+     * @param mixed $messages
      * @return void
      * @dataProvider validationDefaultWithEntityDataProvider
      */
@@ -148,6 +133,7 @@ class ContentsTableTest extends BcTestCase
         $contents = $this->Contents->newEntity($fields);
         $this->assertSame($messages, $contents->getErrors());
     }
+
     public function validationDefaultWithEntityDataProvider()
     {
         return [
@@ -190,7 +176,9 @@ class ContentsTableTest extends BcTestCase
      */
     public function testImplementedEvents()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
+        $result = $this->Contents->implementedEvents();
+        $this->assertTrue(is_array($result));
+        $this->assertGreaterThanOrEqual(3, count($result));
     }
 
     /**
@@ -222,8 +210,8 @@ class ContentsTableTest extends BcTestCase
     /**
      * testBeforeMarshal
      *
-     * @param  array $content
-     * @param  array $expected
+     * @param array $content
+     * @param array $expected
      * @return void
      * @dataProvider beforeMarshalDataProvider
      */
@@ -232,11 +220,11 @@ class ContentsTableTest extends BcTestCase
         $this->loginAdmin($this->getRequest());
         $result = $this->Contents->dispatchEvent('Model.beforeMarshal', ['data' => new ArrayObject($content), 'options' => new ArrayObject()]);
         $this->assertNotEmpty($result->getResult());
-        $content = (array) $result->getData('content');
+        $content = (array)$result->getData('content');
         if (isset($fields['title'])) {
             $this->assertEquals($expected['limit'][0], strlen($content['title']));
             $this->assertEquals($expected['limit'][1], strlen($content['name']));
-            foreach ($expected['auto'] as $field => $value) {
+            foreach($expected['auto'] as $field => $value) {
                 if ($field === "created_date") {
                     $this->assertInstanceOf($value, $content[$field]);
                 } else {
@@ -302,30 +290,9 @@ class ContentsTableTest extends BcTestCase
             ['hoge', 1, 'hoge'],
             ['index', 0, 'index'],
             ['index', 1, 'index_2'],
+            ['service1', 0, 'service1'],
+            ['service1', 6, 'service1_2'],
         ];
-    }
-
-    /**
-     * testAfterMarshal
-     *
-     * @return void
-     */
-    public function testAfterMarshal()
-    {
-        $time = new FrozenTime();
-        $data = [
-            "name" => "test",
-            "created" => $time,
-            "parent_id" => 1,
-        ];
-        $marshall = new Marshaller($this->Contents);
-
-        $this->Contents->getEventManager()->on(
-            'Model.afterMarshal',
-            function ($event, $entity, $options) {}
-        );
-        $entity = $marshall->one($data);
-        $this->assertEquals($time->i18nFormat('yyyy/MM/dd HH:mm:ss'), $entity->created);
     }
 
     /**
@@ -378,21 +345,6 @@ class ContentsTableTest extends BcTestCase
     }
 
     /**
-     * After Delete
-     *
-     * 関連コンテンツのキャッシュを削除する
-     */
-    public function testAfterDelete()
-    {
-        $alias = $this->Contents->find()->where(['alias_id IS NOT' => null])->first();
-        $aliased = $this->Contents->get($alias->alias_id);
-        $this->Contents->dispatchEvent('Model.afterDelete', [$aliased, new ArrayObject()]);
-        // エイリアスが削除されてるか確認
-        $this->expectException('Cake\Datasource\Exception\RecordNotFoundException');
-        $this->Contents->get($alias->id);
-    }
-
-    /**
      * 自データのエイリアスを削除する
      *
      * 全サイトにおけるエイリアスを全て削除
@@ -419,6 +371,7 @@ class ContentsTableTest extends BcTestCase
         $this->expectException('Cake\Datasource\Exception\RecordNotFoundException');
         $this->Contents->get($mockContent->id);
     }
+
     /**
      * メインサイトの場合、連携設定がされている子サイトのエイリアス削除する
      * ※ コンテンツフォルダだった場合子要素をupdateChildrenする
@@ -442,7 +395,7 @@ class ContentsTableTest extends BcTestCase
         $this->assertTrue($result);
         // content ID1のデータが反映されてるかテスト
         $contents = $this->Contents->find()->contain('Sites')->where(['Contents.main_site_content_id' => $id, 'Sites.relate_main_site' => true, 'Sites.status' => true]);
-        foreach ($contents as $relatedContent) {
+        foreach($contents as $relatedContent) {
             $this->assertEquals($content->title, $relatedContent->title);
         }
     }
@@ -454,7 +407,7 @@ class ContentsTableTest extends BcTestCase
     public function testCopyContentFolderPath()
     {
         // 他サイトにフォルダが存在する場合
-        $this->loadFixtures('ContentFolders', 'Pages', 'SearchIndexes', 'SiteConfigs');
+        $this->loadFixtures('ContentFolders', 'Pages', 'SiteConfigs');
         $parent_id = $this->Contents->copyContentFolderPath('/service/service1', 1);
         $this->assertEquals(6, $parent_id);
         // 他サイトのフォルダが不要な場合
@@ -664,13 +617,52 @@ class ContentsTableTest extends BcTestCase
     }
 
     /**
-     * 子ノードのURLを全て更新する
+     * 子ノードのシステムデータを全て更新する
      */
     public function testUpdateChildren()
     {
         $this->Contents->updateChildren(18);
         // 孫のurlが更新されてるか確認
         $this->assertEquals("/ツリー階層削除用フォルダー(親)/ツリー階層削除用フォルダー(子)/ツリー階層削除用フォルダー(孫)/", rawurldecode($this->Contents->get(20)->url));
+
+        // 公開状態・公開期間を更新した際に配下のコンテンツも更新される
+        //- 親更新
+        $tree1Content = $this->Contents->get(18);
+        $tree1Content->self_status = false;
+        $tree1Content->self_publish_begin = '2022-06-20 00:00:00';
+        $tree1Content->self_publish_end = '2022-06-30 00:00:00';
+        $this->Contents->save($tree1Content);
+        //- 子確認
+        $tree2Content = $this->Contents->get(19);
+        $this->assertEquals(false, $tree2Content->status);
+        $this->assertEquals('2022-06-20 00:00:00', $tree2Content->publish_begin->i18nFormat('yyyy-MM-dd HH:mm:ss'));
+        $this->assertEquals('2022-06-30 00:00:00', $tree2Content->publish_end->i18nFormat('yyyy-MM-dd HH:mm:ss'));
+        //- 孫確認
+        $tree3Content = $this->Contents->get(20);
+        $this->assertEquals(false, $tree3Content->status);
+        $this->assertEquals('2022-06-20 00:00:00', $tree3Content->publish_begin->i18nFormat('yyyy-MM-dd HH:mm:ss'));
+        $this->assertEquals('2022-06-30 00:00:00', $tree3Content->publish_end->i18nFormat('yyyy-MM-dd HH:mm:ss'));
+
+        // 公開状態が異なる場合は非公開を優先
+        // - 孫更新
+        $tree3Content->self_status = false;
+        $this->Contents->save($tree3Content);
+        // - 親更新
+        $tree1Content->self_status = true;
+        $this->Contents->save($tree1Content);
+        // - 孫確認
+        $tree3Content = $this->Contents->get(20);
+        $this->assertEquals(false, $tree3Content->status);
+
+        // - 孫更新
+        $tree3Content->self_status = true;
+        $this->Contents->save($tree3Content);
+        // - 親更新
+        $tree1Content->self_status = false;
+        $this->Contents->save($tree1Content);
+        // - 孫確認
+        $tree3Content = $this->Contents->get(20);
+        $this->assertEquals(false, $tree3Content->status);
     }
 
     /**
@@ -758,7 +750,7 @@ class ContentsTableTest extends BcTestCase
         $content->self_publish_begin = $date['self_publish_begin'];
         $content->self_publish_end = $date['self_publish_end'];
         $content = $this->execPrivateMethod($this->Contents, 'updatePublishDate', [$content]);
-        foreach ($expected as $expectedKey => $expectedValue) {
+        foreach($expected as $expectedKey => $expectedValue) {
             if ($expectedValue !== null) {
                 $this->assertEquals($expectedValue, $content->{$expectedKey}->__toString());
             } else {
@@ -857,12 +849,12 @@ class ContentsTableTest extends BcTestCase
         ];
     }
 
-        /**
+    /**
      * URL用に文字列を変換する
      *
      * できるだけ可読性を高める為、不要な記号は除外する
-     * @param  string $value
-     * @param  bool $isEncoded
+     * @param string $value
+     * @param bool $isEncoded
      * @return void
      * @dataProvider urlencodeDataProvider
      */
@@ -885,8 +877,8 @@ class ContentsTableTest extends BcTestCase
 
     /**
      * オフセットを元にコンテンツを移動する
-     * @param  mixed $id
-     * @param  mixed $offset
+     * @param mixed $id
+     * @param mixed $offset
      * @dataProvider moveOffsetDataProvider
      */
     public function testMoveOffset($id, $offset)
@@ -1026,7 +1018,23 @@ class ContentsTableTest extends BcTestCase
      */
     public function testResetTree()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
+        $dbService = new BcDatabaseService();
+        $dbService->truncate('contents');
+        $this->loadFixtureScenario(SmallSetContentsScenario::class);
+        $this->assertTrue($this->Contents->resetTree());
+
+        $expectedLeftRight = [
+            ['lft' => 1, 'rght' => 10],
+            ['lft' => 2, 'rght' => 3],
+            ['lft' => 4, 'rght' => 5],
+            ['lft' => 6, 'rght' => 7],
+            ['lft' => 8, 'rght' => 9]
+        ];
+        $contents = $this->Contents->find()->toArray();
+        foreach($contents as $index => $content) {
+            $this->assertEquals($content->lft, $expectedLeftRight[$index]['lft']);
+            $this->assertEquals($content->rght, $expectedLeftRight[$index]['rght']);
+        }
     }
 
     /**

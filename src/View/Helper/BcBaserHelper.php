@@ -11,7 +11,9 @@
 
 namespace BaserCore\View\Helper;
 
+use Cake\Core\Plugin;
 use Cake\Datasource\EntityInterface;
+use Cake\Utility\Hash;
 use Cake\Utility\Inflector;
 use Cake\View\Helper\BreadcrumbsHelper;
 use Cake\View\View;
@@ -32,7 +34,6 @@ use BaserCore\Annotation\Doc;
 
 /**
  * Class BcBaserHelper
- * @package BaserCore\View\Helper
  * @property BcHtmlHelper $BcHtml
  * @property UrlHelper $Url
  * @property FlashHelper $Flash
@@ -139,7 +140,7 @@ class BcBaserHelper extends Helper
         // 一度初期化した後に再利用し、処理速度を向上する為にコンストラクタでセットしておく
         // TODO 未実装のためコメントアウト
         /* >>>
-        if ($this->_View && BC_INSTALLED && !Configure::read('BcRequest.isUpdater') && !Configure::read('BcRequest.isMaintenance')) {
+        if ($this->_View && BcUtil::isInstalled() && !Configure::read('BcRequest.isUpdater') && !Configure::read('BcRequest.isMaintenance')) {
             // DBに接続できない場合、CakePHPのエラーメッセージが表示されてしまう為、 try を利用
             try {
                 $this->_Permission = ClassRegistry::init('Permission');
@@ -153,18 +154,15 @@ class BcBaserHelper extends Helper
         // サイト基本設定データをセット
         // TODO 未実装
         /* >>>
-        if (BC_INSTALLED || isConsole()) {
+        if (BcUtil::isInstalled() || isConsole()) {
             $this->siteConfig = $this->_View->get('siteConfig', []);
         }
         <<< */
-
+        $request = $this->_View->getRequest();
         // プラグインのBaserヘルパを初期化
-        // TODO 未実装
-        /* >>>
-        if (BC_INSTALLED && !Configure::read('BcRequest.isUpdater') && !Configure::read('BcRequest.isMaintenance')) {
+        if (BcUtil::isInstalled() && !$request->is('update') && !$request->is('maintenance')) {
             $this->_initPluginBasers();
         }
-        >>> */
     }
 
     /**
@@ -179,13 +177,14 @@ class BcBaserHelper extends Helper
     public function initialize($config): void
     {
         parent::initialize($config);
+        if(!BcUtil::isInstalled()) return;
         $this->PermissionsService = $this->getService(PermissionsServiceInterface::class);
     }
 
     /**
      * Javascript タグを出力する
      *
-     * @param string|array $url Javascriptのパス（js フォルダからの相対パス）拡張子は省略可
+     * @param string|array $path Javascriptのパス（js フォルダからの相対パス）拡張子は省略可
      * @param bool $inline コンテンツ内に Javascript を出力するかどうか（初期値 : true）
      * @return void
      * @checked
@@ -193,13 +192,12 @@ class BcBaserHelper extends Helper
      * @unitTest
      * @doc
      */
-    public function js($url, $inline = true, $options = [])
+    public function js($path, $inline = true, $options = [])
     {
-        $options = array_merge(['block' => !$inline], $options);
-        $result = $this->BcHtml->script($url, $options);
-        if ($inline) {
-            echo $result;
+        if (!isset($options['block'])) {
+            $options['block'] = $inline ? null : true;
         }
+        echo $this->BcHtml->script($path, $options);
     }
 
     /**
@@ -250,7 +248,7 @@ class BcBaserHelper extends Helper
             $options = ($event->getResult() === null || $event->getResult() === true)? $event->getData('options') : $event->getResult();
         }
 
-        // EVENT ControllerName.beforeElement
+        // EVENT PluginName.ControllerName.beforeElement
         $event = $this->dispatchLayerEvent('beforeElement', [
             'name' => $name,
             'data' => $data,
@@ -271,7 +269,7 @@ class BcBaserHelper extends Helper
             $out = ($event->getResult() === null || $event->getResult() === true)? $event->getData('out') : $event->getResult();
         }
 
-        // EVENT ControllerName.afterElement
+        // EVENT PluginName.ControllerName.afterElement
         $event = $this->dispatchLayerEvent('afterElement', [
             'name' => $name,
             'out' => $out
@@ -286,7 +284,7 @@ class BcBaserHelper extends Helper
     /**
      * 画像タグを出力する
      *
-     * @param string $path 画像のパス（img フォルダからの相対パス）
+     * @param string|array $path 画像のパス（img フォルダからの相対パス）
      * @param array $options オプション（主にHTML属性）
      *    ※ パラメータについては、HtmlHelper::image() を参照。
      * @return void
@@ -323,8 +321,9 @@ class BcBaserHelper extends Helper
      * @param string $title タイトル
      * @param mixed $url オプション（初期値 : null）
      * @param array $htmlAttributes オプション（初期値 : array()）
-     *    - `escape` : タイトルをエスケープするかどうか（初期値 : false）
-     *  - `prefix` : URLにプレフィックスをつけるかどうか（初期値 : false）
+     *    - `escape` : タイトルとHTML属性をエスケープするかどうか（初期値 : true）
+     *    - `escapeTitle` : タイトルをエスケープするかどうか（初期値 : true）
+     *    - `prefix` : URLにプレフィックスをつけるかどうか（初期値 : false）
      *    - `forceTitle` : 許可されていないURLの際にタイトルを強制的に出力するかどうか（初期値 : false）
      *    - `ssl` : SSL用のURLをして出力するかどうか（初期値 : false）
      *     ※ その他のパラメータについては、HtmlHelper::link() を参照。
@@ -347,8 +346,9 @@ class BcBaserHelper extends Helper
      * @param string $title タイトル
      * @param mixed $url オプション（初期値 : null）
      * @param array $options オプション（初期値 : array()）
-     *    - `escape` : タイトルをエスケープするかどうか（初期値 : false）
-     *  - `prefix` : URLにプレフィックスをつけるかどうか（初期値 : false）
+     *    - `escape` : タイトルとHTML属性をエスケープするかどうか（初期値 : true）
+     *    - `escapeTitle` : タイトルをエスケープするかどうか（初期値 : true）
+     *    - `prefix` : URLにプレフィックスをつけるかどうか（初期値 : false）
      *    - `forceTitle` : 許可されていないURLの際にタイトルを強制的に出力するかどうか（初期値 : false）
      *    - `ssl` : SSL用のURLをして出力するかどうか（初期値 : false）
      *     ※ その他のパラメータについては、HtmlHelper::image() を参照。
@@ -356,6 +356,8 @@ class BcBaserHelper extends Helper
      *    リンクをクリックした際に確認メッセージが表示され、はいをクリックした場合のみ遷移する
      * @return string
      * @checked
+     * @unitTest
+     * @noTodo
      * @doc
      */
     public function getLink($title, $url = null, $options = [], $confirmMessage = false)
@@ -369,13 +371,13 @@ class BcBaserHelper extends Helper
         }
 
         $options = array_merge([
-            'escape' => false,
+            'escape' => true,
             'prefix' => false,
             'forceTitle' => false,
             'ssl' => $this->isSSL()
         ], $options);
 
-        /*** beforeGetLink ***/
+        // EVENT Html.beforeGetLink
         $event = $this->dispatchLayerEvent('beforeGetLink', [
             'title' => $title,
             'url' => $url,
@@ -408,23 +410,12 @@ class BcBaserHelper extends Helper
 
         // 認証チェック
         $user = Bcutil::loginUser();
-        if ($user) {
+        if ($user && BcUtil::isInstalled()) {
             $userGruops = array_column($user->user_groups, 'id');
             if (!$this->PermissionsService->check($_url, $userGruops)) {
                 $enabled = false;
             }
         }
-
-        // コンテンツ公開チェック
-        // TODO 統合コンテンツ管理のチェックに変更する
-//		if (isset($this->_Page) && $this->_View->getRequest()->getParam['prefix'] !== 'Admin') {
-//			$adminPrefix = Configure::read('Routing.prefixes.0');
-//			if (isset($this->_Page) && !preg_match('/^\/' . $adminPrefix . '/', $_url)) {
-//				if ($this->_Page->isPageUrl($_url) && !$this->_Page->checkPublish($_url)) {
-//					$enabled = false;
-//				}
-//			}
-//		}
 
         if (!$enabled) {
             if ($forceTitle) {
@@ -471,7 +462,7 @@ class BcBaserHelper extends Helper
         }
         $out = $this->BcHtml->link($title, $url, $options, $confirmMessage);
 
-        /*** afterGetLink ***/
+        // EVENT Html.afterGetLink
         $event = $this->dispatchLayerEvent('afterGetLink', [
             'url' => $url,
             'out' => $out
@@ -507,16 +498,15 @@ class BcBaserHelper extends Helper
      * @param mixed $url baserCMS設置フォルダからの絶対URL、もしくは配列形式のURL情報
      *        省略した場合には、PC用のトップページのURLを出力する
      * @param bool $full httpから始まるURLを取得するかどうか
-     * @param bool $sessionId セションIDを付加するかどうか
      * @return void
      * @checked
      * @unitTest
      * @noTodo
      * @doc
      */
-    public function url($url = null, $full = false, $sessionId = true)
+    public function url($url = null, $full = false)
     {
-        echo $this->getUrl($url, $full, $sessionId);
+        echo $this->getUrl($url, $full);
     }
 
     /**
@@ -579,16 +569,18 @@ class BcBaserHelper extends Helper
     }
 
     /**
-     * コンテンツタイトルを取得する
+     * 表示しているページのコンテンツタイトルを取得する
+     *
+     * コンテンツタイトルは、BcBaserHelper->setTitle() でセットする
      *
      * @return string コンテンツタイトル
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function getContentsTitle()
     {
-        if (empty($this->_View->pageTitle)) {
-            return '';
-        }
-        return $this->_View->pageTitle;
+        return $this->_View->fetch('title');
     }
 
     /**
@@ -604,6 +596,7 @@ class BcBaserHelper extends Helper
      * @checked
      * @noTodo
      * @unitTest
+     * @doc
      */
     public function contentsName($detail = false, $options = [])
     {
@@ -631,111 +624,73 @@ class BcBaserHelper extends Helper
      * @return string
      * @checked
      * @unitTest
+     * @doc
      */
     public function getContentsName($detail = false, $options = [])
     {
-
         $options = array_merge([
             'home' => 'Home',
             'default' => 'Default',
             'error' => 'Error',
-            'underscore' => false], $options);
+            'underscore' => false
+        ], $options);
 
         $home = $options['home'];
         $default = $options['default'];
         $error = $options['error'];
         $underscore = $options['underscore'];
+        $prefix = $plugin = $url0 = $url1 = $url2 = '';
+        $pass = $aryUrl = [];
 
-        $prefix = '';
-        $plugin = '';
-        $controller = '';
-        $action = '';
-        $pass = [];
-        $url0 = '';
-        $url1 = '';
-        $url2 = '';
-        $aryUrl = [];
-
-        if (!empty($this->getView()->getRequest()->getParam('prefix'))) {
-            $prefix = h($this->getView()->getRequest()->getParam('prefix'));
-        }
-        if (!empty($this->getView()->getRequest()->getParam('plugin'))) {
-            $plugin = h($this->getView()->getRequest()->getParam('plugin'));
-        }
-        $controller = h($this->getView()->getRequest()->getParam('controller'));
+        $request = $this->getView()->getRequest();
+        if (!empty($request->getParam('prefix'))) $prefix = h($request->getParam('prefix'));
+        if (!empty($request->getParam('plugin'))) $plugin = h($request->getParam('plugin'));
+        $controller = h($request->getParam('controller'));
         if ($prefix) {
-            $action = str_replace($prefix . '_', '', h($this->getView()->getRequest()->getParam('action')));
+            $action = str_replace($prefix . '_', '', h($request->getParam('action')));
         } else {
-            $action = h($this->getView()->getRequest()->getParam('action'));
+            $action = h($request->getParam('action'));
         }
-        if (!empty($this->getView()->getRequest()->getParam('pass'))) {
-            foreach($this->getView()->getRequest()->getParam('pass') as $key => $value) {
+        if (!empty($request->getParam('pass'))) {
+            foreach($request->getParam('pass') as $key => $value) {
                 if($key !== '?') $pass[$key] = h($value);
             }
         }
 
-        $url = explode('/', h($this->getView()->getRequest()->getPath()));
+        $url = explode('/', h($request->getPath()));
 
-        // url->0がnullの場合はずらす
-        if(empty($url[0])){
-            array_shift($url);
-        }
+        // $url[0]がnullの場合はずらす
+        if(empty($url[0])) array_shift($url);
 
-        if (!empty($this->getView()->getRequest()->getParam('Site.alias'))) {
-            array_shift($url);
-        }
-
-        if (isset($url[0])) {
-            $url0 = $url[0];
-        }
-        if (isset($url[1])) {
-            $url1 = $url[1];
-        }
-        if (isset($url[2])) {
-            $url2 = $url[2];
-        }
+        if (!empty($request->getAttribute('currentSite')->alias)) array_shift($url);
+        if (isset($url[0])) $url0 = $url[0];
+        if (isset($url[1])) $url1 = $url[1];
+        if (isset($url[2])) $url2 = $url[2];
 
         // 固定ページの場合
         if (!BcUtil::isAdminSystem()) {
-            $pageUrl = h($this->getView()->getRequest()->getPath());
-            if ($pageUrl === false) {
-                $pageUrl = '/';
-            } else {
-                //$pageUrl = '/' . $pageUrl;
-            }
+            $pageUrl = h($request->getPath());
+            if ($pageUrl === false) $pageUrl = '/';
 
             $sitePrefix = $this->getSitePrefix();
             if ($sitePrefix) {
                 $pageUrl = preg_replace('/^\/' . preg_quote($sitePrefix, '/') . '\//', '/', $pageUrl);
             }
-            if (preg_match('/\/$/', $pageUrl)) {
-                $pageUrl .= 'index';
-            }
+            if (preg_match('/\/$/', $pageUrl)) $pageUrl .= 'index';
             $pageUrl = preg_replace('/\.html$/', '', $pageUrl);
             $pageUrl = preg_replace('/^\//', '', $pageUrl);
             $aryUrl = explode('/', $pageUrl);
         } else {
             // プラグインルーティングの場合
             if ((($url1 == '' && in_array($action, ['index', 'mobile_index', 'smartphone_index'])) || ($url1 == $action)) && $url2 != $action && $plugin) {
-                $prefix = '';
-                $plugin = '';
+                $prefix = $plugin = '';
                 $controller = $url0;
             }
-            if ($plugin) {
-                $controller = $plugin . '_' . $controller;
-            }
-            if ($prefix) {
-                $controller = $prefix . '_' . $controller;
-            }
-            if ($controller) {
-                $aryUrl[] = $controller;
-            }
-            if ($action) {
-                $aryUrl[] = $action;
-            }
-            if ($pass) {
-                $aryUrl = array_merge($aryUrl, $pass);
-            }
+            if ($plugin) $controller = $plugin . '_' . $controller;
+            if ($prefix) $controller = $prefix . '_' . $controller;
+            if ($controller) $aryUrl[] = $controller;
+            if ($action) $aryUrl[] = $action;
+            if ($pass) $aryUrl = array_merge($aryUrl, $pass);
         }
 
         if ($this->getView()->getName() == 'CakeError') {
@@ -774,20 +729,14 @@ class BcBaserHelper extends Helper
      * @param mixed $url baserCMS設置フォルダからの絶対URL、もしくは配列形式のURL情報
      *        省略した場合には、PC用のトップページのURLを取得する
      * @param bool $full httpから始まるURLを取得するかどうか
-     * @param bool $sessionId セションIDを付加するかどうか
      * @return string URL
      * @checked
      * @unitTest
      * @note(value="$sessionId について実装検討要")
      */
-    public function getUrl($url = null, $full = false, $sessionId = true)
+    public function getUrl($url = null, $full = false)
     {
-        // TODO ucmitz 未実装のため代替処理
-        // $sessionId について実装検討要
-        // >>>
         return $this->Url->build($url, ['fullBase' => $full]);
-        // <<<
-        return parent::url($url, $full, $sessionId);
     }
 
     /**
@@ -802,7 +751,7 @@ class BcBaserHelper extends Helper
         if (!is_null($categoryTitleOn)) {
             $this->_categoryTitleOn = $categoryTitleOn;
         }
-        $this->_View->pageTitle = $title;
+        $this->_View->assign('title', $title);
     }
 
     /**
@@ -813,6 +762,7 @@ class BcBaserHelper extends Helper
      * @checked
      * @noTodo
      * @unitTest
+     * @doc
      */
     public function setKeywords($keywords)
     {
@@ -827,6 +777,7 @@ class BcBaserHelper extends Helper
      * @checked
      * @noTodo
      * @unitTest
+     * @doc
      */
     public function setDescription($description)
     {
@@ -841,6 +792,9 @@ class BcBaserHelper extends Helper
      * @param string $key 変数名
      * @param mixed $value 値
      * @return void
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function set($key, $value)
     {
@@ -868,6 +822,7 @@ class BcBaserHelper extends Helper
      * meta タグ用のキーワードを取得する
      *
      * @return string meta タグ用のキーワード
+     * @note(value="サイトキーワードの仕様が大きく変わり対応に時間がかかるためユニットテストをスキップ https://github.com/baserproject/ucmitz/issues/657")
      */
     public function getKeywords()
     {
@@ -877,8 +832,8 @@ class BcBaserHelper extends Helper
             return $keywords;
         }
 
-        if (!empty($this->_View->getRequest()->getParam('Site.keyword'))) {
-            return $this->_View->getRequest()->getParam('Site.keyword');
+        if (!empty($this->_View->getRequest()->getAttribute('currentSite')->keyword)) {
+            return $this->_View->getRequest()->getAttribute('currentSite')->keyword;
         }
 
         if (!empty($this->siteConfig['keyword'])) {
@@ -903,8 +858,8 @@ class BcBaserHelper extends Helper
 
         if ($this->isHome()) {
 
-            if (!empty($this->_View->getRequest()->getParam('Site.description'))) {
-                return $this->_View->getRequest()->getParam('Site.description');
+            if (!empty($this->_View->getRequest()->getAttribute('currentSite')->description)) {
+                return $this->_View->getRequest()->getAttribute('currentSite')->description;
             }
 
             if (!empty($this->siteConfig['description'])) {
@@ -929,6 +884,7 @@ class BcBaserHelper extends Helper
      *  `tag` (boolean) false でタグを削除するかどうか (初期値 : true)
      *  `allowableTags` tagが falseの場合、削除しないタグを指定できる。詳しくは、php strip_tags のドキュメントを参考してください。 (初期値 : '')
      * @return string メタタグ用のタイトルを返す
+     * @note(value="BaserTestCase::_getRequestでエラーを吐くためユニットテストをスキップ https://github.com/baserproject/ucmitz/issues/661")
      */
     public function getTitle($separator = '｜', $options = [])
     {
@@ -976,8 +932,8 @@ class BcBaserHelper extends Helper
 
         // サイトタイトルを追加
         $siteName = '';
-        if (!empty($this->_View->getRequest()->getParam('Site.title'))) {
-            $siteName = $this->_View->getRequest()->getParam('Site.title');
+        if (!empty($this->_View->getRequest()->getAttribute('currentSite')->title)) {
+            $siteName = $this->_View->getRequest()->getAttribute('currentSite')->title;
         } elseif (!empty($this->siteConfig['name'])) {
             $siteName = $this->siteConfig['name'];
         }
@@ -1008,6 +964,7 @@ class BcBaserHelper extends Helper
      * @checked
      * @noTodo
      * @unitTest
+     * @doc
      */
     public function getCrumbs($categoryTitleOn = null)
     {
@@ -1035,9 +992,9 @@ class BcBaserHelper extends Helper
         $contentsTitle = $this->getContentsTitle();
         $useCurrentTitle = true;
         // インデックスページで親カテゴリとタイトルが被る場合は重複しないようにする
-        if (!empty($this->_View->getRequest()->getParam('Content')) &&
-            $this->_View->getRequest()->getParam('Content.type') !== 'ContentFolder' &&
-            $this->_View->getRequest()->getParam('Content.name') === 'index' &&
+        if (!empty($this->_View->getRequest()->getAttribute('currentContent')) &&
+            $this->_View->getRequest()->getAttribute('currentContent')->type !== 'ContentFolder' &&
+            $this->_View->getRequest()->getAttribute('currentContent')->name === 'index' &&
             $this->_categoryTitleOn) {
             $parentTitle = '';
             if ($this->_categoryTitle === true && $crumbs) {
@@ -1059,6 +1016,9 @@ class BcBaserHelper extends Helper
      * コンテンツのタイトルを出力する
      *
      * @return void
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function contentsTitle()
     {
@@ -1071,6 +1031,7 @@ class BcBaserHelper extends Helper
      * @param string $separator 区切り文字
      * @param string $categoryTitleOn カテゴリを表示するかどうか boolean で指定
      * @return void
+     * @note(value="BcBaser::setTitleが未完成ためユニットテストをスキップ https://github.com/baserproject/ucmitz/issues/662")
      */
     public function title($separator = '｜', $categoryTitleOn = null)
     {
@@ -1123,10 +1084,10 @@ class BcBaserHelper extends Helper
     public function isHome()
     {
         $request = $this->_View->getRequest();
-        if (empty($request->getParam('Site'))) {
+        if (empty($request->getAttribute('currentSite'))) {
             return false;
         } else {
-            $site = $request->getParam('Site');
+            $site = $request->getAttribute('currentSite');
             $path = $request->getUri()->getPath();
         }
         if (empty($site->alias) || $site->same_main_url || $site->use_subdomain) {
@@ -1139,40 +1100,6 @@ class BcBaserHelper extends Helper
     }
 
     /**
-     * baserCMSが設置されているパスを出力する
-     *
-     * BcBaserHelper::getRoot() をラッピングして出力するだけの処理
-     *
-     * @return void
-     */
-    public function root()
-    {
-        echo $this->getRoot();
-    }
-
-    /**
-     * baserCMSが設置されているパスを取得する
-     *
-     * 画像タグやリンクタグを出力する際に、baserCMSの設置フォルダに
-     * 依存せずパスを出力する為に利用する。
-     *
-     * 《利用例》
-     * <img src="<?php echo $this->BcBaser->root() ?>img/test.png" />
-     *
-     * 《basercmsというフォルダに設置している場合の取得例》
-     * /basercms/
-     *
-     * @return string
-     * @checked
-     * @noTodo
-     * @unitTest
-     */
-    public function getRoot(): string
-    {
-        return $this->_View->getRequest()->getAttribute('base') . '/';
-    }
-
-    /**
      * ヘッダーテンプレートを出力する
      *
      * @param array $data エレメントで参照するデータ
@@ -1180,6 +1107,7 @@ class BcBaserHelper extends Helper
      *  `subDir` (boolean) エレメントのパスについてプレフィックスによるサブディレクトリを追加するかどうか
      * ※ その他のパラメータについては、View::element() を参照
      * @return void
+     * @note(value="フロントエンド側が未完成なのでスキップ https://github.com/baserproject/ucmitz/issues/664")
      */
     public function header($data = [], $options = [])
     {
@@ -1251,20 +1179,15 @@ class BcBaserHelper extends Helper
      *  `subDir` (boolean) エレメントのパスについてプレフィックスによるサブディレクトリを追加するかどうか
      * ※ その他のパラメータについては、View::element() を参照
      * @return void
+     * @note(value="ページネーションの仕様が変わっているのでユニットテストをスキップ https://github.com/baserproject/ucmitz/issues/665")
      */
     public function pagination($name = 'default', $data = [], $options = [])
     {
         $options = array_merge([
             'subDir' => true
         ], $options);
-
-        if (!$name) {
-            $name = 'default';
-        }
-
-        $file = 'paginations' . DS . $name;
-
-        echo $this->getElement($file, $data, $options);
+        if (!$name) $name = 'default';
+        echo $this->getElement('paginations' . DS . $name, $data, $options);
     }
 
     /**
@@ -1273,6 +1196,7 @@ class BcBaserHelper extends Helper
      * レイアウトテンプレートで利用する
      *
      * @return void
+     * @note(value="BcAppViewクラスが未完成なのでスキップ https://github.com/baserproject/ucmitz/issues/666")
      */
     public function content()
     {
@@ -1299,7 +1223,7 @@ class BcBaserHelper extends Helper
      * コンテンツ内で、レイアウトテンプレートへの出力を設定する場合には、inline オプションを false にする
      *
      * 《利用例》
-     * $this->BcBaser->css('admin/layout', array('inline' => false));
+     * $this->BcBaser->css('admin/layout', false);
      * $this->BcBaser->js('admin/startup', false);
      *
      * @return void
@@ -1336,19 +1260,16 @@ class BcBaserHelper extends Helper
         }
 
         if (BcUtil::isAdminSystem()) {
-            // TODO ucmitz 暫定措置としてコメントアウト
-            // >>>
-//            $plugins = CakePlugin::loaded();
-//            if ($plugins) {
-//                foreach($plugins as $plugin) {
-//                    $cssName = 'admin' . DS . Inflector::underscore($plugin) . '_admin';
-//                    $path = CakePlugin::path($plugin) . 'webroot' . DS . 'css' . DS . $cssName . '.css';
-//                    if (file_exists($path)) {
-//                        $this->css($plugin . '.' . $cssName);
-//                    }
-//                }
-//            }
-            // <<<
+            $plugins = Plugin::loaded();
+            if ($plugins) {
+                foreach($plugins as $plugin) {
+                    $cssName = 'admin' . DS . Inflector::underscore($plugin) . '_admin';
+                    $path = Plugin::path($plugin) . 'webroot' . DS . 'css' . DS . $cssName . '.css';
+                    if (file_exists($path)) {
+                        $this->css($plugin . '.' . $cssName);
+                    }
+                }
+            }
         }
 
         // ### テーマ用CSS出力
@@ -1424,10 +1345,11 @@ class BcBaserHelper extends Helper
      *
      * @param array $attrib 属性
      * @return void
+     * @note(value="bcXmlHelperが未実装なのでスキップ https://github.com/baserproject/ucmitz/issues/667")
      */
     public function xmlHeader($attrib = [])
     {
-        if (empty($attrib['encoding']) && !empty($this->_View->getRequest()->getParam('Site.device')) && $this->_View->getRequest()->getParam('Site.device') == 'mobile') {
+        if (empty($attrib['encoding']) && !empty($this->_View->getRequest()->getAttribute('currentSite')->device) && $this->_View->getRequest()->getAttribute('currentSite')->device == 'mobile') {
             $attrib['encoding'] = 'Shift-JIS';
         }
         echo $this->BcXml->header($attrib) . "\n";
@@ -1437,6 +1359,7 @@ class BcBaserHelper extends Helper
      * アイコン（favicon）タグを出力する
      *
      * @return void
+     * @note(value="フロント側が未完成なためユニットテストをスキップ https://github.com/baserproject/ucmitz/issues/680")
      */
     public function icon()
     {
@@ -1448,6 +1371,7 @@ class BcBaserHelper extends Helper
      *
      * @param string $type 出力ドキュメントタイプの文字列（初期値 : 'xhtml-trans'）
      * @return void
+     * @note(value="docTypeメソッド自体が未実装なのでユニットテストをスキップ https://github.com/baserproject/ucmitz/issues/682")
      */
     public function docType($type = 'xhtml-trans')
     {
@@ -1464,11 +1388,13 @@ class BcBaserHelper extends Helper
      * $this->BcBaser->css('admin/import')
      *
      * @param mixed $path CSSファイルのパス（css フォルダからの相対パス）拡張子は省略可
+     * @param bool $inline コンテンツ内に Javascript を出力するかどうか（初期値 : true）
      * @param mixed $options オプション
      * ※💣inline=false→block=trueに変更になったため注意 @return string|void
      * @checked
      * @unitTest
      * @noTodo
+     * @doc
      * @see https://book.cakephp.org/4/ja/views/helpers/html.html#css
      * ※ その他のパラメータについては、HtmlHelper::css() を参照。
      *
@@ -1476,14 +1402,12 @@ class BcBaserHelper extends Helper
      * - 'inline'=trueを指定する (代替:$options['block']にnullが入る)
      * - 'inline'=falseを指定する (代替:$options['block']にtrueが入る)
      */
-    public function css($path, $options = [])
+    public function css($path, $inline = true, $options = [])
     {
-        if (isset($options['inline'])) {
-            $options['block'] = $options['inline']? null : true;
+        if (!isset($options['block'])) {
+            $options['block'] = $inline ? null : true;
         }
-        $result = $this->BcHtml->css($path, $options);
-
-        echo $result;
+        echo $this->BcHtml->css($path, $options);
     }
 
     /**
@@ -1510,7 +1434,7 @@ class BcBaserHelper extends Helper
      */
     public function charset($charset = null)
     {
-        if (!$charset && !empty($this->_View->getRequest()->getParam('Site.device')) && $this->_View->getRequest()->getParam('Site.device') === 'mobile') {
+        if (!$charset && !empty($this->_View->getRequest()->getAttribute('currentSite')->device) && $this->_View->getRequest()->getAttribute('currentSite')->device === 'mobile') {
             $charset = 'Shift-JIS';
         }
         echo $this->BcHtml->charset($charset);
@@ -1567,14 +1491,14 @@ class BcBaserHelper extends Helper
      */
     public function getSitePrefix()
     {
-        if (!BC_INSTALLED) {
+        if (!BcUtil::isInstalled() || $this->getView()->getRequest()->is('update')) {
             return '';
         }
         $site = null;
-        if (!empty($this->getView()->getRequest()->getParam('Site'))) {
-            $site = $this->getView()->getRequest()->getParam('Site');
+        if (!empty($this->getView()->getRequest()->getAttribute('currentSite'))) {
+            $site = $this->getView()->getRequest()->getAttribute('currentSite');
         }
-
+        if(!$site) return '';
         $sites = \Cake\ORM\TableRegistry::getTableLocator()->get('BaserCore.Sites');
         return $sites->getPrefix($site->id);
     }
@@ -1591,6 +1515,7 @@ class BcBaserHelper extends Helper
      * @checked
      * @noTodo
      * @unitTest
+     * @doc
      */
     public function crumbs($separator = '&raquo;', $startText = false, $onSchema = false)
     {
@@ -1600,10 +1525,10 @@ class BcBaserHelper extends Helper
         }
         if ($startText) {
             $homeUrl = '/';
-            if (!empty($this->_View->getRequest()->getParam('Site.alias'))) {
-                $homeUrl = '/' . $this->_View->getRequest()->getParam('Site.alias') . '/';
-            } elseif (!empty($this->_View->getRequest()->getParam('Site.name'))) {
-                $homeUrl = '/' . $this->_View->getRequest()->getParam('Site.name') . '/';
+            if (!empty($this->_View->getRequest()->getAttribute('currentSite')->alias)) {
+                $homeUrl = '/' . $this->_View->getRequest()->getAttribute('currentSite')->alias . '/';
+            } elseif (!empty($this->_View->getRequest()->getAttribute('currentSite')->name)) {
+                $homeUrl = '/' . $this->_View->getRequest()->getAttribute('currentSite')->name . '/';
             }
             array_unshift($crumbs, [
                 'title' => $startText,
@@ -1614,8 +1539,12 @@ class BcBaserHelper extends Helper
         $out = [];
         if (!$onSchema) {
             foreach($crumbs as $crumb) {
+                $options = ['escape' => false];
+                if (!empty($crumb['options'])) {
+                    $options = array_merge($options, $crumb['options']);
+                }
                 if (!empty($crumb['url'])) {
-                    $out[] = $this->getLink($crumb['title'], $crumb['url'], @$crumb['options']);
+                    $out[] = $this->getLink($crumb['title'], $crumb['url'], $options);
                 } else {
                     $out[] = $crumb['title'];
                 }
@@ -1624,7 +1553,7 @@ class BcBaserHelper extends Helper
         } else {
             $counter = 1;
             foreach($crumbs as $crumb) {
-                $options = ['itemprop' => 'item'];
+                $options = ['itemprop' => 'item', 'escape' => false];
                 if (!empty($crumb['options'])) {
                     $options = array_merge($options, $crumb['options']);
                 }
@@ -1650,13 +1579,14 @@ EOD;
      * $options の forceTitle キー に false を指定する事で表示しない設定も可能
      *
      * @param string $name パンくず用のテキスト
-     * @param string $link パンくず用のリンク（初期値 : null）※ 指定しない場合はリンクは設定しない
+     * @param mixed $link パンくず用のリンク（初期値 : null）※ 指定しない場合はリンクは設定しない
      * @param mixed $options リンクタグ用の属性（初期値 : array()）
      * ※ パラメータについては、HtmlHelper::link() を参照。
      * @return void
      * @checked
      * @noTodo
      * @unitTest
+     * @doc
      */
     public function addCrumb($name, $link = null, $options = [])
     {
@@ -1745,15 +1675,14 @@ EOD;
      */
     protected function _initPluginBasers()
     {
-        $plugins = Configure::read('BcStatus.enablePlugins');
-        if (!$plugins) {
-            return;
-        }
+        $plugins = BcUtil::getEnablePlugins();
+        if($plugins) $plugins = Hash::extract(BcUtil::getEnablePlugins(), '{n}.name');
+        if (!$plugins) return;
         foreach($plugins as $plugin) {
             $pluginName = Inflector::camelize($plugin);
-            if (App::import('Helper', $pluginName . '.' . $pluginName . 'Baser')) {
-                $pluginBaser = $pluginName . 'BaserHelper';
-                $this->_pluginBasers[$pluginName] = new $pluginBaser($this->_View);
+            $className = $pluginName . '\\View\\Helper\\' . $pluginName . 'BaserHelper';
+            if (class_exists($className)) {
+                $this->_pluginBasers[$pluginName] = new $className($this->getView());
             }
         }
     }
@@ -1826,6 +1755,7 @@ EOD;
      * @param int $level 階層（初期値：null）※ null の場合は階層指定なし
      * @param string $currentId 現在のページのコンテンツID（初期値：null）
      * @return string コンテンツメニュー
+     * @doc
      */
     public function contentsMenu($id = null, $level = null, $currentId = null)
     {
@@ -1851,11 +1781,12 @@ EOD;
      * @checked
      * @noTodo
      * @unitTest
+     * @doc
      */
     public function getContentsMenu($id = null, $level = null, $currentId = null, $options = [])
     {
         if (!$id) {
-            $siteRoot = $this->BcContents->getSiteRoot($this->_View->getRequest()->getParam('Content.site_id'));
+            $siteRoot = $this->BcContents->getSiteRoot($this->_View->getRequest()->getAttribute('currentContent')->site_id);
             $id = $siteRoot->id;
         }
         $options = array_merge([
@@ -1932,14 +1863,14 @@ EOD;
     public function getGlobalMenu($level = 1, $options = [])
     {
         $siteId = 1;
-        if (!empty($this->_View->getRequest()->getParam('Content.site_id'))) {
-            $siteId = $this->_View->getRequest()->getParam('Content.site_id');
+        if (!empty($this->_View->getRequest()->getAttribute('currentContent')->site_id)) {
+            $siteId = $this->_View->getRequest()->getAttribute('currentContent')->site_id;
         }
         $siteRoot = $this->BcContents->getSiteRoot($siteId);
         $id = ($siteRoot) ? $siteRoot->id : 1;
         $currentId = 1;
-        if (!empty($this->_View->getRequest()->getParam('Content.id'))) {
-            $currentId = $this->_View->getRequest()->getParam('Content.id');
+        if (!empty($this->_View->getRequest()->getAttribute('currentContent')->id)) {
+            $currentId = $this->_View->getRequest()->getAttribute('currentContent')->id;
         }
         $options = array_merge([
             'tree' => $this->BcContents->getTree($id, $level),
@@ -2052,11 +1983,12 @@ END_FLASH;
      * @checked
      * @noTodo
      * @unitTest
+     * @doc
      */
     public function isPage()
     {
         $request = $this->_View->getRequest();
-        return ($request->getParam('controller') === 'Pages' && $request->getParam('action') == 'display');
+        return ($request->getParam('controller') === 'Pages' && $request->getParam('action') == 'view');
     }
 
     /**
@@ -2161,49 +2093,6 @@ END_FLASH;
     }
 
     /**
-     * ウィジェットエリアを出力する
-     *
-     * @param int $no ウィジェットエリアNO（初期値 : null）※ 省略した場合は、コンテンツごとに管理システムにて設定されているウィジェットエリアを出力する
-     * @param array $options オプション（初期値 : array()）
-     *    - `loadHelpers` : ヘルパーを読み込むかどうか（初期値 : false）
-     * todo loadHelpersが利用されていないのをなんとかする
-     *    - `subDir` : テンプレートの配置場所についてプレフィックスに応じたサブフォルダを利用するかどうか（初期値 : true）
-     * @return void
-     */
-    public function widgetArea($no = null, $options = [])
-    {
-        echo $this->getWidgetArea($no, $options);
-    }
-
-    /**
-     * ウィジェットエリアを取得する
-     *
-     * @param int $no ウィジェットエリアNO（初期値 : null）※ 省略した場合は、コンテンツごとに管理システムにて設定されているウィジェットエリアを出力する
-     * @param array $options オプション（初期値 : array()）
-     *    - `loadHelpers` : ヘルパーを読み込むかどうか（初期値 : false）
-     * todo loadHelpersが利用されていないのをなんとかする
-     *    - `subDir` : テンプレートの配置場所についてプレフィックスに応じたサブフォルダを利用するかどうか（初期値 : true）
-     * @return string
-     */
-    public function getWidgetArea($no = null, $options = [])
-    {
-        $options = array_merge([
-            'loadHelpers' => false,
-            'subDir' => true,
-        ], $options);
-
-        $subDir = $options['subDir'];
-
-        if (!$no && !empty($this->_View->get('widgetArea'))) {
-            $no = $this->_View->get('widgetArea');
-        }
-        if ($no) {
-            return $this->getElement('widget_area', ['no' => $no, 'subDir' => $subDir], ['subDir' => $subDir]);
-        }
-        return '';
-    }
-
-    /**
      * 指定したURLが現在のURLと同じかどうか判定する
      *
      * 《比較例》
@@ -2256,236 +2145,13 @@ END_FLASH;
     }
 
     /**
-     * ロゴを出力する
-     *
-     * @param array $options オプション（初期値 : array()）
-     *    ※ パラメーターは、 BcBaserHelper->getThemeImage() を参照
-     * @return void
-     */
-    public function logo($options = [])
-    {
-        echo $this->getThemeImage('logo', $options);
-    }
-
-    /**
-     * メインイメージを出力する
-     *
-     * メインイメージは管理画面のテーマ設定にて指定
-     *
-     * @param array $options オプション
-     *    - `all`: 全ての画像を出力する。
-     *    - `num`: 指定した番号の画像を出力する。all を true とした場合は、出力する枚数となる。
-     *    - `id` : all を true とした場合、UL タグの id 属性を指定できる。
-     *    - `class` : all を true とした場合、UL タグの class 属性を指定できる。
-     *    ※ その他の、パラメーターは、 BcBaserHelper->getThemeImage() を参照
-     * @return void
-     */
-    public function mainImage($options = [])
-    {
-        $options = array_merge([
-            'num' => 1,
-            'all' => false,
-            'id' => 'MainImage',
-            'class' => false
-        ], $options);
-        if ($options['all']) {
-            $id = $options['id'];
-            $class = $options['class'];
-            $num = $options['num'];
-            unset($options['all']);
-            unset($options['id']);
-            unset($options['class']);
-            $tag = '';
-            for($i = 1; $i <= $num; $i++) {
-                $options['num'] = $i;
-                $themeImage = $this->getThemeImage('main_image', $options);
-                if ($themeImage) {
-                    $tag .= '<li>' . $themeImage . '</li>' . "\n";
-                }
-            }
-            $ulAttr = '';
-            if ($id !== false) {
-                $ulAttr .= ' id="' . $id . '"';
-            }
-            if ($class !== false) {
-                $ulAttr .= ' class="' . $class . '"';
-            }
-            echo '<ul' . $ulAttr . '>' . "\n" . $tag . "\n" . '</ul>';
-        } else {
-            echo $this->getThemeImage('main_image', $options);
-        }
-    }
-
-    /**
-     * テーマ画像を取得する
-     *
-     * @param string $name テーマ画像名（ log or main_image ）
-     * @param array $options オプション（初期値 :array()）
-     *    - `num` : main_imageの場合の番号指定（初期値 : ''）
-     *    - `thumb`: サムネイルを取得する（初期値 : false）
-     *    - `class`: 画像に設定する class 属性（初期値 : ''）
-     *    - `popup`: ポップアップリンクを指定（初期値 : false）
-     *    - `alt`    : 画像に設定する alt 属性。リンクの title 属性にも設定される。（初期値 : テーマ設定で設定された値）
-     *    - `link`    : リンク先URL。popup を true とした場合、オリジナルの画像へのリンクとなる。（初期値 : テーマ設定で設定された値）
-     *    - `maxWidth : 最大横幅（初期値 : ''）
-     *    - `maxHeight: 最大高さ（初期値 : ''）
-     *    - `width : 最大横幅（初期値 : ''）
-     *    - `height: 最大高さ（初期値 : ''）
-     *    - `noimage:
-     *    - `output:
-     * @return string $tag テーマ画像のHTMLタグ
-     */
-    public function getThemeImage($name, $options = [])
-    {
-        // TODO ucmitz ThemeConfigs は別プラグインに移行する
-        /* >>>
-        $themeConfigsTable = TableRegistry::getTableLocator()->get('BaserCore.ThemeConfigs');
-        $data = $themeConfigsTable->getKeyValue();
-        */
-        // ---
-        $data = [
-            'logo' => '', 'logo_alt' => '', 'logo_link' => '/',
-            'main_image_1' => '', 'main_image_alt_1' => '', 'main_image_link_1' => '',
-            'main_image_2' => '', 'main_image_alt_2' => '', 'main_image_link_2' => '',
-            'main_image_3' => '', 'main_image_alt_3' => '', 'main_image_link_3' => '',
-            'main_image_4' => '', 'main_image_alt_4' => '', 'main_image_link_4' => '',
-            'main_image_5' => '', 'main_image_alt_5' => '', 'main_image_link_5' => '',
-        ];
-        // <<<
-
-        $url = $imgPath = $uploadUrl = $uploadThumbUrl = $originUrl = '';
-        $thumbSuffix = '_thumb';
-        $dir = WWW_ROOT . 'files' . DS . 'theme_configs' . DS;
-        $themeDir = BcUtil::getViewPath();
-        $imgDir = $themeDir . DS . 'webroot' . DS . 'img' . DS;
-        $num = '';
-        if (!empty($options['num'])) {
-            $num = '_' . $options['num'];
-        }
-        $options = array_merge([
-            'thumb' => false,
-            'class' => '',
-            'popup' => false,
-            'alt' => $data[$name . '_alt' . $num],
-            'link' => $data[$name . '_link' . $num],
-            'maxWidth' => '',
-            'maxHeight' => '',
-            'width' => '',
-            'height' => '',
-            'noimage' => '', // 画像がなかった場合に表示する画像
-            'output' => '', // 出力タイプ tag ,url を指定、未指定(or false)の場合は、tagで出力(互換性のため)
-        ], $options);
-        $name = $name . $num;
-
-        if ($data[$name]) {
-            $pathinfo = pathinfo($data[$name]);
-            $uploadPath = $dir . $data[$name];
-            $uploadThumbPath = $dir . $pathinfo['filename'] . $thumbSuffix . '.' . $pathinfo['extension'];
-            $uploadUrl = '/files/theme_configs/' . $data[$name];
-            $uploadThumbUrl = '/files/theme_configs/' . $pathinfo['filename'] . $thumbSuffix . '.' . $pathinfo['extension'];
-        }
-
-        if ($data[$name]) {
-            if (!$options['thumb']) {
-                if (file_exists($uploadPath)) {
-                    $imgPath = $uploadPath;
-                    $url = $uploadUrl;
-                }
-            } else {
-                if (file_exists($uploadThumbPath)) {
-                    $imgPath = $uploadThumbPath;
-                    $url = $uploadThumbUrl;
-                }
-            }
-            $originUrl = $uploadUrl;
-        }
-
-        if (!$url) {
-            $exts = ['png', 'jpg', 'gif'];
-            foreach($exts as $ext) {
-                if (file_exists($imgDir . $name . '.' . $ext)) {
-                    $url = BcUtil::getCurrentTheme() . '.' . $name . '.' . $ext;
-                    $imgPath = $imgDir . $name . '.' . $ext;
-                    $originUrl = $url;
-                }
-            }
-        }
-
-        // noimage が設定されていれば、画像がなくても処理を続ける
-        if (!$url) {
-            if ($options['noimage']) {
-                $url = $options['noimage'];
-            } else {
-                return '';
-            }
-        }
-        // outputがURLなら、URLを返す
-        if ($options['output'] == 'url') {
-            return $url;
-        }
-
-        $imgOptions = [];
-        if ($options['class']) {
-            $imgOptions['class'] = $options['class'];
-        }
-        if ($options['alt']) {
-            $imgOptions['alt'] = $options['alt'];
-        }
-        if ($options['maxWidth'] || $options['maxHeight']) {
-            $imginfo = getimagesize($imgPath);
-            $widthRate = $heightRate = 0;
-            if ($options['maxWidth']) {
-                $widthRate = $imginfo[0] / $options['maxWidth'];
-            }
-            if ($options['maxHeight']) {
-                $heightRate = $imginfo[1] / $options['maxHeight'];
-            }
-            if ($widthRate > $heightRate) {
-                if ($options['maxWidth'] && $imginfo[0] > $options['maxWidth']) {
-                    $imgOptions['width'] = $options['maxWidth'];
-                }
-            } else {
-                if ($options['maxHeight'] && ($imginfo[1] > $options['maxHeight'])) {
-                    $imgOptions['height'] = $options['maxHeight'];
-                }
-            }
-        }
-        if ($options['width']) {
-            $imgOptions['width'] = $options['width'];
-        }
-        if ($options['height']) {
-            $imgOptions['height'] = $options['height'];
-        }
-
-        $tag = $this->getImg($url, $imgOptions);
-        if ($options['link'] || $options['popup']) {
-            $linkOptions = [];
-            if ($options['popup']) {
-                $linkOptions['rel'] = 'colorbox';
-                $link = $originUrl;
-            } elseif ($options['link']) {
-                $link = $options['link'];
-                if (!empty($this->_View->getRequest()->getParam('Site.alias'))) {
-                    if (empty($this->_View->getRequest()->getParam('Site.same_main_url'))) {
-                        $link = '/' . $this->_View->getRequest()->getParam('Site.alias') . $link;
-                    }
-                }
-            }
-            if ($options['alt']) {
-                $linkOptions['title'] = $options['alt'];
-            }
-            $tag = $this->getLink($tag, $link, $linkOptions);
-        }
-        return $tag;
-    }
-
-    /**
      * 現在のテーマのURLを取得する
      *
      * @return string テーマのURL
      * @checked
      * @noTodo
      * @unitTest
+     * @doc
      */
     public function getThemeUrl()
     {
@@ -2499,6 +2165,7 @@ END_FLASH;
      * @checked
      * @noTodo
      * @unitTest
+     * @doc
      */
     public function themeUrl()
     {
@@ -2584,6 +2251,7 @@ END_FLASH;
      * @checked
      * @noTodo
      * @unitTest
+     * @doc
      */
     public function crumbsList($data = [], $options = [])
     {
@@ -2730,18 +2398,9 @@ END_FLASH;
     }
 
     /**
-     * URLのパラメータ情報を返す
-     * 主なreturnデータは
-     * https://basercms.net/news/index/example/test?name=value の場合
-     * 'plugin' => blog (利用しているプラグイン)
-     * 'pass' => [0] => 'example'
-     *           [1] => 'test'
-     * 'isAjax' => (boolean)false
-     * 'query' => 'name' => 'value'
-     * 'url' => 'news/index/fuga/hoge'
-     * 'here' => '/news/index/fuga/hoge'
+     * パラメータ情報を取得する
      *
-     * @return array URLのパラメータ情報の配列
+     * @return array パラメータ情報の配列
      * @checked
      * @noTodo
      * @unitTest
@@ -2749,17 +2408,28 @@ END_FLASH;
     public function getParams()
     {
         $attributes = $this->_View->getRequest()->getAttributes();
-        $params = $attributes['params'];
-        $params['query'] = $this->_View->getRequest()->getQueryParams();
-        $params['url'] = preg_replace('/^\//', '', $this->_View->getRequest()->getPath());
-        $params['here'] = $this->_View->getRequest()->getPath();
-        unset($params['named']);
-        unset($params['controller']);
-        unset($params['action']);
-        unset($params['models']);
-        unset($params['_Token']);
-        unset($params['paging']);
-        return $params;
+        return $attributes['params'];
+    }
+
+    /**
+     * URL情報を取得する
+     *
+     * @return array URL情報の配列
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function getUrlParams()
+    {
+        $attributes = $this->_View->getRequest()->getAttributes();
+        return [
+            'url' => $this->getUrl(null, true),
+            'here' => $attributes['here'],
+            'path' => $this->_View->getRequest()->getPath(),
+            'webroot' => $attributes['webroot'],
+            'base' => $attributes['base'],
+            'query' => $this->_View->getRequest()->getQueryParams(),
+        ];
     }
 
     /**
@@ -2769,11 +2439,12 @@ END_FLASH;
      * @checked
      * @noTodo
      * @unitTest
+     * @doc
      */
     public function getCurrentContent()
     {
-        if (!empty($this->_View->getRequest()->getParam('Content'))) {
-            return $this->_View->getRequest()->getParam('Content');
+        if (!empty($this->_View->getRequest()->getAttribute('currentContent'))) {
+            return $this->_View->getRequest()->getAttribute('currentContent');
         }
         return null;
     }
@@ -2785,11 +2456,11 @@ END_FLASH;
      */
     public function getCurrentPrefix()
     {
-        if (empty($this->_View->getRequest()->getParam('Site'))) {
+        if (empty($this->_View->getRequest()->getAttribute('currentSite'))) {
             return '';
         }
         $Site = ClassRegistry::init('Site');
-        return $Site->getPrefix($this->_View->getRequest()->getParam('Site'));
+        return $Site->getPrefix($this->_View->getRequest()->getAttribute('currentSite'));
     }
 
     /**
@@ -2798,6 +2469,7 @@ END_FLASH;
      * @checked
      * @noTodo
      * @unitTest
+     * @doc
      */
     public function getContentCreatedDate($format = 'Y/m/d H:i')
     {
@@ -2817,6 +2489,7 @@ END_FLASH;
      * @checked
      * @noTodo
      * @unitTest
+     * @doc
      */
     public function getContentModifiedDate($format = 'Y/m/d H:i')
     {
@@ -2841,6 +2514,7 @@ END_FLASH;
      * @checked
      * @noTodo
      * @unitTest
+     * @doc
      */
     public function getUpdateInfo()
     {
@@ -2892,7 +2566,7 @@ END_FLASH;
         if (BcUtil::isAdminSystem()) {
             return;
         }
-        if (empty($this->_View->getRequest()->getParam('Site'))) {
+        if (empty($this->_View->getRequest()->getAttribute('currentSite'))) {
             return;
         }
         $this->setCanonicalUrl();
@@ -2919,7 +2593,7 @@ END_FLASH;
             $mainSite = $sites->getMainByUrl($this->_View->getRequest()->getPath());
             $url = $mainSite->makeUrl(new CakeRequest($this->BcContents->getPureUrl(
                 $this->_View->getRequest()->getPath(),
-                $this->_View->getRequest()->getParam('Site.id')
+                $this->_View->getRequest()->getAttribute('currentSite')->id
             )));
 
         } else {
@@ -2955,7 +2629,7 @@ END_FLASH;
         }
         $url = $subSite->makeUrl(new CakeRequest($this->BcContents->getPureUrl(
             $this->_View->getRequest()->getPath(),
-            $this->_View->getRequest()->getParam('Site.id')
+            $this->_View->getRequest()->getAttribute('currentSite')->id
         )));
         $this->_View->set('meta',
             $this->BcHtml->meta('alternate',
@@ -3019,14 +2693,14 @@ END_FLASH;
     public function getContentsUrl($url = null, $full = false, $useSubDomain = null, $base = true)
     {
         if (!$url) {
-            if (!empty($this->_View->getRequest()->getParam('Content.url'))) {
-                $url = $this->_View->getRequest()->getParam('Content.url');
+            if (!empty($this->_View->getRequest()->getAttribute('currentContent')->url)) {
+                $url = $this->_View->getRequest()->getAttribute('currentContent')->url;
             } else {
                 $url = '/';
             }
         }
         if (is_null($useSubDomain)) {
-            $site = $this->_View->getRequest()->getParam('Site');
+            $site = $this->_View->getRequest()->getAttribute('currentSite');
             if($site) $useSubDomain = $site->use_subdomain;
         }
         return $this->BcContents->getUrl($url, $full, $useSubDomain, $base);

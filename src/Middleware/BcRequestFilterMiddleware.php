@@ -52,7 +52,7 @@ class BcRequestFilterMiddleware implements MiddlewareInterface
             return new Response();
         }
 
-        $this->redirectIfIsDeviceFile($request, $handler);
+        if(BcUtil::isInstalled()) $this->redirectIfIsDeviceFile($request, $handler);
 
         return $handler->handle($request);
     }
@@ -210,7 +210,7 @@ class BcRequestFilterMiddleware implements MiddlewareInterface
     public function isUpdate(ServerRequestInterface $request)
     {
         $slug = '/' . Configure::read('BcApp.updateKey');
-        return in_array($request->getPath(), [$slug, "{$slug}/", "{$slug}/index"]);
+        return ($request->getPath() === $slug);
     }
 
     /**
@@ -226,7 +226,7 @@ class BcRequestFilterMiddleware implements MiddlewareInterface
     public function isPage(ServerRequestInterface $request)
     {
         return $request->getParam('controller') === 'Pages'
-            && $request->getParam('action') === 'display';
+            && $request->getParam('action') === 'view';
     }
 
     /**

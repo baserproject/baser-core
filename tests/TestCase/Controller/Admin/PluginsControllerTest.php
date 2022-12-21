@@ -11,16 +11,20 @@
 
 namespace BaserCore\Test\TestCase\Controller\Admin;
 
+use BaserCore\Test\Factory\PluginFactory;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Utility\BcUtil;
+use Cake\Core\Configure;
+use Cake\Core\Plugin;
+use Cake\Filesystem\File;
 use Cake\Filesystem\Folder;
 use Cake\TestSuite\IntegrationTestTrait;
 use BaserCore\Controller\Admin\PluginsController;
 use Cake\Event\Event;
+use Composer\Package\Archiver\ZipArchiver;
 
 /**
  * Class PluginsControllerTest
- * @package BaserCore\Test\TestCase\Controller
  */
 class PluginsControllerTest extends BcTestCase
 {
@@ -57,6 +61,7 @@ class PluginsControllerTest extends BcTestCase
      */
     public function setUp(): void
     {
+        $this->setFixtureTruncate();
         parent::setUp();
         $this->PluginsController = new PluginsController($this->loginAdmin($this->getRequest()));
     }
@@ -67,6 +72,11 @@ class PluginsControllerTest extends BcTestCase
     public function tearDown(): void
     {
         parent::tearDown();
+        $this->truncateTable('blog_categories');
+        $this->truncateTable('blog_contents');
+        $this->truncateTable('blog_posts');
+        $this->truncateTable('blog_tags');
+        $this->truncateTable('blog_posts_blog_tags');
     }
 
     /**
@@ -82,9 +92,11 @@ class PluginsControllerTest extends BcTestCase
      */
     public function testBeforeFilter()
     {
+        Configure::write('BcRequest.isUpdater', true);
         $event = new Event('Controller.beforeFilter', $this->PluginsController);
         $this->PluginsController->beforeFilter($event);
         $this->assertEquals($this->PluginsController->Security->getConfig('unlockedActions'), ['reset_db', 'update_sort', 'batch']);
+        $this->assertEquals(['update'], $this->PluginsController->Authentication->getUnauthenticatedActions());
     }
 
     /**
@@ -111,18 +123,6 @@ class PluginsControllerTest extends BcTestCase
     {
         $this->get('/baser/admin/baser-core/plugins/get_market_plugins');
         $this->assertResponseOk();
-    }
-
-    /**
-     * 並び替えを更新する
-     */
-    public function testAjax_update_sort()
-    {
-        $this->enableSecurityToken();
-        $this->enableCsrfToken();
-        $this->post('/baser/admin/baser-core/plugins/update_sort', ['connection' => 'test', 'Sort' => ['id' => 1, 'offset' => 1]]);
-        $this->assertResponseOk();
-        $this->assertSame('true', $this->_getBodyAsString());
     }
 
     /**
@@ -187,7 +187,55 @@ class PluginsControllerTest extends BcTestCase
             'schema' => Folder::OVERWRITE
         ]);
         $this->put('/baser/admin/baser-core/plugins/install/BcBlog', $data);
+    }
 
+
+    /**
+     * test update
+     */
+    public function testUpdate(): void
+    {
+        $this->enableSecurityToken();
+        $this->enableCsrfToken();
+        $path = Plugin::path('BcSpaSample');
+        rename($path . 'VERSION.txt', $path . 'VERSION.bak.txt');
+        $file = new File($path . 'VERSION.txt');
+        $file->write('0.0.2');
+        $file->close();
+        PluginFactory::make(['name' => 'BcSpaSample', 'version' => '0.0.1'])->persist();
+        $this->put('/baser/admin/baser-core/plugins/update/BcSpaSample', [
+            'connection' => 'test',
+            'update' => 1
+        ]);
+        $this->assertRedirect([
+            'plugin' => 'BaserCore',
+            'prefix' => 'Admin',
+            'controller' => 'plugins',
+            'action' => 'update',
+            'BcSpaSample'
+        ]);
+        $this->assertFlashMessage('アップデート処理が完了しました。画面下部のアップデートログを確認してください。');
+        rename($path . 'VERSION.bak.txt', $path . 'VERSION.txt');
+    }
+
+    /**
+     * test update core
+     */
+    public function testUpdateCore(): void
+    {
+        $this->enableSecurityToken();
+        $this->enableCsrfToken();
+        rename(BASER . 'VERSION.txt', BASER . 'VERSION.bak.txt');
+        $file = new File(BASER . 'VERSION.txt');
+        $file->write('10.0.0');
+        $file->close();
+        $this->put('/update', [
+            'connection' => 'test',
+            'update' => 1
+        ]);
+        $this->assertRedirect('/');
+        $this->assertFlashMessage(sprintf('全てのアップデート処理が完了しました。 %s にログを出力しています。', LOGS . 'update.log'));
+        rename(BASER . 'VERSION.bak.txt', BASER . 'VERSION.txt');
     }
 
     /**
@@ -216,27 +264,49 @@ class PluginsControllerTest extends BcTestCase
             'version' => "1.0.0",
             'permission' => "1"
         ];
+        Plugin::getCollection()->remove('BcBlog');
         $this->put('/baser/admin/baser-core/plugins/install/BcBlog', $data);
     }
 
     /**
-     * 一括処理できてるかテスト
+     * test add
      */
-    public function testAjax_batch()
+    public function test_add()
     {
         $this->enableSecurityToken();
         $this->enableCsrfToken();
-        $batchList = [1, 2];
-        $this->post('/baser/admin/baser-core/plugins/batch', ['connection' => 'test', 'ListTool' => ['batch' => 'detach', 'batch_targets' => $batchList]]);
-        $this->assertResponseOk();
-        $plugins = $this->getTableLocator()->get('Plugins');
-        $query = $plugins->find()->select(['id', 'status']);
-        // 複数detachされてるかテスト
-        foreach($query as $plugin) {
-            if (in_array($plugin->id, $batchList)) {
-                $this->assertFalse($plugin->status);
-            }
-        }
-        $this->assertSame('true', $this->_getBodyAsString());
+
+        $path = BASER_PLUGINS . 'BcSpaSample';
+        $zipSrcPath = TMP . 'zip' . DS;
+        $folder = new Folder();
+        $folder->create($zipSrcPath, 0777);
+        $folder->copy($zipSrcPath . 'BcSpaSample2', ['from' => $path, 'mode' => 0777]);
+        $plugin = 'BcSpaSample2';
+        $zip = new ZipArchiver();
+        $testFile = $zipSrcPath . $plugin . '.zip';
+        $zip->archive($zipSrcPath, $testFile, true);
+
+        $this->setUploadFileToRequest('file', $testFile, '', 1);
+        $this->setUnlockedFields(['file']);
+        $this->post('/baser/admin/baser-core/plugins/add');
+        $this->assertResponseCode(302);
+        $this->assertFlashMessage('ファイルのアップロードに失敗しました。Cannot retrieve stream due to upload error: The uploaded file exceeds the upload_max_filesize directive in php.ini');
+
+        $this->setUploadFileToRequest('file', $testFile);
+        $this->setUnlockedFields(['file']);
+        $this->post('/baser/admin/baser-core/plugins/add');
+
+        $this->assertResponseCode(302);
+        $this->assertRedirect([
+            'plugin' => 'BaserCore',
+            'prefix' => 'Admin',
+            'controller' => 'plugins',
+            'action' => 'index'
+        ]);
+        $this->assertFlashMessage('新規プラグイン「' . $plugin . '」を追加しました。');
+
+        $folder = new Folder();
+        $folder->delete(BASER_PLUGINS . $plugin);
+        $folder->delete($zipSrcPath);
     }
 }

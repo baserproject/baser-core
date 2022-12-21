@@ -14,17 +14,34 @@ namespace BaserCore\TestSuite;
 use App\Application;
 use Authentication\Authenticator\Result;
 use BaserCore\Middleware\BcAdminMiddleware;
+use BaserCore\Middleware\BcFrontMiddleware;
 use BaserCore\Middleware\BcRequestFilterMiddleware;
 use BaserCore\Plugin;
+use BaserCore\Service\BcDatabaseService;
 use BaserCore\Utility\BcApiUtil;
+use BaserCore\Utility\BcContainerTrait;
+use BaserCore\Utility\BcUtil;
+use BcBlog\ServiceProvider\BcBlogServiceProvider;
+use BcContentLink\ServiceProvider\BcContentLinkServiceProvider;
+use BcInstaller\ServiceProvider\BcInstallerServiceProvider;
+use BcMail\ServiceProvider\BcMailServiceProvider;
+use BcSearchIndex\ServiceProvider\BcSearchIndexServiceProvider;
+use BcWidgetArea\ServiceProvider\BcWidgetAreaServiceProvider;
 use Cake\Core\Configure;
+use Cake\Datasource\ConnectionManager;
 use Cake\Event\EventListenerInterface;
 use Cake\Event\EventManager;
+use Cake\Filesystem\Folder;
 use Cake\Http\Response;
 use Cake\Http\ServerRequest;
 use Cake\Http\ServerRequestFactory;
 use Cake\ORM\TableRegistry;
 use Cake\Routing\Router;
+use Cake\TestSuite\Fixture\FixtureInjector;
+use Cake\TestSuite\Fixture\FixtureManager;
+use Cake\TestSuite\Fixture\FixtureStrategyInterface;
+use Cake\TestSuite\Fixture\TransactionStrategy;
+use Cake\TestSuite\Fixture\TruncateStrategy;
 use Cake\TestSuite\IntegrationTestTrait;
 use Cake\TestSuite\TestCase;
 use BaserCore\Annotation\UnitTest;
@@ -46,6 +63,7 @@ class BcTestCase extends TestCase
      * IntegrationTestTrait
      */
     use IntegrationTestTrait;
+    use BcContainerTrait;
 
     /**
      * @var Application
@@ -58,6 +76,12 @@ class BcTestCase extends TestCase
     public $BaserCore;
 
     /**
+     * FixtureStrategy にて、TruncateStrategy を利用するかどうか
+     * @var bool
+     */
+    private $fixtureTruncate = false;
+
+    /**
      * イベントレイヤー
      * entryEventToMock() の引数として利用
      * @var string
@@ -68,13 +92,100 @@ class BcTestCase extends TestCase
     const EVENT_LAYER_HELPER = 'Helper';
 
     /**
-     * detectors
-     *
-     * ServerRequest::_detectors を初期化する際、
-     * 一番初期の状況を保管しておくために利用
-     * @var array
+     * FixtureManager
+     * 古いフィクスチャーの後方互換用
+     * @var FixtureManager
+     * @deprecated 5.1.0
+     * @see setUpFixtureManager
      */
-    public static $_detectors;
+    public $FixtureManager;
+
+    /**
+     * FixtureInjector
+     * 古いフィクスチャーの後方互換用
+     * @var FixtureInjector
+     * @deprecated 5.1.0
+     * @see setUpFixtureManager
+     */
+    public $FixtureInjector;
+
+    /**
+     * FixtureStrategy にて、TruncateStrategy を利用するかどうかを設定
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function setFixtureTruncate(): void
+    {
+        $this->fixtureTruncate = true;
+    }
+
+    /**
+     * テーブルを空にする
+     * @param string $tableName
+     * @noTodo
+     * @checked
+     * @unitTest BcDatabaseService::truncate のラッパーメソッドのためスキップ
+     */
+    public static function truncateTable($tableName): void
+    {
+        // 静的メソッド setUpBeforeClass でも利用しているため、このメソッドも静的メソッドにしている
+        // BcContainerTrait 経由で取得しようとしたが、タイミングの問題か見つからないとエラーが出るため直接初期化
+        $dbService = new BcDatabaseService();
+        $dbService->truncate($tableName);
+    }
+
+    /**
+     * getFixtureStrategy
+     * フィクスチャの削除処理の高速化を図るため、FixtureStrategy に TransactionStrategy を設定。
+     * ベースをこちらにし、 auto increment による問題が発生した場合は、個別のテストケースごとに
+     * TruncateStrategy を利用するようにする。
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    protected function getFixtureStrategy(): FixtureStrategyInterface
+    {
+        if ($this->fixtureTruncate) {
+            return new TruncateStrategy();
+        } else {
+            return new TransactionStrategy();
+        }
+    }
+
+    /**
+     * setup FixtureManager
+     *
+     * CakePHP4系より、FixtureManagerが非推奨となったが、$this->autoFixtures = false を利用した動的フィクスチャーを
+     * 利用するために FixtureManager が必要となる。phpunit.xml.dist からは、FixtureManager の定義を除外し、
+     * 基本的に利用しない方針だが、動的フィクスチャーが必要なテストの場合にだけ利用する。
+     * 動的フィクスチャーを FixtureFactory に移管後、廃止とする
+     * @deprecated 5.1.0
+     */
+    public function setUpFixtureManager()
+    {
+        $this->FixtureManager = new FixtureManager();
+        $this->FixtureInjector = new FixtureInjector($this->FixtureManager);
+        $this->FixtureInjector->startTest($this);
+    }
+
+    /**
+     * tear down FixtureManager
+     * @deprecated 5.1.0
+     * @see setUpFixtureManager
+     * @checked
+     * @unitTest
+     * @noTodo
+     */
+    public function tearDownFixtureManager()
+    {
+        $this->FixtureInjector->endTest($this, 0);
+        $fixtures = $this->FixtureManager->loaded();
+        foreach($fixtures as $fixture) {
+            $fixture->truncate(ConnectionManager::get($fixture->connection()));
+        }
+        self::$fixtureManager = null;
+    }
 
     /**
      * Set Up
@@ -84,6 +195,9 @@ class BcTestCase extends TestCase
      */
     public function setUp(): void
     {
+        if (!$this->autoFixtures) {
+            $this->setUpFixtureManager();
+        }
         parent::setUp();
         $this->Application = new Application(CONFIG);
         $this->Application->bootstrap();
@@ -95,7 +209,17 @@ class BcTestCase extends TestCase
         $this->BaserCore = $this->Application->getPlugins()->get('BaserCore');
         $container = BcContainer::get();
         $container->addServiceProvider(new BcServiceProvider());
+        $container->addServiceProvider(new BcSearchIndexServiceProvider());
+        $container->addServiceProvider(new BcContentLinkServiceProvider());
+        $container->addServiceProvider(new BcBlogServiceProvider());
+        $container->addServiceProvider(new BcInstallerServiceProvider());
+        $container->addServiceProvider(new BcMailServiceProvider());
+        $container->addServiceProvider(new BcWidgetAreaServiceProvider());
         EventManager::instance(new EventManager());
+        if(!empty($_SERVER['REQUEST_URI']) && $_SERVER['REQUEST_URI'] === '/s/') {
+            $a = 1;
+        }
+
     }
 
     /**
@@ -106,7 +230,11 @@ class BcTestCase extends TestCase
      */
     public function tearDown(): void
     {
+        if (!$this->autoFixtures) {
+            $this->tearDownFixtureManager();
+        }
         BcContainer::clear();
+        $_FILES = [];
         parent::tearDown();
     }
 
@@ -121,63 +249,10 @@ class BcTestCase extends TestCase
      */
     public function getRequest($url = '/', $data = [], $method = 'GET', $config = [])
     {
-        $config = array_merge([
-            'ajax' => false
-        ], $config);
-        $isAjax = (!empty($config['ajax']))? true : false;
-        unset($config['ajax']);
-        if(preg_match('/^http/', $url)) {
-            $parseUrl = parse_url($url);
-            Configure::write('BcEnv.host', $parseUrl['host']);
-            $defaultConfig = [
-                'uri' => ServerRequestFactory::createUri([
-                    'HTTP_HOST' => $parseUrl['host'],
-                    'REQUEST_URI' => $url,
-                    'REQUEST_METHOD' => $method,
-                    'HTTPS' => (preg_match('/^https/', $url))? 'on' : ''
-            ])];
-        } else {
-            $defaultConfig = [
-                'url' => $url,
-                'environment' => [
-                    'REQUEST_METHOD' => $method
-            ]];
-        }
-        $defaultConfig = array_merge($defaultConfig, $config);
-        $request = new ServerRequest($defaultConfig);
-
-        // ServerRequest::_detectors を初期化
-        // static プロパティで値が残ってしまうため
-        $ref = new ReflectionClass($request);
-        $detectors = $ref->getProperty('_detectors');
-        $detectors->setAccessible(true);
-        if(!self::$_detectors) {
-            self::$_detectors = $detectors->getValue();
-        }
-        $detectors->setValue(self::$_detectors);
+        $request = BcUtil::createRequest($url, $data, $method, $config);
         $request->getSession()->start();
-        try {
-            Router::setRequest($request);
-            $params = Router::parseRequest($request);
-        } catch (\Exception $e) {
-            return $request;
-        }
-
-        $request = $request->withAttribute('params', $params);
-        if($request->getParam('prefix') === 'Admin') {
-            $request = $this->execPrivateMethod(new BcAdminMiddleware(), 'setCurrentSite', [$request]);
-        }
-        if ($data) {
-            $request = $request->withParsedBody($data);
-        }
         $authentication = $this->BaserCore->getAuthenticationService($request);
         $request = $request->withAttribute('authentication', $authentication);
-        $request = $request->withEnv('HTTPS', (preg_match('/^https/', $url))? 'on' : '');
-        if($isAjax) {
-            $request = $request->withEnv('HTTP_X_REQUESTED_WITH', 'XMLHttpRequest');
-        }
-        $bcRequestFilter = new BcRequestFilterMiddleware();
-        $request = $bcRequestFilter->addDetectors($request);
         Router::setRequest($request);
         return $request;
     }
@@ -215,7 +290,7 @@ class BcTestCase extends TestCase
         $user = $this->getUser($id);
         $this->session([$sessionKey => $user]);
         $authentication = $request->getAttribute('authentication');
-        if(!$authentication) {
+        if (!$authentication) {
             $authentication = $this->BaserCore->getAuthenticationService($request);
             $request = $request->withAttribute('authentication', $authentication);
         }
@@ -231,11 +306,14 @@ class BcTestCase extends TestCase
      * Api Login
      * @param int $id
      * @return array
+     * @checked
+     * @unitTest
+     * @noTodo
      */
     protected function apiLoginAdmin($id = 1)
     {
         $user = $this->getUser($id);
-        if($user) {
+        if ($user) {
             return BcApiUtil::createAccessToken($id);
         } else {
             return [];
@@ -247,6 +325,9 @@ class BcTestCase extends TestCase
      * @param $eventName
      * @param $callback
      * @return EventListenerInterface|\PHPUnit\Framework\MockObject\MockObject
+     * @checked
+     * @unitTest
+     * @noTodo
      */
     protected function entryEventToMock($layer, $eventName, $callback)
     {
@@ -286,36 +367,115 @@ class BcTestCase extends TestCase
         return $value;
     }
 
+    /**
+     * private・protectedプロパティの値を取得する
+     *
+     * @param object $class
+     * @param string $property
+     * @return mixed
+     * @throws \ReflectionException
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    protected function getPrivateProperty(object $class, string $property)
+    {
+        $ref = new ReflectionClass($class);
+        $property = $ref->getProperty($property);
+        $property->setAccessible(true);
+        return $property->getValue($class);
+    }
 
-	/**
-	 * イベントを設定する
-	 *
-	 * @param $events
+    /**
+     * イベントを設定する
+     *
+     * @param $events
      * @checked
      * @unitTest
      * @noTodo
-	 */
-	public function attachEvent($events)
-	{
-		$EventManager = EventManager::instance();
-		$event = new BcEventListenerMock($events);
-		$EventManager->on($event);
-		return $event;
-	}
+     */
+    public function attachEvent($events)
+    {
+        $EventManager = EventManager::instance();
+        $event = new BcEventListenerMock($events);
+        $EventManager->on($event);
+        return $event;
+    }
 
-	/**
-	 * イベントをリセットする
+    /**
+     * イベントをリセットする
      * @checked
      * @unitTest
      * @noTodo
-	 */
-	public function resetEvent()
-	{
-		$EventManager = EventManager::instance();
-		$reflectionClass = new ReflectionClass(get_class($EventManager));
-		$property = $reflectionClass->getProperty('_listeners');
-		$property->setAccessible(true);
-		$property->setValue($EventManager, []);
-	}
+     */
+    public function resetEvent()
+    {
+        $EventManager = EventManager::instance();
+        $reflectionClass = new ReflectionClass(get_class($EventManager));
+        $property = $reflectionClass->getProperty('_listeners');
+        $property->setAccessible(true);
+        $property->setValue($EventManager, []);
+    }
+
+    /**
+     * tear down after class
+     * テスト時に生成されたログや一時ファイルに書き込み権限を与える
+     * ブラウザでアクセスした際にエラーとなるため
+     * @checked
+     * @unitTest
+     * @noTodo
+     */
+    public static function tearDownAfterClass(): void
+    {
+        $folder = new Folder();
+        $folder->chmod(LOGS, 0777);
+        $folder->chmod(TMP, 0777);
+    }
+
+    /**
+     * アップロードするファイルをリクエストに設定する
+     * IntegrationTestTrait を使ったテストで利用する
+     * @param string $name
+     * @param string $path
+     * @param string $fileName
+     * @param int $error
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function setUploadFileToRequest($name, $path, $fileName = '', $error = UPLOAD_ERR_OK)
+    {
+        if(!file_exists($path)) return false;
+        if (!$fileName) $fileName = basename($path);
+        $size = filesize($path);
+        $type = BcUtil::getContentType($fileName);
+        $files = [
+            $name => [
+                'error' => $error,
+                'name' => $fileName,
+                'size' => $size,
+                'tmp_name' => $path,
+                'type' => $type
+            ]
+        ];
+        $this->configRequest(['files' => $files]);
+        $_FILES = $files;
+        return true;
+    }
+
+    /**
+     * テーブルを削除する
+     * @param string $tableName
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function dropTable($tableName)
+    {
+        $connection = ConnectionManager::get('test');
+        $schema = $connection->getDriver()->newTableSchema($tableName);
+        $sql = $schema->dropSql($connection);
+        $connection->execute($sql[0])->closeCursor();
+    }
 
 }

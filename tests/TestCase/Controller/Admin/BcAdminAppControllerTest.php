@@ -11,10 +11,7 @@
 
 namespace BaserCore\Test\TestCase\Controller\Admin;
 
-use BaserCore\Service\SiteConfigsServiceInterface;
 use BaserCore\Utility\BcContainerTrait;
-use ReflectionClass;
-use Cake\Event\Event;
 use Cake\Core\Configure;
 use Cake\Routing\Router;
 use BaserCore\TestSuite\BcTestCase;
@@ -109,105 +106,6 @@ class BcAdminAppControllerTest extends BcTestCase
 //        $this->loginAdmin($this->BcAdminApp->getRequest(), 2);
 //        $this->BcAdminApp->beforeFilter(new Event('beforeFilter'));
 //        $this->assertEquals('指定されたページへのアクセスは許可されていません。', $_SESSION['Flash']['flash'][0]['message']);
-//    }
-//
-//    /**
-//     * Test setViewConditions method
-//     *
-//     * @return void
-//     */
-//    public function testSetViewConditions()
-//    {
-//        // Sessionテスト
-//        $this->testSaveViewConditions();
-//        $this->testLoadViewConditions();
-//
-//        // Requestテスト
-//        $request = $this->getRequest('/baser/admin/users/login');
-//        $BcAdminApp = new BcAdminAppController($this->loginAdmin($request));
-//
-//            // namedオプションの場合
-//        $named =  [
-//            'named' => [
-//                'num' => 30,
-//            ]
-//        ];
-//        $this->execPrivateMethod($BcAdminApp, 'saveViewConditions', ['testModel', ['default' => $named]]);
-//        $this->execPrivateMethod($BcAdminApp, 'loadViewConditions', ['testModel', ['default' => $named]]);
-//        $this->assertEquals($named['named']['num'], $BcAdminApp->getRequest()->getParam('pass.num'));
-//
-//            // クエリパラメータの場合
-//
-//                // 設定のパラメータ
-//        $savedQuery = [
-//            'query' => [
-//                'list_type' => 1,
-//        ]];
-//                // 実際のクエリパラメータ
-//        $query = [
-//            'list_type' => 2,
-//        ];
-//        $BcAdminApp->setRequest($request->withQueryParams($query));
-//        $this->execPrivateMethod($BcAdminApp, 'saveViewConditions', ['testModel', ['default' => $savedQuery]]);
-//        $this->execPrivateMethod($BcAdminApp, 'loadViewConditions', ['testModel', ['default' => $savedQuery]]);
-//        $this->assertEquals($query, $BcAdminApp->getRequest()->getQueryParams());
-//    }
-//
-//    /**
-//     * Test loadViewConditions method
-//     *
-//     * @return void
-//     */
-//    public function testLoadViewConditions()
-//    {
-//        $query = ['test' => 'test'];
-//        $named = ['test'];
-//        $request = $this->getRequest('/baser/admin/users/login');
-//        $session = $request->getSession();
-//        $session->write('BcApp.viewConditions.UsersLogin.named', $named);
-//        $session->write('BcApp.viewConditions.UsersLogin.query', $query);
-//        $BcAdminApp = new BcAdminAppController($this->loginAdmin($request));
-//        $this->execPrivateMethod($BcAdminApp, 'loadViewConditions');
-//        $this->assertEquals($named[0], $BcAdminApp->getRequest()->getParam('pass')[0]);
-//        $this->assertEquals($query, $BcAdminApp->getRequest()->getParam('pass')['?']);
-//    }
-//
-//    /**
-//     * Test saveViewConditions method
-//     *
-//     * @return void
-//     */
-//    public function testSaveViewConditions()
-//    {
-//        // namedオプション
-//        $named =  [
-//            'named' => [
-//                'num' => 30,
-//                'site_id' => 0,
-//                'list_type' => 1,
-//                'sort' => 'id',
-//                'direction' => 'asc'
-//            ]
-//        ];
-//        $request = $this->getRequest('/baser/admin/users/login');
-//        $BcAdminApp = new BcAdminAppController($this->loginAdmin($request));
-//        $BcAdminApp->setRequest($request->withParam('named', $named));
-//        $this->execPrivateMethod($BcAdminApp, 'saveViewConditions', ['testModel', ['default' => $named]]);
-//        $this->assertSession($named, 'BcApp.viewConditions.UsersLogin.named');
-//
-//        // 実際のクエリパラメータ
-//        $query = [
-//            'list_type' => 1,
-//        ];
-//        // 追加設定されたクエリパラメータ
-//        $savedQuery = [
-//            'query' => [
-//                'queryStatus' => 'overriden',
-//            ]
-//        ];
-//        $BcAdminApp->setRequest($request->withQueryParams($query));
-//        $this->execPrivateMethod($BcAdminApp, 'saveViewConditions', ['testModel', ['default' => $savedQuery]]);
-//        $this->assertSession(array_merge($savedQuery['query'], $query), 'BcApp.viewConditions.UsersLogin.query');
 //    }
 //
 //    /**

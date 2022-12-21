@@ -12,7 +12,9 @@
 namespace BaserCore\Test\TestCase\Model\Table;
 
 use BaserCore\Model\Table\PluginsTable;
+use BaserCore\Test\Factory\PluginFactory;
 use BaserCore\TestSuite\BcTestCase;
+use BaserCore\Utility\BcUtil;
 use Cake\Validation\Validator;
 
 /**
@@ -35,6 +37,7 @@ class PluginsTableTest extends BcTestCase
      */
     protected $fixtures = [
         'plugin.BaserCore.Plugins',
+        'plugin.BaserCore.SiteConfigs'
     ];
 
     /**
@@ -77,10 +80,10 @@ class PluginsTableTest extends BcTestCase
         // test Install
         $this->Plugins->install('BcTest');
         $plugin = $this->Plugins->find()->where(['name' => 'BcTest'])->first();
-        $this->assertEquals(4, $plugin->priority);
+        $this->assertEquals(5, $plugin->priority);
         // test Uninstall
         $this->Plugins->uninstall('BcTest');
-        $this->assertEquals(3, $this->Plugins->find()->count());
+        $this->assertEquals(5, $this->Plugins->find()->count());
     }
 
     /**
@@ -102,16 +105,15 @@ class PluginsTableTest extends BcTestCase
         $this->Plugins->detach($plugin);
         $this->assertFalse($this->Plugins->find()->where(['name' => $plugin])->first()->status);
     }
-
     /**
-     * testChangePriority
+     * test attach
      */
-    public function testChangePriority()
+    public function testAttach()
     {
-        $this->Plugins->changePriority(1, 2);
-        $this->assertEquals(3, $this->Plugins->get(1)->priority);
-        $this->Plugins->changePriority(2, -1);
-        $this->assertEquals(1, $this->Plugins->get(2)->priority);
+        $plugin = 'BcBlog';
+        $this->Plugins->detach($plugin);
+        $this->Plugins->attach($plugin);
+        $this->assertTrue($this->Plugins->find()->where(['name' => $plugin])->first()->status);
     }
 
     /**
@@ -147,6 +149,18 @@ class PluginsTableTest extends BcTestCase
             // 重複
             [false, ['name' => 'BcBlog', 'title' => 'testtest']],
         ];
+    }
+
+    /**
+     * test update
+     */
+    public function test_update()
+    {
+        $this->Plugins->update('', '6.0.0');
+        $this->assertEquals('6.0.0', BcUtil::getDbVersion());
+        PluginFactory::make(['name' => 'BcSample', 'version' => '1.0.0'])->persist();
+        $this->Plugins->update('BcSample', '6.0.0');
+        $this->assertEquals('6.0.0', BcUtil::getDbVersion('BcSample'));
     }
 
 }

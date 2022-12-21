@@ -11,6 +11,9 @@
 
 namespace BaserCore\View\Helper;
 
+use BaserCore\Service\SitesService;
+use BaserCore\Service\SitesServiceInterface;
+use BaserCore\Utility\BcContainerTrait;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\Configure;
 use Cake\View\Helper;
@@ -29,6 +32,11 @@ class BcToolbarHelper extends Helper
 {
 
     /**
+     * Trait
+     */
+    use BcContainerTrait;
+
+    /**
      * Helper
      * @var string[]
      */
@@ -44,7 +52,7 @@ class BcToolbarHelper extends Helper
     public function isAvailableEditLink(): bool
     {
         $request = $this->_View->getRequest();
-        return ($this->BcAdmin->existsEditLink() && !isset($request->getQuery['preview']));
+        return ($this->BcAdmin->existsEditLink() && !$request->getQuery('preview'));
     }
 
     /**
@@ -182,6 +190,7 @@ class BcToolbarHelper extends Helper
      */
     public function getMode(): string
     {
+        if(!BcUtil::isInstalled()) return '';
         if (!$this->isLoginUrl()) {
             if (Configure::read('debug')) {
                 return 'debug';
@@ -273,11 +282,17 @@ class BcToolbarHelper extends Helper
      */
     public function getLogoLink()
     {
+        if(!BcUtil::isInstalled()) return Configure::read('BcLinks.installManual');
+        $currentSite = $this->_View->getRequest()->getAttribute('currentSite');
+        /* @var SitesService $siteService */
+        $siteService = $this->getService(SitesServiceInterface::class);
+        $content = $siteService->getRootContent($currentSite->id);
+        $normalUrl = '/';
+        if($content) $normalUrl = $this->BcBaser->getContentsUrl($content->url, true, $currentSite->use_subdomain);
         $links = [
-            'install' => Configure::read('BcLinks.installManual'),
             'update' => Configure::read('BcLinks.updateManual'),
-            'normal' => '/',
-            'frontAdminAvailable' => ['prefix' => 'Admin', 'controller' => 'dashboard', 'action' => 'index'],
+            'normal' => $normalUrl,
+            'frontAdminAvailable' => ['prefix' => 'Admin', 'plugin' => 'BaserCore', 'controller' => 'dashboard', 'action' => 'index'],
             'frontAdminNotAvailable' => $this->BcAuth->getCurrentLoginRedirectUrl(),
         ];
         return $links[$this->getLogoType()];
@@ -312,8 +327,8 @@ class BcToolbarHelper extends Helper
     public function getLogoLinkOptions()
     {
         $options = [
-            'install' => ['target' => '_blank', 'class' => 'bca-toolbar__logo-link'],
-            'update' => ['target' => '_blank', 'class' => 'bca-toolbar__logo-link'],
+            'install' => ['target' => '_blank', 'class' => 'bca-toolbar__logo-link', 'escapeTitle' => false],
+            'update' => ['target' => '_blank', 'class' => 'bca-toolbar__logo-link', 'escapeTitle' => false],
             'normal' => ['class' => 'bca-toolbar__logo-link', 'escapeTitle' => false],
             'frontAdminAvailable' => ['class' => 'bca-toolbar__logo-link', 'escapeTitle' => false],
             'frontAdminNotAvailable' => ['title' => $this->BcAuth->getCurrentName()],

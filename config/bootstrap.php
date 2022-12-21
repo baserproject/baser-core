@@ -20,16 +20,9 @@ use BaserCore\Annotation\Note;
  * @checked
  */
 
-use BaserCore\Event\BcContainerEventListener;
-use BaserCore\Event\BcControllerEventDispatcher;
-use BaserCore\Event\BcModelEventDispatcher;
-use BaserCore\Event\BcViewEventDispatcher;
-use BaserCore\Event\ContentFoldersControllerEventListener;
-use BaserCore\Event\PagesControllerEventListener;
 use BaserCore\Utility\BcUtil;
 use Cake\Cache\Cache;
 use Cake\Core\Configure;
-use Cake\Event\EventManager;
 use Cake\Validation\Validator;
 
 /**
@@ -49,17 +42,6 @@ if (!Cache::getConfig('_bc_env_')) {
 Validator::addDefaultProvider('bc', 'BaserCore\Model\Validation\BcValidation');
 
 /**
- * グローバルイベント登録
- */
-$event = EventManager::instance();
-$event->on(new BcControllerEventDispatcher());
-$event->on(new BcModelEventDispatcher());
-$event->on(new BcViewEventDispatcher());
-$event->on(new BcContainerEventListener());
-$event->on(new PagesControllerEventListener());
-$event->on(new ContentFoldersControllerEventListener());
-
-/**
  * パス定義
  */
 require __DIR__ . DS . 'paths.php';
@@ -69,25 +51,12 @@ require __DIR__ . DS . 'paths.php';
 // require BASER . DS . 'src' . DS . 'basics.php';
 // <<<
 
-if(!defined('BC_INSTALLED')) {
-    define('BC_INSTALLED', BcUtil::isInstalled());
-}
-if(is_null(Configure::read('BcRequest.isInstalled'))) {
-    Configure::write('BcRequest.isInstalled', BC_INSTALLED); // UnitTest用
-}
-
 /**
  * 文字コードの検出順を指定
  */
 if (function_exists('mb_detect_order')) {
     mb_detect_order(Configure::read('BcEncode.detectOrder'));
 }
-
-/**
- * コンソール判定
- * BcUtil::isConsole で利用
- */
-$_ENV['IS_CONSOLE'] = (substr(php_sapi_name(), 0, 3) === 'cli');
 
 /**
  * fullBaseUrl

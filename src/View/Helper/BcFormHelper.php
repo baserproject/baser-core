@@ -11,6 +11,7 @@
 
 namespace BaserCore\View\Helper;
 
+use BaserCore\Utility\BcContainerTrait;
 use Cake\ORM\Query;
 use Cake\ORM\TableRegistry;
 use Cake\Utility\Inflector;
@@ -29,6 +30,7 @@ use BaserCore\Annotation\UnitTest;
  * @package Baser.View.Helper
  * @property BcHtmlHelper $BcHtml
  * @property BcUploadHelper $BcUpload
+ * @property BcCkeditorHelper $BcCkeditor
  */
 class BcFormHelper extends FormHelper
 {
@@ -36,6 +38,7 @@ class BcFormHelper extends FormHelper
      * Trait
      */
     use BcEventDispatcherTrait;
+    use BcContainerTrait;
 
     /**
      * Other helpers used by FormHelper
@@ -107,7 +110,7 @@ class BcFormHelper extends FormHelper
         if ($type) {
             $type = Inflector::camelize($type);
         }
-        $event = $this->dispatchLayerEvent('after' . $type . 'Form', ['fields' => [], 'id' => $this->__id], ['class' => 'Form', 'plugin' => '']);
+        $event = $this->dispatchLayerEvent('after' . $type . 'Form', ['fields' => [], 'id' => $this->formId], ['class' => 'Form', 'plugin' => '']);
         $out = '';
         if ($event !== false) {
             if (!empty($event->getData('fields'))) {
@@ -136,19 +139,20 @@ class BcFormHelper extends FormHelper
     public function getControlSource($field, $options = [])
     {
         $count = preg_match_all('/\./is', $field, $matches);
+        $plugin = $modelName = null;
         if ($count === 1) {
             [$modelName, $field] = explode('.', $field);
             $plugin = $this->_View->getPlugin();
-            if ($plugin) {
-                $modelName = $plugin . '.' . $modelName;
-            }
         } elseif ($count === 2) {
             [$plugin, $modelName, $field] = explode('.', $field);
-            $modelName = $plugin . '.' . $modelName;
         }
-        if (empty($modelName)) {
-            return false;
+        if(!$modelName) return false;
+        $serviceName = (($plugin)?: 'App') . '\\Service\\' . $modelName . 'ServiceInterface';
+        $modelName = (($plugin)? $plugin . '.' : '') . $modelName;
+        if(method_exists($serviceName, 'getControlSource')) {
+            return $this->getService($serviceName)->getControlSource($field, $options);
         }
+        if (empty($modelName)) return false;
         $model = TableRegistry::getTableLocator()->get($modelName);
         if ($model && method_exists($model, 'getControlSource')) {
             return $model->getControlSource($field, $options);
@@ -220,7 +224,8 @@ SCRIPT_END;
             'type' => 'datepicker',
             'div' => $options['dateDiv'],
             'label' => $options['dateLabel'],
-            'autocomplete' => 'off'
+            'autocomplete' => 'off',
+            'id' => $options['id'] . '-date',
         ], $options['dateInput']);
 
         $timeOptions = array_merge($options, [
@@ -231,7 +236,7 @@ SCRIPT_END;
             'size' => 8,
             'maxlength' => 8,
             'escape' => true,
-            'id' => $options['id'] . '-time'
+            'id' => $options['id'] . '-time',
         ], $options['timeInput']);
 
         unset($options['dateDiv'], $options['dateLabel'], $options['timeDiv'], $options['timeLabel'], $options['dateInput'], $options['timeInput']);
@@ -294,7 +299,8 @@ SCRIPT_END;
             }
             $timeTag = $this->BcHtml->tag($tag, $timeTag, $timeDivOptions);
         }
-        $hiddenTag = $this->hidden($fieldName, ['value' => $value]);
+        $hiddenTag = $this->hidden($fieldName, ['value' => $value, 'id' => $options['id']]);
+        $this->unlockField($fieldName);
         $script = <<< SCRIPT_END
 <script>
 $(function(){
@@ -302,7 +308,7 @@ $(function(){
     var time = $("#" + id + "-time");
     var date = $("#" + id + "-date");
     time.timepicker({ 'timeFormat': 'H:i' });
-    $([time, date]).change(function(){
+    date.add(time).change(function(){
         if(date.val() && !time.val()) {
             time.val('00:00');
         }
@@ -362,7 +368,7 @@ SCRIPT_END;
 
         $formId = $this->setId($this->createId($context, $options));
 
-        /*** beforeCreate ***/
+        // EVENT Form.beforeCreate
         $event = $this->dispatchLayerEvent('beforeCreate', [
             'id' => $formId,
             'options' => $options
@@ -379,7 +385,7 @@ SCRIPT_END;
 
         // CUSTOMIZE ADD 2014/07/03 ryuring
         // >>>
-        /*** afterCreate ***/
+        // EVENT Form.afterCreate
         $event = $this->dispatchLayerEvent('afterCreate', [
             'id' => $formId,
             'out' => $out
@@ -473,10 +479,10 @@ SCRIPT_END;
 
         // CUSTOMIZE ADD 2014/07/03 ryuring
         // >>>
-        /*** beforeInput ***/
+        // EVENT Form.beforeInput
         $event = $this->dispatchLayerEvent('beforeInput', [
             'formId' => $this->__id,
-            'data' => $this->request->data,
+            'data' => $this->getView()->getRequest()->getData(),
             'fieldName' => $fieldName,
             'options' => $options
         ], ['class' => 'Form', 'plugin' => '']);
@@ -732,10 +738,10 @@ DOC_END;
             $output = $output . $counter . $this->Html->scriptblock($script);
         }
 
-        /*** afterInput ***/
+        // EVENT Form.afterInput
         $event = $this->dispatchLayerEvent('afterInput', [
             'formId' => $this->__id,
-            'data' => $this->request->data,
+            'data' => $this->request->getData(),
             'fieldName' => $fieldName,
             'out' => $output
         ], ['class' => 'Form', 'plugin' => '']);
@@ -756,7 +762,7 @@ DOC_END;
      * @return string A generated hidden input
      * @link https://book.cakephp.org/2.0/en/core-libraries/helpers/form.html#FormHelper::hidden
      * @checked
-     * @note(value="未実装につき継承元のコントロールを返却している")
+     * @noTodo
      */
     public function hidden($fieldName, $options = []): string
     {
@@ -774,9 +780,12 @@ DOC_END;
         // multiple な hiddenタグの場合、送信される値は配列で送信されるので値違いで認証がとおらない。
         // という事で、multiple の場合は、あくまでhiddenタグ以外のようにフィールド情報のみを
         // トークンのキーとする事で認証を通すようにする。
+        // CUSTOMIZE ADD 2022/12/21 by ryuring
+        // CakePHP4になり、動作しなくなったため、unlockField を追加
         // >>>
         if (!empty($options['multiple'])) {
             $secure = false;
+            $this->unlockField($fieldName);
         }
         // <<<
 
@@ -872,7 +881,7 @@ DOC_END;
     {
         // CUSTOMIZE ADD 2016/06/08 ryuring
         // >>>
-        /*** beforeInput ***/
+        // EVENT Form.beforeSubmit
         $event = $this->dispatchLayerEvent('beforeSubmit', [
             'id' => $this->getId(),
             'caption' => $caption,
@@ -884,7 +893,7 @@ DOC_END;
 
         $output = parent::submit($caption, $options);
 
-        /*** afterInput ***/
+        // EVENT Form.afterSubmit
         $event = $this->dispatchLayerEvent('afterSubmit', [
             'id' => $this->getId(),
             'caption' => $caption,
@@ -929,7 +938,7 @@ DOC_END;
         $year = $month = $day = $hour = $min = $meridian = null;
 
         if (empty($attributes['value'])) {
-            $attributes = $this->getSourceValue($attributes, $fieldName);
+            $attributes = $this->getSourceValue($fieldName);
         }
 
         if ($attributes['value'] === null && $attributes['empty'] != true) {
@@ -1438,7 +1447,7 @@ DOC_END;
      */
     public function radio($fieldName, $options = [], $attributes = []): string
     {
-        // TODO 暫定措置
+        // TODO ucmitz 暫定措置
         // >>>
         return parent::radio($fieldName, $options, $attributes);
         // <<<
@@ -1624,8 +1633,13 @@ DOC_END;
                     // 複数$contextに設定されてる場合先頭のエンティティを優先
                     $context = array_shift($context);
                 }
-                [, $context] = pluginSplit($context->getSource());
-            } else {
+                if ($context instanceof EntityInterface) {
+                    [, $context] = pluginSplit($context->getSource());
+                } else {
+                    $context = null;
+                }
+            }
+            if(!$context) {
                 $context = empty($request->getParam('controller')) ? false : $request->getParam('controller');
             }
             if ($domId = isset($options['url']['action'])? $options['url']['action'] : $request->getParam('action')) {
@@ -1695,15 +1709,15 @@ DOC_END;
      */
     public function editor($fieldName, $options = [])
     {
-
         $options = array_merge([
-            'editor' => 'BcCkeditor',
+            'editor' => 'BaserCore.BcCkeditor',
             'style' => 'width:99%;height:540px'
         ], $options);
-        [$plugin, $editor] = pluginSplit($options['editor']);
+        $this->_View->loadHelper($options['editor']);
+        [, $editor] = pluginSplit($options['editor']);
         if (!empty($this->getView()->{$editor})) {
             return $this->getView()->{$editor}->editor($fieldName, $options);
-        } elseif ($editor == 'none') {
+        } elseif ($editor === 'none') {
             $_options = [];
             foreach($options as $key => $value) {
                 if (!preg_match('/^editor/', $key)) {
@@ -1978,6 +1992,7 @@ DOC_END;
             'figure' => [],
             'img' => ['class' => ''],
             'figcaption' => [],
+            'table' => null
         ], $options);
 
         $linkOptions = [
@@ -1991,7 +2006,8 @@ DOC_END;
             'height' => $options['height'],
             'figure' => $options['figure'],
             'img' => $options['img'],
-            'figcaption' => $options['figcaption']
+            'figcaption' => $options['figcaption'],
+            'table' => $options['table']
         ];
 
         $deleteSpanOptions = $deleteCheckboxOptions = $deleteLabelOptions = [];
@@ -2013,9 +2029,9 @@ DOC_END;
         unset($options['imgsize'], $options['rel'], $options['title'], $options['link']);
         unset($options['delCheck'], $options['force'], $options['width'], $options['height']);
         unset($options['deleteSpan'], $options['deleteCheckbox'], $options['deleteLabel']);
-        unset($options['figure'], $options['img'], $options['figcaption'], $options['div']);
+        unset($options['figure'], $options['img'], $options['figcaption'], $options['div'], $options['table']);
 
-        $fileLinkTag = $this->BcUpload->fileLink($fieldName, $linkOptions);
+        $fileLinkTag = $this->BcUpload->fileLink($fieldName, $this->_getContext()->entity(), $linkOptions);
         $fileTag = parent::file($fieldName, $options);
 
         if (empty($options['value'])) {
@@ -2085,7 +2101,7 @@ DOC_END;
     {
         $context = $this->context();
         if(!($context instanceof EntityContext)) return false;
-        $entity = $context->entity();
+        $entity = $context->entity(explode('.', $fieldName));
         if(!$entity) return false;
 
         $fieldArray = explode('.', $fieldName);
@@ -2108,6 +2124,31 @@ DOC_END;
         return TableRegistry::getTableLocator()->get($name);
     }
 
+    /**
+     * フォームコントロールを取得
+     *
+     * CakePHPの標準仕様をカスタマイズ
+     * - labelタグを自動で付けない
+     * - legendタグを自動で付けない
+     * - errorタグを自動で付けない
+     *
+     * @param string $fieldName
+     * @param array $options
+     * @return string
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function control(string $fieldName, array $options = []): string
+    {
+        $options = array_replace_recursive([
+            'label' => false,
+            'legend' => false,
+            'error' => false,
+            'templateVars' => ['tag' => 'span', 'groupTag' => 'span']
+        ], $options);
+        return parent::control($fieldName, $options);
+    }
 // <<<
 
 }

@@ -11,6 +11,7 @@
 
 namespace BaserCore\Service;
 
+use BaserCore\Error\BcException;
 use Cake\Http\ServerRequest;
 use Cake\ORM\Query;
 use Cake\ORM\TableRegistry;
@@ -46,6 +47,10 @@ class PagesService implements PagesServiceInterface
 
     /**
      * Pageservice constructor.
+     * 
+     * @checked
+     * @unitTest
+     * @noTodo
      */
     public function __construct()
     {
@@ -56,7 +61,11 @@ class PagesService implements PagesServiceInterface
 
     /**
      * 初期データ取得
+     * 
      * @return EntityInterface
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function getNew(): EntityInterface
     {
@@ -65,7 +74,11 @@ class PagesService implements PagesServiceInterface
 
     /**
      * リストデータ取得
+     * 
      * @return array
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function getList(): array
     {
@@ -77,19 +90,33 @@ class PagesService implements PagesServiceInterface
 
     /**
      * 固定ページを取得する
+     * 
      * @param int $id
+     * @param array $options
+     *  - `status`: ステータス。 publish を指定すると公開状態のもののみ取得（初期値：全て）
      * @return EntityInterface
      * @checked
      * @noTodo
      * @unitTest
      */
-    public function get($id): EntityInterface
+    public function get($id, array $options = []): EntityInterface
     {
-        return $this->Pages->get($id, ['contain' => ['Contents' => ['Sites']]]);
+        $options = array_merge([
+            'status' => ''
+        ], $options);
+        $conditions = [];
+        if($options['status'] === 'publish') {
+            $conditions = $this->Pages->Contents->getConditionAllowPublish();
+        }
+        return $this->Pages->get($id, [
+            'contain' => ['Contents' => ['Sites']],
+            'conditions' => $conditions
+        ]);
     }
 
     /**
      * 固定ページをゴミ箱から取得する
+     * 
      * @param int $id
      * @return EntityInterface|array
      * @throws RecordNotFoundException
@@ -111,6 +138,7 @@ class PagesService implements PagesServiceInterface
 
     /**
      * ユーザー管理の一覧用のデータを取得
+     * 
      * @param array|null $queryParams
      * @return Query
      * @checked
@@ -136,6 +164,7 @@ class PagesService implements PagesServiceInterface
 
     /**
      * 固定ページ登録
+     * 
      * @param array $data
      * @param array $options
      * @return \Cake\Datasource\EntityInterface
@@ -153,6 +182,7 @@ class PagesService implements PagesServiceInterface
 
     /**
      * ページ情報を更新する
+     * 
      * @param EntityInterface $target
      * @param array $pageData
      * @param array $options
@@ -164,23 +194,32 @@ class PagesService implements PagesServiceInterface
      */
     public function update(EntityInterface $target, array $pageData, $options = []): ?EntityInterface
     {
+        if (BcUtil::isOverPostSize()) {
+            throw new BcException(__d(
+                'baser',
+                '送信できるデータ量を超えています。合計で %s 以内のデータを送信してください。',
+                ini_get('post_max_size')
+            ));
+        }
         $options = array_merge(['associated' => ['Contents' => ['validate' => 'default']]], $options);
         $page = $this->Pages->patchEntity($target, $pageData, $options);
         return $this->Pages->saveOrFail($page, ['atomic' => false]);
     }
 
     /**
-     * 固定ページを削除する
+     * 物理削除
+     * 
      * @param int $id
      * @return bool
      * @checked
      * @unitTest
      * @noTodo
+     * @unitTest
      */
     public function delete(int $id): bool
     {
-        $Page = $this->get($id);
-        return $this->Pages->delete($Page);
+        $page = $this->get($id);
+        return $this->Pages->delete($page);
     }
 
     /**
@@ -250,6 +289,7 @@ class PagesService implements PagesServiceInterface
 
     /**
      * 編集リンクを取得する
+     * 
      * @param ServerRequest $request
      * @return array|string
      * @checked
@@ -260,13 +300,32 @@ class PagesService implements PagesServiceInterface
     {
         if(BcUtil::isAdminSystem()) return '';
         if($request->getParam('controller') !== 'Pages') return '';
-        if($request->getParam('action') !== 'display') return '';
+        if($request->getParam('action') !== 'view') return '';
         return [
             'prefix' => 'Admin',
             'controller' => 'Pages',
             'action' => 'edit',
-            $request->getParam('Content.entity_id')
+            $request->getAttribute('currentContent')->entity_id
         ];
+    }
+
+    /**
+     * ページテンプレートを取得する
+     * 
+     * @param EntityInterface $page
+     * @return mixed
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function getPageTemplate(EntityInterface $page)
+    {
+        if ($page->page_template) return $page->page_template;
+        $contentFolderService = $this->getService(ContentFoldersServiceInterface::class);
+		return $contentFolderService->getParentTemplate(
+		    $page->content->id,
+		    'page'
+		);
     }
 
 }

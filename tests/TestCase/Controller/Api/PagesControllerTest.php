@@ -11,7 +11,7 @@
 
 namespace BaserCore\Test\TestCase\Controller\Api;
 
-use Cake\Routing\Router;
+use BaserCore\Controller\Api\PagesController;
 use BaserCore\Service\PagesService;
 use BaserCore\TestSuite\BcTestCase;
 use Cake\TestSuite\IntegrationTestTrait;
@@ -36,7 +36,6 @@ class PagesControllerTest extends BcTestCase
         'plugin.BaserCore.Contents',
         'plugin.BaserCore.Sites',
         'plugin.BaserCore.SiteConfigs',
-        'plugin.BaserCore.SearchIndexes',
     ];
 
     /**
@@ -64,6 +63,15 @@ class PagesControllerTest extends BcTestCase
     }
 
     /**
+     * test initialize
+     */
+    public function test_initialize()
+    {
+        $controller = new PagesController($this->getRequest());
+        $this->assertEquals($controller->Authentication->unauthenticatedActions, ['view']);
+    }
+
+    /**
      * Test index method
      *
      * @return void
@@ -84,7 +92,7 @@ class PagesControllerTest extends BcTestCase
         $this->get('/baser/api/baser-core/pages/view/2.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
-        $this->assertMatchesRegularExpression('/<section class="mainHeadline">/', $result->pages->contents);
+        $this->assertMatchesRegularExpression('/<section class="mainHeadline">/', $result->page->contents);
     }
 
     /**

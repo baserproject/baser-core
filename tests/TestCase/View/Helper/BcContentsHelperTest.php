@@ -12,16 +12,15 @@
 
 namespace BaserCore\Test\TestCase\View\Helper;
 
-use Cake\Core\Configure;
+use BaserCore\Test\Factory\ContentFactory;
 use Cake\Routing\Router;
-use Cake\Http\ServerRequest;
 use BaserCore\View\BcAdminAppView;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Utility\BcUtil;
 use BaserCore\View\Helper\BcContentsHelper;
 
 /**
- * BcPage helper library.
+ * BcContents helper library.
  *
  * @package Baser.Test.Case
  * @property BcContentsHelper $BcContents
@@ -504,39 +503,16 @@ class BcContentsHelperTest extends BcTestCase
 
     /**
      * urlからコンテンツの情報を取得
-     * getContentByUrl
-     *
-     * @param string $contentType コンテンツタイプ
-     * ('Page','MailContent','BlogContent','ContentFolder')
-     * @param string $url
-     * @param string $field 取得したい値
-     *  'name','url','title'など　初期値：Null
-     *  省略した場合配列を取得
-     * @param string|bool $expect 期待値
-     * @dataProvider getContentByUrlDataProvider
+     * Test getContentByUrl
      */
-    public function testgetContentByUrl($expect, $url, $contentType, $field)
+    public function testGetContentByUrl()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        $result = $this->BcContents->getContentByUrl($url, $contentType, $field);
-        $this->assertEquals($expect, $result);
-    }
-
-    public function getContentByUrlDataProvider()
-    {
-        return [
-            // 存在するURL（0~2）を指定した場合
-            ['1', '/news/', 'BlogContent', 'entity_id'],
-            ['/contact/', '/contact/', 'MailContent', 'url'],
-            ['1', '/index', 'Page', 'entity_id'],
-            ['4', '/service/', 'ContentFolder', 'entity_id'],
-            ['14', '/service/sub_service/sub_service_1', 'Page', 'entity_id'],
-            ['サービス２', '/service/service2', 'Page', 'title'],
-            // 存在しないURLを指定した場合
-            [false, '/blog/', 'BlogContent', 'name'],
-            //指定がおかしい場合
-            [false, '/blog/', 'Blog', 'url'],
-        ];
+        ContentFactory::make(['url' => '/test_no_1' ,'type' => 'ContentFolder', 'status' => true])->persist();
+        ContentFactory::make(['url' => '/test_no_2' ,'type' => 'ContentFolder', 'status' => false])->persist();
+        $result = $this->BcContents->getContentByUrl('/test_no_1', 'ContentFolder');
+        $this->assertNotEmpty($result);
+        $result = $this->BcContents->getContentByUrl('/test_no_2', 'ContentFolder');
+        $this->assertFalse($result);
     }
 
     /**
@@ -672,4 +648,137 @@ class BcContentsHelperTest extends BcTestCase
         ];
     }
 
+    /**
+     * フォルダ内の次のコンテンツへのリンクを取得する
+     * @param string $url
+     * @param string $title
+     * @param array $options オプション（初期値 : array()）
+     *    - `class` : CSSのクラス名（初期値 : 'next-link'）
+     *    - `arrow` : 表示文字列（初期値 : ' ≫'）
+     *    - `overFolder` : フォルダ外も含めるかどうか（初期値 : false）
+     * @param string $expected
+     *
+     * @dataProvider getNextLinkDataProvider
+     */
+    public function testGetNextLink($url, $title, $options, $expected)
+    {
+        $this->BcContents->getView()->setRequest($this->getRequest($url));
+        $result = $this->BcContents->getNextLink($title, $options);
+        $this->assertEquals($expected, $result);
+    }
+
+    public function getNextLinkDataProvider()
+    {
+        return [
+            ['/company', '', ['overFolder' => false], false], // PC
+            ['/company', '次のページへ', ['overFolder' => false], false], // PC
+            ['/about', '', ['overFolder' => true], '<a href="/service/service1" class="next-link">サービス１ ≫</a>'], // PC
+            ['/about', '次のページへ', ['overFolder' => true], '<a href="/service/service1" class="next-link">次のページへ</a>'], // PC
+            ['/en/サイトID3の固定ページ2', '', ['overFolder' => false], '<a href="/en/サイトID3の固定ページ3" class="next-link">サイトID3の固定ページ3 ≫</a>'], // smartphone
+            // ['/s/about', '', ['overFolder' => false], '<a href="/s/icons" class="next-link">アイコンの使い方 ≫</a>'], // smartphone
+            // ['/s/about', '次のページへ', ['overFolder' => false], '<a href="/s/icons" class="next-link">次のページへ</a>'], // smartphone
+            // ['/s/sitemap', '', ['overFolder' => true], '<a href="/s/contact/" class="next-link">お問い合わせ ≫</a>'], // smartphone
+            // ['/s/sitemap', '次のページへ', ['overFolder' => true], '<a href="/s/contact/" class="next-link">次のページへ</a>'], // smartphone
+        ];
+    }
+    /**
+     * フォルダ内の次のコンテンツへのリンクを出力する
+     *
+     *    public function testNextLink($url, $title, $options, $expected) { }
+     */
+    /**
+      * testNextLink
+      *
+      * @return void
+      */
+    public function testNextLink()
+    {
+        $this->BcContents->getView()->setRequest($this->getRequest('/about'));
+        ob_start();
+        $this->BcContents->nextLink('次のページへ', ['overFolder' => false]);
+        $result = ob_get_clean();
+        $this->assertMatchesRegularExpression('/<a href="\/contact\/" class="next-link">/', $result);
+    }
+
+    /**
+     * フォルダ内の前のコンテンツへのリンクを取得する
+     * @param string $url
+     * @param string $title
+     * @param array $options オプション（初期値 : array()）
+     *    - `class` : CSSのクラス名（初期値 : 'next-link'）
+     *    - `arrow` : 表示文字列（初期値 : ' ≫'）
+     *    - `overFolder` : フォルダ外も含めるかどうか（初期値 : false）
+     * @param string $expected
+     *
+     * @dataProvider getPrevLinkDataProvider
+     */
+    public function testGetPrevLink($url, $title, $options, $expected)
+    {
+        $this->BcContents->getView()->setRequest($this->getRequest($url));
+        $result = $this->BcContents->getPrevLink($title, $options);
+        $this->assertEquals($expected, $result);
+    }
+
+    public function getPrevLinkDataProvider()
+    {
+        return [
+            ['/company', '', ['overFolder' => false], false], // PC
+            ['/company', '前のページへ', ['overFolder' => false], false], // PC
+            ['/about', '', ['overFolder' => true], '<a href="/news/" class="prev-link">≪ NEWS(※関連Fixture未完了)</a>'], // PC
+            ['/about', '前のページへ', ['overFolder' => true], '<a href="/news/" class="prev-link">前のページへ</a>'], // PC
+            ['/en/サイトID3の固定ページ2', '', ['overFolder' => false], '<a href="/en/サイトID3の固定ページ" class="prev-link">≪ サイトID3の固定ページ</a>'], // smartphone
+            // ['/s/about', '', ['overFolder' => false], '<a href="/s/" class="prev-link">≪ トップページ</a>'], // smartphone
+            // ['/s/about', '前のページへ', ['overFolder' => false], '<a href="/s/" class="prev-link">前のページへ</a>'], // smartphone
+            // ['/s/sitemap', '', ['overFolder' => true], '<a href="/s/icons" class="prev-link">≪ アイコンの使い方</a>'], // smartphone
+            // ['/s/sitemap', '前のページへ', ['overFolder' => true], '<a href="/s/icons" class="prev-link">前のページへ</a>'], // smartphone
+        ];
+    }
+
+    /**
+     * testPrevLink
+     *
+     * @return void
+     */
+    public function testPrevLink()
+    {
+        $this->BcContents->getView()->setRequest($this->getRequest('/about'));
+        ob_start();
+        $this->BcContents->prevLink('前のページへ', ['overFolder' => false]);
+        $result = ob_get_clean();
+        $this->assertMatchesRegularExpression('/<a href="\/news\/" class="prev-link">/', $result);
+    }
+
+    /**
+     * testGetPageByNextOrPrev
+     *
+     * @return void
+     * @dataProvider getPageNeighborsDataProvider
+     */
+    public function testGetPageNeighbors($overFolder, $title)
+    {
+        $content = $this->BcContents->ContentsService->getIndex(['name' => 'about'])->first();
+        $neighbors = $this->execPrivateMethod($this->BcContents, 'getPageNeighbors', [$content, $overFolder]);
+        $this->assertEquals($neighbors['prev']['title'], $title['prev']);
+        $this->assertEquals($neighbors['next']['title'], $title['next']);
+    }
+
+    public function getPageNeighborsDataProvider()
+    {
+        return [
+            [false, ['prev' => "NEWS(※関連Fixture未完了)", 'next' => "お問い合わせ(※関連Fixture未完了)"]],
+            [true, ['prev' => "NEWS(※関連Fixture未完了)", 'next' => "サービス１"]],
+        ];
+    }
+
+    /**
+     * Test _getContent
+     */
+    public function test_getContent()
+    {
+        $content = $this->execPrivateMethod($this->BcContents, '_getContent', [['Contents.id' => 1]]);
+        $this->assertEquals(1, $content->id);
+
+        $plugin = $this->execPrivateMethod($this->BcContents, '_getContent', [['Contents.id' => 1], 'plugin']);
+        $this->assertEquals('BaserCore', $plugin);
+    }
 }

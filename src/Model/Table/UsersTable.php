@@ -98,7 +98,7 @@ class UsersTable extends Table
      */
     public function beforeSave($options = [])
     {
-        // TODO 暫定措置
+        // TODO ucmitz 暫定措置
         // >>>
         return true;
         // <<<
@@ -131,6 +131,9 @@ class UsersTable extends Table
      * afterSave
      *
      * @param boolean $created
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function afterSave(Event $event, EntityInterface $entity, ArrayObject $options)
     {
@@ -160,8 +163,6 @@ class UsersTable extends Table
         $validator
             ->scalar('name')
             ->maxLength('name', 255, __d('baser', 'アカウント名は255文字以内で入力してください。'))
-            ->requirePresence('name', 'create', __d('baser', 'アカウント名を入力してください。'))
-            ->notEmptyString('name', __d('baser', 'アカウント名を入力してください。'))
             ->add('name', [
                 'nameUnique' => [
                     'rule' => 'validateUnique',
@@ -343,20 +344,12 @@ class UsersTable extends Table
     }
 
     /**
-     * ユーザーに関連するよく使う項目を削除する
-     *
-     * @param int $userId ユーザーID
-     * @return boolean
-     */
-    public function deleteFavorites($userId)
-    {
-        return $this->Favorite->deleteAll(['Favorite.user_id' => $userId], false);
-    }
-
-    /**
      * 利用可能なユーザーを取得する
      * @param Query $query
      * @return Query
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function findAvailable(Query $query)
     {

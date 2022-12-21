@@ -11,7 +11,6 @@
 
 namespace BaserCore\Test\TestCase\Controller;
 
-use Cake\ORM\TableRegistry;
 use BaserCore\TestSuite\BcTestCase;
 use Cake\TestSuite\IntegrationTestTrait;
 use BaserCore\Controller\ContentFoldersController;
@@ -35,7 +34,6 @@ class ContentFoldersControllerTest extends BcTestCase
     public $fixtures = [
         'plugin.BaserCore.Sites',
         'plugin.BaserCore.Contents',
-        'plugin.BaserCore.ContentFolders',
         'plugin.BaserCore.ContentFolders',
         'plugin.BaserCore.Plugins',
         'plugin.BaserCore.Users',

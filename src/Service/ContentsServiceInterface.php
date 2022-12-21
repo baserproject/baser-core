@@ -15,6 +15,9 @@ use BaserCore\Model\Entity\Content;
 use Cake\Datasource\EntityInterface;
 use Cake\Datasource\QueryInterface;
 use Cake\ORM\Query;
+use BaserCore\Annotation\NoTodo;
+use BaserCore\Annotation\Checked;
+use BaserCore\Annotation\UnitTest;
 
 /**
  * Interface ContentsServiceInterface
@@ -25,9 +28,13 @@ interface ContentsServiceInterface extends CrudBaseServiceInterface
 
     /**
      * ゴミ箱のコンテンツを取得する
+     * 
      * @param int $id
      * @return EntityInterface|array
      * @throws \Cake\Datasource\Exception\RecordNotFoundException
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function getTrash($id);
 
@@ -35,22 +42,22 @@ interface ContentsServiceInterface extends CrudBaseServiceInterface
      * コンテンツの子要素を取得する
      *
      * @param  int $id
+     * @param array $conditions
      * @return Query|null
+     * @checked
+     * @noTodo
+     * @unitTest
      */
-    public function getChildren($id);
-
-    /**
-     * 空のQueryを返す
-     *
-     * @return Query
-     */
-    public function getEmptyIndex(): Query;
+    public function getChildren($id, $conditions = []);
 
     /**
      * getTreeIndex
      *
      * @param  array $queryParams
      * @return Query
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function getTreeIndex(array $queryParams): Query;
 
@@ -59,6 +66,9 @@ interface ContentsServiceInterface extends CrudBaseServiceInterface
      *
      * @param  array $queryParams
      * @return array
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function getTableConditions(array $queryParams): array;
 
@@ -67,14 +77,21 @@ interface ContentsServiceInterface extends CrudBaseServiceInterface
      *
      * @param  array $queryParams
      * @return Query
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function getTableIndex(array $queryParams): Query;
 
     /**
      * getTrashIndex
+     * 
      * @param array $queryParams
      * @param string $type
      * @return Query
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function getTrashIndex(array $queryParams=[], string $type="all"): Query;
 
@@ -85,13 +102,20 @@ interface ContentsServiceInterface extends CrudBaseServiceInterface
      * @param int $siteId
      * @param array $options
      * @return array|bool
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function getContentFolderList($siteId = null, $options = []);
 
     /**
      * ツリー構造のデータを コンボボックスのデータ用に変換する
+     * 
      * @param $nodes
      * @return array
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function convertTreeList($nodes);
 
@@ -101,21 +125,32 @@ interface ContentsServiceInterface extends CrudBaseServiceInterface
      * @param  array $postData
      * @return \Cake\Datasource\EntityInterface
      * @throws \Cake\ORM\Exception\PersistenceFailedException
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function alias(array $postData);
 
     /**
      * コンテンツ情報を削除する
+     * 
      * @param int $id
      * @param bool $enableTree(デフォルト:false) TreeBehaviorの有無
      * @return bool
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function hardDelete($id, $enableTree = false): bool;
 
     /**
      * コンテンツ情報と紐付いてるモデルを削除する
+     * 
      * @param int $id
      * @return bool
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function hardDeleteWithAssoc($id): bool;
 
@@ -124,6 +159,9 @@ interface ContentsServiceInterface extends CrudBaseServiceInterface
      *
      * @param  array $conditions
      * @return int
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function deleteAll(array $conditions): int;
 
@@ -132,6 +170,9 @@ interface ContentsServiceInterface extends CrudBaseServiceInterface
      *
      * @param  \Datetime $dateTime
      * @return int
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function hardDeleteAll(\Datetime $dateTime): int;
 
@@ -140,6 +181,9 @@ interface ContentsServiceInterface extends CrudBaseServiceInterface
      *
      * @param  int $id
      * @return EntityInterface|array|null $trash
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function restore($id);
 
@@ -148,22 +192,33 @@ interface ContentsServiceInterface extends CrudBaseServiceInterface
      *
      * @param  array $queryParams
      * @return int $count
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function restoreAll(array $queryParams = []): int;
 
     /**
-      * コンテンツ情報を取得する
-      * @return array
-      */
+     * コンテンツ情報を取得する
+     * 
+     * @return array
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
     public function getContentsInfo();
 
     /**
      * 再帰的に削除
      *※ エイリアスの場合は直接削除
+     *
      * @param int $id
      * @return void
      * @throws Exception
      * @return bool $result
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function deleteRecursive($id): bool;
 
@@ -172,6 +227,9 @@ interface ContentsServiceInterface extends CrudBaseServiceInterface
      *
      * @param $id
      * @return string $parentTemplate|false
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function getParentLayoutTemplate($id);
 
@@ -180,6 +238,9 @@ interface ContentsServiceInterface extends CrudBaseServiceInterface
      *
      * @param int $id
      * @return string URL
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function getUrlById($id, $full = false);
 
@@ -194,6 +255,9 @@ interface ContentsServiceInterface extends CrudBaseServiceInterface
      * @param bool $useSubDomain サブドメインを利用しているかどうか
      * @param bool $base $full が false の場合、ベースとなるURLを含めるかどうか
      * @return string URL
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function getUrl($url, $full = false, $useSubDomain = false, $base = false);
 
@@ -202,6 +266,9 @@ interface ContentsServiceInterface extends CrudBaseServiceInterface
      *
      * @param int $id
      * @return EntityInterface
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function publish($id): EntityInterface;
 
@@ -210,6 +277,9 @@ interface ContentsServiceInterface extends CrudBaseServiceInterface
      *
      * @param int $id
      * @return EntityInterface
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function unpublish($id): EntityInterface;
 
@@ -219,6 +289,9 @@ interface ContentsServiceInterface extends CrudBaseServiceInterface
      * @param  int $id
      * @param bool $withTrash ゴミ箱の物も含めるか
      * @return bool
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function exists($id, $withTrash = false): bool;
 
@@ -231,6 +304,9 @@ interface ContentsServiceInterface extends CrudBaseServiceInterface
      * @param array $origin
      * @param array $target
      * @return Content|bool|false
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function move($origin, $target);
 
@@ -240,6 +316,9 @@ interface ContentsServiceInterface extends CrudBaseServiceInterface
      * @param int $currentId int 移動元コンテンツID
      * @param int $targetParentId int 移動先コンテンツID (ContentFolder)
      * @return bool
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function isMovable($currentId, $targetParentId);
 
@@ -248,6 +327,9 @@ interface ContentsServiceInterface extends CrudBaseServiceInterface
      *
      * @param int $id
      * @return bool
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function isPublishById($id);
 
@@ -256,6 +338,9 @@ interface ContentsServiceInterface extends CrudBaseServiceInterface
      *
      * @param Content $content コンテンツデータ
      * @return bool 公開状態
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function isAllowPublish($content, $self = false);
 
@@ -264,6 +349,9 @@ interface ContentsServiceInterface extends CrudBaseServiceInterface
      *
      * @param $url
      * @return bool
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function existsContentByUrl($url);
 
@@ -273,6 +361,9 @@ interface ContentsServiceInterface extends CrudBaseServiceInterface
      * @param int $id コンテンツID
      * @param array $newData 新しいコンテンツデータ
      * @return bool
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function isChangedStatus($id, $newData);
 
@@ -282,6 +373,9 @@ interface ContentsServiceInterface extends CrudBaseServiceInterface
      * @param  string $targetConfig
      * @param  array $conditions
      * @return TreeBehavior
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function setTreeConfig($targetConfig, $conditions);
 
@@ -289,6 +383,9 @@ interface ContentsServiceInterface extends CrudBaseServiceInterface
      * 公開済の conditions を取得
      *
      * @return array 公開条件（conditions 形式）
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function getConditionAllowPublish();
 
@@ -298,6 +395,9 @@ interface ContentsServiceInterface extends CrudBaseServiceInterface
      * @param  array $options
      * @return array $neighbors
      * @throws BcException site_idがない場合Exceptionを投げる
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function getNeighbors(array $options);
 
@@ -305,16 +405,46 @@ interface ContentsServiceInterface extends CrudBaseServiceInterface
     /**
      * エンコードされたURLをデコードせずにパースする
      * ※DBのレコードがエンコードされたまま保存されてる場合があるためその値を取得する際にデコードが邪魔になる際使用する
+     * 
      * @param  string $fullUrl
      * @return array $parsedUrl
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public static function encodeParsedUrl($fullUrl);
 
     /**
      * ツリー構造のパスを取得する
+     * 
      * @param string $id
      * @return QueryInterface
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function getPath($id): QueryInterface;
+
+    /**
+     * IDを指定してタイトルリストを取得する
+     * 
+     * @param $ids
+     * @return array
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function getTitlesById($ids): array;
+
+    /**
+     * 一括処理
+     * 
+     * @param array $ids
+     * @return bool
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function batch($method, array $ids): bool;
 
 }

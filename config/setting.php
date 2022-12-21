@@ -9,13 +9,17 @@
  * @license       https://basercms.net/license/index.html MIT License
  */
 
-use Cake\Cache\Engine\FileEngine;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
 use BaserCore\Annotation\Note;
 
 /**
+ * setting
+ *
+ * カスタマイズを行う場合は、 config/setting.example.php を config/setting.php としてコピーし設定値を定義する。
+ * app.php に関するカスタマイズは、こちらには定義せず、 config/app_local.example.php に定義する。
+ *
  * @checked
  * @unitTest
  * @note(value="テーマ管理とユーティリティを実装してからメニューを表示する")
@@ -45,9 +49,13 @@ return [
         /**
          * 現在のリクエストのホスト
          */
-        'host' => (isset($_SERVER['HTTP_HOST'])) ? $_SERVER['HTTP_HOST'] : null
+        'host' => (isset($_SERVER['HTTP_HOST']))? $_SERVER['HTTP_HOST'] : null
     ],
     'BcApp' => [
+        // デフォルトタイトル設定（インストールの際のエラー時等DB接続まえのエラーで利用）
+        'title' => __d('baser', 'baserCMS'),
+        // テンプレートの基本となる拡張子（.php 推奨）
+        'templateExt' => '.php',
         /**
          * baserコアのプレフィックス
          * URLの先頭に付与
@@ -72,7 +80,7 @@ return [
          * コアパッケージ名
          * プラグイン一覧に表示しないようにする
          */
-        'core' => ['baser-core', 'bc-admin-third', 'bc-front'],
+        'core' => ['BaserCore', 'BcAdminThird', 'BcFront', 'BcInstaller'],
         /**
          * デフォルトフロントテーマ
          */
@@ -89,7 +97,18 @@ return [
         /**
          * コアプラグイン
          */
-        'corePlugins' => ['BcBlog', 'BcMail'],
+        'corePlugins' => [
+            'BcSearchIndex',
+            'BcBlog',
+            'BcMail',
+            'BcEditorTemplate',
+            'BcThemeConfig',
+            'BcThemeFile',
+            'BcUploader',
+            'BcWidgetArea',
+            'BcContentLink',
+            'BcFavorite'
+        ],
         /**
          * パスワード再発行URLの有効時間(min) デフォルト24時間
          */
@@ -177,21 +196,29 @@ return [
                         ],
                     ]
                 ],
-                //			'Theme' => [
-                //				'title' => __d('baser', 'テーマ管理'),
-                //				'type' => 'system',
-                //				'menus' => [
-                //					'Themes' => [
-                //						'title' => __d('baser', 'テーマ'),
-                //						'url' => ['prefix' => 'Admin', 'plugin' => 'BaserCore', 'controller' => 'themes', 'action' => 'index'],
-                //						'currentRegex' => '/\/themes\/[^\/]+?/s'
-                //					],
-                //					'ThemeConfigs' => ['title' => __d('baser', '設定'), 'url' => ['prefix' => 'Admin', 'plugin' => 'BaserCore', 'controller' => 'theme_configs', 'action' => 'form']],
-                //					'ThemeAdd' => ['title' => __d('baser', '新規追加'), 'url' => ['prefix' => 'Admin', 'plugin' => 'BaserCore', 'controller' => 'themes', 'action' => 'add']],
-                //					'ThemesDownload' => ['title' => __d('baser', '利用中テーマダウンロード'), 'url' => ['prefix' => 'Admin', 'plugin' => 'BaserCore', 'controller' => 'themes', 'action' => 'download']],
-                //					'ThemesDownloadDefaultDataPattern' => ['title' => __d('baser', 'テーマ用初期データダウンロード'), 'url' => ['prefix' => 'Admin', 'plugin' => 'BaserCore', 'controller' => 'themes', 'action' => 'download_default_data_pattern']],
-                //				]
-                //			],
+                'Theme' => [
+                    'title' => __d('baser', 'テーマ管理'),
+                    'type' => 'system',
+                    'menus' => [
+                        'Themes' => [
+                            'title' => __d('baser', 'テーマ'),
+                            'url' => ['prefix' => 'Admin', 'plugin' => 'BaserCore', 'controller' => 'themes', 'action' => 'index'],
+                            'currentRegex' => '/\/themes\/[^\/]+?/s'
+                        ],
+                        'ThemeAdd' => [
+                            'title' => __d('baser', '新規追加'),
+                            'url' => ['prefix' => 'Admin', 'plugin' => 'BaserCore', 'controller' => 'themes', 'action' => 'add']
+                        ],
+                        'ThemesDownload' => [
+                            'title' => __d('baser', '利用中テーマダウンロード'),
+                            'url' => ['prefix' => 'Admin', 'plugin' => 'BaserCore', 'controller' => 'themes', 'action' => 'download']
+                        ],
+                        'ThemesDownloadDefaultDataPattern' => [
+                            'title' => __d('baser', 'テーマ用初期データダウンロード'),
+                            'url' => ['prefix' => 'Admin', 'plugin' => 'BaserCore', 'controller' => 'themes', 'action' => 'download_default_data_pattern']
+                        ],
+                    ]
+                ],
                 'Plugin' => [
                     'title' => __d('baser', 'プラグイン管理'),
                     'type' => 'system',
@@ -203,36 +230,48 @@ return [
                         ],
                     ]
                 ],
-                //			'Tools' => [
-                //				'title' => __d('baser', 'ユーティリティ'),
-                //				'type' => 'system',
-                //				'menus' => [
-                //					'Tools' => ['title' => __d('baser', 'ユーティリティトップ'), 'url' => ['prefix' => 'Admin', 'plugin' => 'BaserCore', 'controller' => 'tools', 'action' => 'index']],
-                //					'EditorTemplates' => [
-                //						'title' => __d('baser', 'エディタテンプレート'),
-                //						'url' => ['prefix' => 'Admin', 'plugin' => 'BaserCore', 'controller' => 'editor_templates', 'action' => 'index'],
-                //						'currentRegex' => '/\/editor_templates\/[^\/]+?/s'
-                //					],
-                //					'WidgetAreas' => [
-                //						'title' => __d('baser', 'ウィジェットエリア'),
-                //						'url' => ['prefix' => 'Admin', 'plugin' => 'BaserCore', 'controller' => 'widget_areas', 'action' => 'index'],
-                //						'currentRegex' => '/\/widget_areas\/[^\/]+?\/[0-9]+/s'
-                //					],
-                //					'SearchIndices' => ['title' => __d('baser', '検索インデックス'), 'url' => ['prefix' => 'Admin', 'plugin' => 'BaserCore', 'controller' => 'search_indices', 'action' => 'index']],
-                //					'SiteConfigsInfo' => ['title' => __d('baser', '環境情報'), 'url' => ['prefix' => 'Admin', 'plugin' => 'BaserCore', 'controller' => 'tools', 'action' => 'info']],
-                //					'ThemeFiles' => [
-                //						'title' => __d('baser', 'コアテンプレート確認'),
-                //						'url' => ['prefix' => 'Admin', 'plugin' => 'BaserCore', 'controller' => 'theme_files', 'action' => 'index', 'core'],
-                //						'currentRegex' => '/\/theme_files\/[^\/]+?/s'
-                //					],
-                //					'ToolsMaintenance' => ['title' => __d('baser', 'データメンテナンス'), 'url' => ['prefix' => 'Admin', 'plugin' => 'BaserCore', 'controller' => 'tools', 'action' => 'maintenance']],
-                //					'ToolsLog' => ['title' => __d('baser', 'ログメンテナンス'), 'url' => ['prefix' => 'Admin', 'plugin' => 'BaserCore', 'controller' => 'tools', 'action' => 'log']],
-                //					'ToolsWriteSchema' => ['title' => __d('baser', 'スキーマファイル生成'), 'url' => ['prefix' => 'Admin', 'plugin' => 'BaserCore', 'controller' => 'tools', 'action' => 'write_schema']],
-                //					'ToolsLoadSchema' => ['title' => __d('baser', 'スキーマファイル読込'), 'url' => ['prefix' => 'Admin', 'plugin' => 'BaserCore', 'controller' => 'tools', 'action' => 'load_schema']],
-                //				]
-                //			]
+                'Utilities' => [
+                    'title' => __d('baser', 'ユーティリティ'),
+                    'type' => 'system',
+                    'menus' => [
+                        'Utilities' => [
+                            'title' => __d('baser', 'ユーティリティトップ'),
+                            'url' => ['prefix' => 'Admin', 'plugin' => 'BaserCore', 'controller' => 'utilities', 'action' => 'index']
+                        ],
+                        'SiteConfigsInfo' => [
+                            'title' => __d('baser', '環境情報'),
+                            'url' => ['prefix' => 'Admin', 'plugin' => 'BaserCore', 'controller' => 'utilities', 'action' => 'info']
+                        ],
+                        'UtilitiesMaintenance' => [
+                            'title' => __d('baser', 'データメンテナンス'),
+                            'url' => ['prefix' => 'Admin', 'plugin' => 'BaserCore', 'controller' => 'utilities', 'action' => 'maintenance']
+                        ],
+                        'UtilitiesLog' => [
+                            'title' => __d('baser', 'ログメンテナンス'),
+                            'url' => ['prefix' => 'Admin', 'plugin' => 'BaserCore', 'controller' => 'utilities', 'action' => 'log_maintenance']
+                        ],
+//                        'UtilitiesWriteSchema' => ['title' => __d('baser', 'スキーマファイル生成'), 'url' => ['prefix' => 'Admin', 'plugin' => 'BaserCore', 'controller' => 'utilities', 'action' => 'write_schema']],
+//                        'UtilitiesLoadSchema' => ['title' => __d('baser', 'スキーマファイル読込'), 'url' => ['prefix' => 'Admin', 'plugin' => 'BaserCore', 'controller' => 'utilities', 'action' => 'load_schema']],
+                    ]
+                ]
             ]
-        ]],
+        ]
+    ],
+
+    /**
+     * リクエスト情報
+     */
+    'BcRequest' => [
+        // アセットファイルかどうか
+        'asset' => false,
+        // Router がロード済かどうか
+        // TODO 不要か確認
+        'routerLoaded' => false,
+        // アップデーターかどうか
+        'isUpdater' => false,
+        // メンテナンスかどうか
+        'isMaintenance' => false,
+    ],
 
     /**
      * プレフィックス認証
@@ -279,39 +318,15 @@ return [
         'publicKeyPath' => CONFIG . 'jwt.pem'
     ],
     'BcLinks' => [
-        'marketThemeRss' => 'https://market.basercms.net/themes.rss',
-        'marketPluginRss' => 'https://market.basercms.net/plugins.rss',
+        'marketThemeRss' => 'https://market.basercms.net/themes.php',
+        'marketPluginRss' => 'https://market.basercms.net/plugins.php',
         'specialThanks' => 'https://basercms.net/special_thanks/special_thanks/ajax_users',
         // インストールマニュアル
-        'installManual' => 'http://wiki.basercms.net/%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB%E3%82%AC%E3%82%A4%E3%83%89',
+        // TODO ucmitz リンク先を準備した上で変更要
+        'installManual' => 'https://wiki.basercms.net/%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB%E3%82%AC%E3%82%A4%E3%83%89',
         // アップデートマニュアル
-        'updateManual' => 'http://wiki.basercms.net/%E3%83%90%E3%83%BC%E3%82%B8%E3%83%A7%E3%83%B3%E3%82%A2%E3%83%83%E3%83%97%E3%82%AC%E3%82%A4%E3%83%89'
-    ],
-
-    /**
-     * セッション
-     */
-    'Session' => [
-        'defaults' => 'php',
-        /**
-         * セッションの有効期限（分）
-         * デフォルト：2日間
-         */
-        'timeout' => 60 * 24 * 2
-    ],
-
-    /**
-     * キャッシュ
-     */
-    'Cache' => [
-        '_bc_env_' => [
-            'className' => FileEngine::class,
-            'prefix' => 'myapp_bc_env_',
-            'path' => CACHE . 'environment' . DS,
-            'serialize' => true,
-            'duration' => '+1 years',
-            'url' => env('CACHE_BCENV_URL', null),
-        ],
+        // TODO ucmitz リンク先を準備した上で変更要
+        'updateManual' => 'https://wiki.basercms.net/%E3%83%90%E3%83%BC%E3%82%B8%E3%83%A7%E3%83%B3%E3%82%A2%E3%83%83%E3%83%97%E3%82%AC%E3%82%A4%E3%83%89'
     ],
 
     /**
@@ -407,11 +422,6 @@ return [
                             'controller' => 'Contents',
                             'action' => 'edit'
                         ],
-                        'delete' => [
-                            'prefix' => 'Admin',
-                            'controller' => 'Contents',
-                            'action' => 'empty'
-                        ],
                         'view' => [
                             'controller' => 'Contents',
                             'action' => 'view'
@@ -433,11 +443,6 @@ return [
                             'prefix' => 'Admin',
                             'controller' => 'ContentFolders',
                             'action' => 'edit'
-                        ],
-                        'delete' => [
-                            'prefix' => 'Admin',
-                            'controller' => 'ContentFolders',
-                            'action' => 'delete'
                         ],
                         'view' => [
                             'controller' => 'ContentFolders',
@@ -463,14 +468,9 @@ return [
                             'controller' => 'Pages',
                             'action' => 'edit'
                         ],
-                        'delete' => [
-                            'prefix' => 'Admin',
-                            'controller' => 'Pages',
-                            'action' => 'delete'
-                        ],
                         'view' => [
                             'controller' => 'Pages',
-                            'action' => 'display'
+                            'action' => 'view'
                         ],
                         'copy' => [
                             'prefix' => 'Api',
@@ -494,39 +494,9 @@ return [
                             'controller' => 'Contents',
                             'action' => 'edit_alias'
                         ]
-                    ],
-                ],
-                // TODO ucmitz リンク未実装のためコメントアウト
-                /* >>>
-                'ContentLink' => [
-                    'multiple' => true,
-                    'title' => __d('baser', 'リンク'),
-                    'omitViewAction' => true,
-                    'routes' => [
-                        'add' => [
-                            'prefix' => 'Admin',
-                            'controller' => 'ContentLinks',
-                            'action' => 'add'
-                        ],
-                        'edit' => [
-                            'prefix' => 'Admin',
-                            'controller' => 'ContentLinks',
-                            'action' => 'edit'
-                        ],
-                        'delete' => [
-                            'prefix' => 'Admin',
-                            'controller' => 'ContentLinks',
-                            'action' => 'delete'
-                        ],
-                        'view' => [
-                            'controller' => 'ContentLinks',
-                            'action' => 'view'
-                        ]
-                    ],
-                    'icon' => 'bca-icon--link',
+                    ]
                 ]
-                <<< */
             ]
         ]
-    ],
+    ]
 ];

@@ -13,13 +13,12 @@ namespace BaserCore\View\Helper;
 
 use Cake\Core\Plugin;
 use Cake\View\Helper;
-use Cake\Core\Configure;
 use Cake\Utility\Inflector;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
 use BaserCore\Annotation\UnitTest;
-use BaserCore\View\Helper\BcHtmlHelper;
 use BaserCore\Event\BcEventDispatcherTrait;
+use Cake\View\Helper\UrlHelper;
 
 
 /**
@@ -28,6 +27,7 @@ use BaserCore\Event\BcEventDispatcherTrait;
  * @package Baser.View.Helper
  * @property BcAdminFormHelper $BcAdminForm
  * @property BcHtmlHelper $BcHtml
+ * @property UrlHelper $Url
  */
 class BcCkeditorHelper extends Helper
 {
@@ -40,7 +40,7 @@ class BcCkeditorHelper extends Helper
      * ヘルパー
      * @var array
      */
-    public $helpers = ['BcHtml', 'BcAdminForm', 'Url'];
+    public $helpers = ['BcHtml', 'BcAdminForm', 'Url', 'BcBaser'];
 
     /**
      * スクリプト
@@ -49,22 +49,6 @@ class BcCkeditorHelper extends Helper
      * @var boolean
      */
     protected $_script = false;
-
-    /**
-     * 初期化状態
-     * 複数のCKEditorを設置する場合、一つ目を設置した時点で true となる
-     *
-     * @var boolean
-     */
-    public $inited = false;
-
-    /**
-     * スタイル初期化判定
-     *
-     * @var boolean
-     * @access protected
-     */
-    protected $_initedStyles = false;
 
     /**
      * 初期設定スタイル
@@ -216,7 +200,7 @@ class BcCkeditorHelper extends Helper
      * @noTodo
      * @unitTest
      */
-    protected function buildTmpScript($fieldName, $options = [])
+    protected function build($fieldName, $options = [])
     {
         $options = array_merge([
             'editorLanguage' => 'ja', // 言語
@@ -237,14 +221,103 @@ class BcCkeditorHelper extends Helper
             'editorReadOnlyPublish' => false, // 本稿読み込みのみ許可
             'editorUseTemplates' => true, // テンプレート利用
             'editorEnterBr' => false, // エンター時に改行を入れる
-            'editorStyles' => []  // スタイル
+            'editorStyles' => [],  // スタイル
+            'editorPreviewModeId' => 'ContentPreviewMode' // プレビュー状態を格納するフィールドのID
         ], $options);
 
-        extract($options);
-        if (empty($editorToolbar)) {
-            $options['editorToolbar'] = $this->toolbars[$editorToolType];
-            if ($editorUseTemplates) {
-                switch($editorToolType) {
+        if (!$this->_script) {
+            $this->_script = true;
+            $this->BcHtml->script(['vendor/ckeditor/ckeditor'], ["block" => true]);
+        }
+
+        $options = $this->setEditorToolbar($options);
+
+        if (strpos($fieldName, '.')) {
+            [, $field] = explode('.', $fieldName);
+        } else {
+            $field = $fieldName;
+        }
+        $previewModeHidden = '';
+        if ($options['editorUseDraft']) {
+            $options = $this->setDraft($fieldName, $options);
+            $field .= '_tmp';
+            $fieldName .= '_tmp';
+            $draftMode = 'publish';
+            if($options['editorDisablePublish']) {
+                $draftMode = 'draft';
+            }
+            $previewModeHidden = $this->BcAdminForm->hidden($options['editorPreviewModeId'], [
+                'value' => $draftMode,
+                'id' => $options['editorPreviewModeId']
+            ]);
+            $this->BcAdminForm->unlockField($options['editorPreviewModeId']);
+        }
+        if(strpos($fieldName, '.') !== false) {
+            $dom = explode('.', $fieldName);
+            $domId = Inflector::camelize($dom[0]) . Inflector::camelize($dom[1]);
+        } else {
+            $domId = Inflector::camelize($fieldName);
+        }
+
+        $fieldCamelize = Inflector::camelize($field);
+        $hidden = $this->BcAdminForm->hidden('ckeditor.setting.' . $fieldName, [
+            'id' => 'CkeditorSetting' . $fieldCamelize,
+            'value' => json_encode([
+                'ckeditorField' => "editor_{$field}",
+                'editorStylesSet' => $options['editorStylesSet'],
+                'editorEnterBr' => $options['editorEnterBr'],
+                'editorDomId' => $domId,
+                'editorUseDraft' => $options['editorUseDraft'],
+                'publishAreaId' => $options['publishAreaId'] ?? null,
+                'draftAreaId' => $options['draftAreaId'] ?? null,
+                'editorReadonlyPublish' => $options['editorReadOnlyPublish'],
+                'editorDisableDraft' => $options['editorDisableDraft'],
+                'editorDisablePublish' => $options['editorDisablePublish'],
+                'previewModeId' => $options['editorPreviewModeId'],
+                'editorUrl' => ($options['editorUseTemplates'] && Plugin::isLoaded('BcEditorTemplate'))?
+                    $this->Url->build(['plugin' => 'BcEditorTemplate', 'prefix' => 'Admin', 'controller' => 'editor_templates', 'action' => 'js']) : '',
+                'initialStyle' => $this->style,
+                'editorStyle' => $options['editorStyles'],
+                'themeEditorCsses' => $this->getThemeEditorCsses(),
+                'editorOptions' => [
+                    'language' => $options['editorLanguage'],
+                    'skin' => $options['editorSkin'],
+                    'toolbar' => $options['editorToolbar'],
+                    'width' => $options['editorWidth'],
+                    'height' => $options['editorHeight'],
+                    'collapser' => $options['editorCollapser'],
+                    'baseFloatZIndex' => $options['editorBaseFloatZIndex'],
+                    'styles' => $options['editorStyles'],
+                ]
+        ])]);
+        $this->BcAdminForm->unlockField('ckeditor.setting.' . $fieldName);
+        $this->BcHtml->scriptStart(['block' => true]);
+        echo <<< SCRIPT_END
+        $(function(){
+            let config = JSON.parse($('#CkeditorSetting{$fieldCamelize}').val());
+            $.bcCkeditor.show(config);
+        });
+        SCRIPT_END;
+        $this->BcHtml->scriptEnd();
+        return $hidden . $previewModeHidden;
+    }
+
+    /**
+     * ツールバーの設定
+     * @param array $options
+     * @return mixed
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function setEditorToolbar($options)
+    {
+        if (!$options['editorToolbar']) {
+            $options['editorToolbar'] = $this->toolbars[$options['editorToolType']];
+            if(!Plugin::isLoaded('BcEditorTemplate')) return $options;
+
+            if ($options['editorUseTemplates']) {
+                switch($options['editorToolType']) {
                     case 'simple':
                         $options['editorToolbar'][0][] = 'Templates';
                         break;
@@ -254,99 +327,68 @@ class BcCkeditorHelper extends Helper
                 }
             }
         }
+        return $options;
+    }
 
-        if (isset($options['editorStylesSet']))
-            unset($options['editorStylesSet']);
-        if (isset($options['editorUseDraft']))
-            unset($options['editorUseDraft']);
-        if (isset($options['editorDraftField']))
-            unset($options['editorDraftField']);
-        if (isset($options['editorDisablePublish']))
-            unset($options['editorDisablePublish']);
-        if (isset($options['editorDisableDraft']))
-            unset($options['editorDisableDraft']);
-        if (isset($options['editorDisableCopyDraft']))
-            unset($options['editorDisableCopyDraft']);
-        if (isset($options['editorDisableCopyPublish']))
-            unset($options['editorDisableCopyPublish']);
-        if (isset($options['editorReadOnlyPublish']))
-            unset($options['editorReadOnlyPublish']);
-        if (isset($options['editorUseTemplates']))
-            unset($options['editorUseTemplates']);
-        if (isset($options['editorEnterBr']))
-            unset($options['editorEnterBr']);
-        if (isset($options['editorToolType']))
-            unset($options['editorToolType']);
-
-        $_options = [];
-        foreach($options as $key => $option) {
-            $key = preg_replace('/^editor/', '', $key);
-            $key = Inflector::variable($key);
-            $_options[$key] = $option;
+    /**
+     * 下書きの設定
+     * @param string $field
+     * @param array $options
+     * @return array
+     * @checked
+     * @unitTest
+     */
+    public function setDraft($field, $options)
+    {
+        $lastBar = $options['editorToolbar'][count($options['editorToolbar']) - 1];
+        $lastBar = array_merge($lastBar, ['-', 'Publish', '-', 'Draft']);
+        if (!$options['editorDisableCopyDraft']) {
+            $lastBar = array_merge($lastBar, ['-', 'CopyDraft']);
         }
-        $options = $_options;
-
-        $jscode = $model = $editorDomId = $publishAreaId = $draftAreaId = '';
-        if (strpos($fieldName, '.')) {
-            [$model, $field] = explode('.', $fieldName);
-        } else {
-            $field = $fieldName;
+        if (!$options['editorDisableCopyPublish']) {
+            $lastBar = array_merge($lastBar, ['-', 'CopyPublish']);
         }
-        if ($editorUseDraft) {
-            $publishAreaId = Inflector::camelize($model . '_' . $field);
-            $draftAreaId = Inflector::camelize($model . '_' . $editorDraftField);
-            $field .= '_tmp';
-            $fieldName .= '_tmp';
+        $model = null;
+        if(strpos($field, '.') !== false) {
+            [$model, $field] = explode('.', $field);
         }
-        $dom = explode('.', $fieldName);
+        $options['editorToolbar'][count($options['editorToolbar']) - 1] = $lastBar;
+        $options['publishAreaId'] = Inflector::camelize($model? $model . '_' . $field : $field);
+        $options['draftAreaId'] = Inflector::camelize($model? $model . '_' . $options['editorDraftField'] : $options['editorDraftField']);
+        // フィールド名を変更するためセキュリティコンポーネントの対象外とする 2022/10/10 ryuring
+        // TODO: 対象外とせずとも送信できるよう検討する
+        $this->BcAdminForm->unlockField($options['editorDraftField']);
+        return $options;
+    }
 
-        $editorDomId = Inflector::camelize($dom[0]) . Inflector::camelize($dom[1]);
-
-        if (!$this->_script) {
-            $this->_script = true;
-            $this->BcHtml->script(['vendor/ckeditor/ckeditor'], ["block" => true]);
-            $this->BcHtml->script(['admin/pages/applyCkeditor.bundle'], ["block" => true]);
-        }
-
-        if ($editorUseDraft) {
-            $lastBar = $options['toolbar'][count($options['toolbar']) - 1];
-            $lastBar = array_merge($lastBar, ['-', 'Publish', '-', 'Draft']);
-            if (!$editorDisableCopyDraft) {
-                $lastBar = array_merge($lastBar, ['-', 'CopyDraft']);
-            }
-            if (!$editorDisableCopyPublish) {
-                $lastBar = array_merge($lastBar, ['-', 'CopyPublish']);
-            }
-            $options['toolbar'][count($options['toolbar']) - 1] = $lastBar;
-        }
-
-        $currentTheme = $this->getView()->getTheme();
-        $site = $this->getView()->getRequest()->getAttribute('currentSite');
+    /**
+     * エディタCSS設定
+     * @return array
+     * @checked
+     * @noTodo
+     */
+    public function getThemeEditorCsses()
+    {
         $themeEditorCsses = [];
+        $site = $this->getView()->getRequest()->getAttribute('currentSite');
         if (!empty($site->theme)) {
-            $currentFrontTheme = $site->theme;
             // $this->webroot で、フロントテーマのURLを取得できるようにするため、
             // 一旦テーマをフロントのテーマに切り替える
+            $currentFrontTheme = $site->theme;
+            $currentTheme = $this->getView()->getTheme();
             $this->getView()->setTheme($currentFrontTheme);
-            $sitePrefix = '';
-            if (!empty($this->getView()->getRequest()->getData('Site.name'))) {
-                $sitePrefix = $this->getView()->getRequest()->getData('Site.name');
-            }
-            if ($sitePrefix) {
-                $themeEditorCsses = [
-                    'path' => Plugin::path(Inflector::camelize($currentFrontTheme)) . 'webroot' . DS . 'css' . DS . $sitePrefix . DS . 'editor.css',
-                    'url' => $this->Url->webroot('/css/' . $sitePrefix . '/editor.css')
+            if ($site->alias) {
+                $themeEditorCsses[] = [
+                    'path' => Plugin::path(Inflector::camelize($currentFrontTheme)) . 'webroot' . DS . 'css' . DS . $site->alias . DS . 'editor.css',
+                    'url' => $this->Url->webroot('/css/' . $site->alias . '/editor.css')
                 ];
             }
             $themeEditorCsses[] = [
                 'path' => Plugin::path(Inflector::camelize($currentFrontTheme)) . 'webroot' . DS . 'css' . DS . 'editor.css',
                 'url' => $this->Url->webroot('/css/editor.css')
             ];
+            $this->getView()->setTheme($currentTheme);
         }
-        $themeEditorCsses[] = [
-            'path' => Plugin::path(Inflector::camelize($currentTheme)) . 'webroot' . DS . 'css' . DS . 'admin' . DS . 'ckeditor' . DS . 'contents.css',
-            'url' => $this->Url->webroot('/css/admin/ckeditor/contents.css')
-        ];
         foreach($themeEditorCsses as $key => $themeEditorCss) {
             if (!file_exists($themeEditorCss['path'])) {
                 unset($themeEditorCsses[$key]);
@@ -354,48 +396,7 @@ class BcCkeditorHelper extends Helper
                 $themeEditorCsses[$key] = $themeEditorCss['url'];
             }
         }
-
-        $this->getView()->setTheme($currentTheme);
-        $fieldCamelize = Inflector::camelize($field);
-        $draftMode = $editorDisablePublish? 'draft' : 'publish';
-        // applyCkeditor.jsで使う変数のみ定義する
-        $jscode;
-        $stringVars = [
-            'ckeditorField' => "editor_{$field}",
-            'editorStylesSet' => $editorStylesSet,
-            'editorEnterBr' => $editorEnterBr,
-            'editorDomId' => $editorDomId,
-            'editorUseDraft' => $editorUseDraft,
-            'draftAreaId' => $draftAreaId,
-            'publishAreaId' => $publishAreaId,
-            'editorReadonlyPublish' => $editorReadOnlyPublish,
-            'editorDisableDraft' => $editorDisableDraft,
-            'editorDisablePublish' => $editorDisablePublish,
-            'fieldCamelize' => $fieldCamelize,
-        ];
-        foreach($stringVars as $varName => $varValue) {
-            if (is_bool($varValue)) {
-                $varValue = $varValue? 1 : 0;
-                $jscode .= "var {$varName}={$varValue};\n";
-            } else {
-                $jscode .= "var {$varName}='{$varValue}';\n";
-            }
-        }
-        if ($editorUseTemplates) {
-            $editorUrl = $this->Url->build(['plugin' => 'BaserCore', 'prefix' => 'Admin', 'controller' => 'editor_templates', 'action' => 'js']);
-            $jscode .= "var editorUrl='{$editorUrl}';";
-        }
-        $arrayVars = [
-            'initialStyle' => $this->style,
-            'editorStyle' => $editorStyles,
-            'themeEditorCsses' => $themeEditorCsses,
-            'editorOptions' => $options,
-        ];
-        foreach($arrayVars as $varName => $varValue) {
-            $jscode .= "var {$varName}=" . json_encode($varValue) . ";\n";
-        }
-
-        return $this->BcHtml->scriptBlock($jscode, ['type' => 'text/javascript', 'block' => true]) . '<input type="hidden" id="DraftMode' . $fieldCamelize . '" value="' . $draftMode . '">';
+        return $themeEditorCsses;
     }
 
     /**
@@ -410,12 +411,25 @@ class BcCkeditorHelper extends Helper
      */
     public function editor($fieldName, $options = [])
     {
-        if (!empty($options['editorUseDraft']) && !empty($options['editorDraftField']) && strpos($fieldName, '.')) {
-            [$model] = explode('.', $fieldName);
+        if (!empty($options['editorUseDraft']) && !empty($options['editorDraftField'])) {
+            // フィールド名を変更するためセキュリティコンポーネントの対象外とする 2022/10/10 ryuring
+            // TODO: 対象外とせずとも送信できるよう検討する
+            $this->BcAdminForm->unlockField($fieldName);
             $inputFieldName = $fieldName . '_tmp';
-            $hiddenIdElement = pluginSplit($fieldName);
-            $hiddenId = $hiddenIdElement[0] . Inflector::camelize($hiddenIdElement[1]);
-            $hidden = $this->BcAdminForm->hidden($fieldName, ['id' => $hiddenId]) . $this->BcAdminForm->hidden($model . '.' . $options['editorDraftField'], ['id' => $hiddenIdElement[0] . 'Draft']);
+
+            $model = null;
+            if(strpos($fieldName, '.') !== false) {
+                [$model, $field] = explode('.', $fieldName);
+            } else {
+                $field = $fieldName;
+            }
+            $publishAreaId = Inflector::camelize($model? $model . '_' . $field : $field);
+            $draftAreaId = Inflector::camelize($model? $model . '_' . $options['editorDraftField'] : $options['editorDraftField']);
+            $hidden = $this->BcAdminForm->hidden($fieldName, ['id' => $publishAreaId]) .
+                $this->BcAdminForm->hidden(
+                    ($model)? $model . '.' . $options['editorDraftField'] : $options['editorDraftField'],
+                    ['id' => $draftAreaId]
+                );
         } else {
             $inputFieldName = $fieldName;
             $hidden = '';
@@ -429,6 +443,6 @@ class BcCkeditorHelper extends Helper
         }
         $textIdElement = pluginSplit($inputFieldName);
         $_options['id'] = $textIdElement[0] . Inflector::camelize($textIdElement[1]);
-        return $this->BcAdminForm->control($inputFieldName, $_options) . $hidden . $this->buildTmpScript($fieldName, $options);
+        return $this->BcAdminForm->control($inputFieldName, $_options) . $hidden . $this->build($fieldName, $options);
     }
 }

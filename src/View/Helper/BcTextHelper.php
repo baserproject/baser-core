@@ -12,13 +12,13 @@
 namespace BaserCore\View\Helper;
 
 use BaserCore\Event\BcEventDispatcherTrait;
-use Cake\View\Helper;
+use Cake\View\Helper\TextHelper;
 
 /**
  * Class BcTextHelper
  * @package BaserCore\View\Helper
  */
-class BcTextHelper extends Helper
+class BcTextHelper extends TextHelper
 {
 // CUSTOMIZE ADD 2021/04/24 ryuring
 // >>>
@@ -38,7 +38,7 @@ class BcTextHelper extends Helper
     // >>>
     //public $helpers = array('Html');
     // ---
-    public $helpers = ['BaserCore.BcTime', 'BaserCore.BcForm', 'Html'];
+    public $helpers = ['BaserCore.BcTime', 'BaserCore.BcForm', 'Html', 'BaserCore.BcAdminForm'];
     // <<<
 
 // CUSTOMIZE ADD 2014/07/03 ryuring
@@ -331,7 +331,7 @@ class BcTextHelper extends Helper
      */
     public function listValue($field, $value)
     {
-        $list = $this->BcForm->getControlSource($field);
+        $list = $this->BcAdminForm->getControlSource($field);
         if ($list && isset($list[$value])) {
             return $list[$value];
         } else {

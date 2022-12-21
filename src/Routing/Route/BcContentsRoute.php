@@ -11,7 +11,6 @@
 
 namespace BaserCore\Routing\Route;
 
-use BaserCore\Service\BcFrontService;
 use BaserCore\Service\SitesService;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\Configure;
@@ -53,13 +52,8 @@ class BcContentsRoute extends Route
 
         //管理システムにログインしているかつプレビューの場合は公開状態のステータスは無視する
         $publish = true;
-        if ((!empty($request->getQuery['preview']) || !empty($request->getQuery['force'])) && BcUtil::loginUser()) {
+        if ((!empty($request->getQuery('preview')) || !empty($request->getQuery('force'))) && BcUtil::loginUser()) {
             $publish = false;
-            if (!empty($request->getQuery['host'])) {
-                Configure::write('BcEnv.host', $request->getQuery['host']);
-            } else {
-                Configure::write('BcEnv.host', '');
-            }
         }
 
         $sameUrl = false;
@@ -83,7 +77,7 @@ class BcContentsRoute extends Route
                     $checkUrl = ($url)? $url : '/';
                 }
             } else {
-                if (!empty($request->getQuery['force']) && BcUtil::isAdminUser()) {
+                if (!empty($request->getQuery('force')) && BcUtil::isAdminUser()) {
                     // =================================================================================================
                     // 2016/11/10 ryuring
                     // 別ドメインの際に、固定ページのプレビューで、正しくサイト情報を取得できない。
@@ -188,8 +182,10 @@ class BcContentsRoute extends Route
                     }
                 }
             }
-            $controllerClass = Inflector::camelize($viewParams['controller']) . 'Controller';
-            $controllerClass = ($plugin)? $plugin . '\\Controller\\' . $controllerClass : 'App\\Controller\\' . $controllerClass;
+            $prefix = $viewParams['prefix']?? null;
+            $namespace = ($plugin)? $plugin . '\\Controller\\' : 'App\\Controller\\';
+            $namespace = $prefix? $namespace . $prefix . '\\' : $namespace;
+            $controllerClass = $namespace . Inflector::camelize($viewParams['controller']) . 'Controller';
             if(class_exists($controllerClass)) {
                 $methods = get_class_methods($controllerClass);
             } else {
@@ -206,6 +202,7 @@ class BcContentsRoute extends Route
                 'named' => $named,
                 'entityId' => $entityId
             ];
+            if($prefix) $params['prefix'] = $prefix;
         }
         $params['_matchedRoute'] = $this->template;
         return $params;
@@ -269,8 +266,8 @@ class BcContentsRoute extends Route
             if (!empty($request->getParam('entityId'))) {
                 $entityId = $request->getParam('entityId');
             }
-            if (!empty($request->getParam('Content.alias_id'))) {
-                $contentId = $request->getParam('Content.id');
+            if (!empty($request->getAttribute('currentContent')->alias_id)) {
+                $contentId = $request->getAttribute('currentContent')->id;
             }
         }
 

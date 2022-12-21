@@ -11,6 +11,7 @@
 
 namespace BaserCore\Service;
 
+use BaserCore\Model\Entity\Content;
 use BaserCore\Model\Entity\Site;
 use BaserCore\Model\Table\SitesTable;
 use BaserCore\Utility\BcUtil;
@@ -32,12 +33,16 @@ class SitesService implements SitesServiceInterface
 {
     /**
      * Sites Table
-     * @var \Cake\ORM\Table
+     * @var SitesTable
      */
     public $Sites;
 
     /**
      * SitesService constructor.
+     * 
+     * @checked
+     * @unitTest
+     * @noTodo
      */
     public function __construct()
     {
@@ -46,6 +51,7 @@ class SitesService implements SitesServiceInterface
 
     /**
      * サイトの新規データ用の初期値を含んだエンティティを取得する
+     * 
      * @return Site
      * @checked
      * @noTodo
@@ -62,6 +68,7 @@ class SitesService implements SitesServiceInterface
 
     /**
      * サイトを取得する
+     * 
      * @param int $id
      * @return EntityInterface
      * @checked
@@ -75,6 +82,7 @@ class SitesService implements SitesServiceInterface
 
     /**
      * サイト管理の一覧用のデータを取得
+     * 
      * @param array $queryParams
      * @return Query
      * @checked
@@ -98,6 +106,7 @@ class SitesService implements SitesServiceInterface
 
     /**
      * サイト登録
+     * 
      * @param array $data
      * @return \Cake\Datasource\EntityInterface
      * @throws \Cake\ORM\Exception\PersistenceFailedException
@@ -114,6 +123,7 @@ class SitesService implements SitesServiceInterface
 
     /**
      * サイト情報を更新する
+     * 
      * @param EntityInterface $target
      * @param array $postData
      * @return EntityInterface
@@ -162,6 +172,7 @@ class SitesService implements SitesServiceInterface
 
     /**
      * サイト情報を削除する
+     * 
      * @param int $id
      * @return bool
      * @checked
@@ -240,6 +251,7 @@ class SitesService implements SitesServiceInterface
 
     /**
      * 言語リストを取得
+     * 
      * @return array
      * @checked
      * @noTodo
@@ -257,6 +269,7 @@ class SitesService implements SitesServiceInterface
 
     /**
      * デバイスリストを取得
+     * 
      * @return array
      * @checked
      * @noTodo
@@ -274,6 +287,7 @@ class SitesService implements SitesServiceInterface
 
     /**
      * サイトのリストを取得
+     * 
      * @param array $options
      * @return array
      * @checked
@@ -287,6 +301,7 @@ class SitesService implements SitesServiceInterface
 
     /**
      * テーマのリストを取得する
+     * 
      * @param Site $site
      * @return array
      * @checked
@@ -296,6 +311,74 @@ class SitesService implements SitesServiceInterface
     public function getThemeList(): array
     {
         return BcUtil::getThemeList();
+    }
+
+    /**
+     * サイトのルートコンテンツを取得する
+     * 
+     * @param int $id
+     * @return EntityInterface
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function getRootContent($id)
+    {
+        $contentsTable = TableRegistry::getTableLocator()->get('BaserCore.Contents');
+        return $contentsTable->find()->select()->where(['Contents.site_root' => true, 'Contents.site_id' => $id])->first();
+    }
+
+    /**
+     * コンテンツに関連したコンテンツをサイト情報と一緒に全て取得する
+     *
+     * @param $contentId
+     * @return array|null $list
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function getRelatedContents($contentId)
+    {
+        /* @var Content $content */
+        $content = $this->Sites->Contents->get($contentId, ['contain' => ['Sites']]);
+        $isMainSite = $this->Sites->isMain($content->site->id);
+        $fields = ['id', 'name', 'alias', 'display_name', 'main_site_id'];
+        $conditions = ['Sites.status' => true];
+        if (is_null($content->site->main_site_id)) {
+            $mainSiteContentId = $content->id;
+            $conditions['or'] = [
+                ['Sites.id' => $content->site->id],
+                ['Sites.main_site_id' => $this->Sites->getRootMain()->id]
+            ];
+        } else {
+            $conditions['or'] = [
+                ['Sites.main_site_id' => $content->site->main_site_id],
+                ['Sites.id' => $content->site->main_site_id]
+            ];
+            if ($isMainSite) {
+                $conditions['or'][] = ['Site.main_site_id' => $content->site->id];
+            }
+            $mainSiteContentId = $content->main_site_content_id ?? $content->id;
+        }
+        $sites = $this->Sites->find()->select($fields)->where($conditions)->order('main_site_id')->toArray();
+        $conditions = [
+            'or' => [
+                ['Contents.id' => $mainSiteContentId],
+                ['Contents.main_site_content_id' => $mainSiteContentId]
+            ]
+        ];
+        $list = [];
+        $relatedContents = $this->Sites->Contents->find()->where($conditions)->toArray();
+        foreach($sites as $key => $site) {
+            foreach($relatedContents as $relatedContent) {
+                $list[$key]['Site'] = $site;
+                if ($relatedContent->site_id == $site->id) {
+                    $list[$key]['Content'] = $relatedContent;
+                    break;
+                }
+            }
+        }
+        return $list;
     }
 
 }

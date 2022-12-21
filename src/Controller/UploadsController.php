@@ -10,6 +10,7 @@
  */
 
 namespace BaserCore\Controller;
+
 use Cake\Core\Configure;
 use Cake\Filesystem\File;
 use BaserCore\Utility\BcUtil;
@@ -19,27 +20,10 @@ use BaserCore\Annotation\Checked;
 use BaserCore\Annotation\UnitTest;
 
 /**
- * Class UploadsController
- *
  * アップロードコントローラー
- *
- * @package Baser.Controller
  */
-class UploadsController extends BcAppController
+class UploadsController extends AppController
 {
-
-    /**
-     * クラス名
-     *
-     * @var string
-     */
-    public $name = 'Uploads';
-
-    /**
-     * モデル
-     * @var array
-     */
-    public $uses = [];
 
     /**
      * セッションに保存した一時ファイルを出力する
@@ -47,18 +31,6 @@ class UploadsController extends BcAppController
      * @return void
      */
     public function tmp()
-    {
-        echo $this->output(func_get_args(), func_num_args());
-        exit;
-        // return $this->response->withStringBody($this->output(func_get_args(), func_num_args()));
-    }
-
-    /**
-     * スマートフォンのセッションに保存した一時ファイルを出力する
-     *
-     * @return void
-     */
-    public function smartphone_tmp()
     {
         echo $this->output(func_get_args(), func_num_args());
         exit;
@@ -106,7 +78,7 @@ class UploadsController extends BcAppController
         }
 
         if (!$size) {
-            $data = $session->read('Upload.' . $sessioName . '.data');
+            $data = base64_decode($session->read('Upload.' . $sessioName . '.data'));
         } else {
             if (is_dir(TMP . 'uploads')) {
                 mkdir(TMP . 'uploads');
@@ -115,7 +87,7 @@ class UploadsController extends BcAppController
 
             $path = TMP . 'uploads' . DS . $name;
             $file = new File($path, true);
-            $file->write($session->read('Upload.' . $sessioName . '.data'), 'wb');
+            $file->write(base64_decode($session->read('Upload.' . $sessioName . '.data'), 'wb'));
             $file->close();
 
             $thumb = false;
@@ -135,4 +107,5 @@ class UploadsController extends BcAppController
         Header("Content-type: " . $type . "; name=" . $name);
         return $data;
     }
+
 }

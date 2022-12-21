@@ -30,6 +30,7 @@ use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
 use BaserCore\Annotation\Note;
+use BaserCore\Annotation\Doc;
 
 /**
  * コンテンツヘルパ
@@ -68,6 +69,7 @@ class BcContentsHelper extends Helper
     public function initialize(array $config): void
     {
         parent::initialize($config);
+        if(!BcUtil::isInstalled()) return;
         $this->_Contents = TableRegistry::getTableLocator()->get('BaserCore.Contents');
         $this->PermissionsService = $this->getService(PermissionsServiceInterface::class);
         $this->ContentsService = $this->getService(ContentsServiceInterface::class);
@@ -287,10 +289,10 @@ class BcContentsHelper extends Helper
      */
     public function getCurrentRelatedSiteUrl($siteName)
     {
-        if (empty($this->request->getParam('Site'))) {
+        if (empty($this->request->getAttribute('currentSite'))) {
             return '';
         }
-        $url = $this->getPureUrl('/' . $this->request->url, $this->request->getParam('Site.id'));
+        $url = $this->getPureUrl('/' . $this->request->url, $this->request->getAttribute('currentSite')->id);
         $Site = ClassRegistry::init('Site');
         $site = $Site->find('first', ['conditions' => ['Site.name' => $siteName], 'recursive' => -1]);
         if (!$site) {
@@ -349,31 +351,34 @@ class BcContentsHelper extends Helper
      * - $id を指定して取得する事ができる
      * - $direct を false に設定する事で、最上位までの親情報を取得
      *
+     * @param null $id
      * @param bool $direct 直接の親かどうか
-     * @return mixed false|array
+     * @return EntityInterface|array|false
      */
     public function getParent($id = null, $direct = true)
     {
-        if (!$id && !empty($this->request->getParam('Content.id'))) {
-            $id = $this->request->getParam('Content.id');
+        if (!$id && !empty($this->request->getAttribute('currentContent')->id)) {
+            $id = $this->request->getAttribute('currentContent')->id;
         }
         if (!$id) {
             return false;
         }
-        $siteId = $this->_Contents->field('site_id', ['Content.id' => $id]);
+        $siteId = $this->_Contents->find()->where(['Contents.id' => $id])->first()->site_id;
         if ($direct) {
-            $parent = $this->_Contents->getParentNode($id);
-            if ($parent && $parent['Content']['site_id'] == $siteId) {
+            $parents = $this->_Contents->find('path', ['for' => $id])->all()->toArray();
+            if(!isset($parents[count($parents) - 2])) return false;
+                $parent = $parents[count($parents) - 2];
+            if ($parent->site_id === $siteId) {
                 return $parent;
             } else {
                 return false;
             }
         } else {
-            $parents = $this->_Contents->getPath($id);
+            $parents = $this->_Contents->find('path', ['for' => $id])->all()->toArray();
             if ($parents) {
                 $result = [];
                 foreach($parents as $parent) {
-                    if ($parent['Content']['id'] != $id && $parent['Content']['site_id'] == $siteId) {
+                    if ($parent->id !== $id && $parent->site_id === $siteId) {
                         $result[] = $parent;
                     }
                 }
@@ -418,8 +423,8 @@ class BcContentsHelper extends Helper
         ], $options);
         $this->_Contents->unbindModel(['belongsTo' => ['User']]);
         if (!$id) {
-            if (!empty($this->request->getParam('Content'))) {
-                $content = $this->request->getParam('Content');
+            if (!empty($this->request->getAttribute('currentContent'))) {
+                $content = $this->request->getAttribute('currentContent');
                 if ($content['main_site_content_id']) {
                     $id = $content['main_site_content_id'];
                 } else {
@@ -466,7 +471,8 @@ class BcContentsHelper extends Helper
      */
     public function getContentFolderList($siteId = null, $options = [])
     {
-        return $this->_Contents->getContentFolderList($siteId, $options);
+        $contentsService = $this->getService(ContentsServiceInterface::class);
+        return $contentsService->getContentFolderList($siteId, $options);
     }
 
 
@@ -517,7 +523,7 @@ class BcContentsHelper extends Helper
      */
     public function getContentByEntityId($id, $contentType, $field = null)
     {
-        $conditions = array_merge($this->_Contents->getConditionAllowPublish(), ['type' => $contentType, 'entity_id' => $id]);
+        $conditions = array_merge($this->_Contents->getConditionAllowPublish(), ['Contents.type' => $contentType, 'Contents.entity_id' => $id]);
         return $this->_getContent($conditions, $field);
     }
 
@@ -531,6 +537,9 @@ class BcContentsHelper extends Helper
      *  'name','url','title'など　初期値：Null
      *  省略した場合配列を取得
      * @return array|string|bool
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function getContentByUrl($url, $contentType, $field = null)
     {
@@ -538,12 +547,22 @@ class BcContentsHelper extends Helper
         return $this->_getContent($conditions, $field);
     }
 
-    private function _getContent($conditions, $field)
+    /**
+     * 条件を指定してコンテンツを取得する
+     * フィールドを指定した場合はフィールドの値を取得する
+     * @param array $conditions
+     * @param string|null $field
+     * @return array|EntityInterface|false|mixed
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    private function _getContent($conditions, $field = null)
     {
-        $content = $this->_Contents->find('first', ['conditions' => $conditions, 'order' => ['Content.id'], 'cache' => false]);
+        $content = $this->_Contents->find()->where($conditions)->order(['Contents.id'])->first();
         if (!empty($content)) {
             if ($field) {
-                return $content ['Content'][$field];
+                return $content->{$field};
             } else {
                 return $content;
             }
@@ -551,7 +570,6 @@ class BcContentsHelper extends Helper
             return false;
         }
     }
-
 
     /**
      * IDがコンテンツ自身の親のIDかを判定する
@@ -579,10 +597,10 @@ class BcContentsHelper extends Helper
      */
     public function isFolder()
     {
-        if (BcUtil::isAdminSystem() || !$this->request->getParam('Content.type')) {
+        if (BcUtil::isAdminSystem() || !$this->request->getAttribute('currentContent')->type) {
             return false;
         }
-        return ($this->request->getParam('Content.type') === 'ContentFolder');
+        return ($this->request->getAttribute('currentContent')->type === 'ContentFolder');
     }
 
     /**
@@ -707,4 +725,166 @@ class BcContentsHelper extends Helper
         return $this->ContentsService->isAllowPublish($data, $self);
     }
 
+    /**
+     * フォルダ内の次のコンテンツへのリンクを取得する
+     *
+     * MEMO: BcRequest.(agent).aliasは廃止
+     *
+     * @param string $title
+     * @param array $options オプション（初期値 : array()）
+     *    - `class` : CSSのクラス名（初期値 : 'next-link'）
+     *    - `arrow` : 表示文字列（初期値 : ' ≫'）
+     *    - `overFolder` : フォルダ外も含めるかどうか（初期値 : false）
+     *        ※ overFolder が true の場合は、BcPageHelper::contentsNaviAvailable() が false だとしても強制的に出力する
+     *    - `escape` : エスケープするかどうか
+     * @return mixed コンテンツナビが無効かつオプションoverFolderがtrueでない場合はfalseを返す
+     * @checked
+     * @noTodo
+     * @unitTest
+     * @doc
+     */
+    public function getNextLink($title = '', $options = [])
+    {
+        $request = $this->getView()->getRequest();
+        if (empty($request->getAttribute('currentContent')->id) || empty($request->getAttribute('currentContent')->parent_id)) {
+            return false;
+        }
+        $options = array_merge([
+            'class' => 'next-link',
+            'arrow' => ' ≫',
+            'overFolder' => false,
+            'escape' => true
+        ], $options);
+
+        $arrow = $options['arrow'];
+        $overFolder = $options['overFolder'];
+        unset($options['arrow']);
+        unset($options['overFolder']);
+
+        $neighbors = $this->getPageNeighbors($request->getAttribute('currentContent'), $overFolder);
+
+        if (empty($neighbors['next'])) {
+            return false;
+        } else {
+            if (!$title) {
+                $title = $neighbors['next']['title'] . $arrow;
+            }
+            $url = $neighbors['next']['url'];
+            return $this->BcBaser->getLink($title, $url, $options);
+        }
+    }
+
+    /**
+     * フォルダ内の次のコンテンツへのリンクを出力する
+     *
+     * @param string $title
+     * @param array $options オプション（初期値 : array()）
+     *    - `class` : CSSのクラス名（初期値 : 'next-link'）
+     *    - `arrow` : 表示文字列（初期値 : ' ≫'）
+     *    - `overFolder` : フォルダ外も含めるかどうか（初期値 : false）
+     *        ※ overFolder が true の場合は、BcPageHelper::contentsNaviAvailable() が false だとしても強制的に出力する
+     * @return @return void コンテンツナビが無効かつオプションoverFolderがtrueでない場合はfalseを出力する
+     * @checked
+     * @noTodo
+     * @unitTest
+     * @doc
+     */
+    public function nextLink($title = '', $options = [])
+    {
+        echo $this->getNextLink($title, $options);
+    }
+
+    /**
+     * フォルダ内の前のコンテンツへのリンクを取得する
+     *
+     * @param string $title
+     * @param array $options オプション（初期値 : array()）
+     *    - `class` : CSSのクラス名（初期値 : 'prev-link'）
+     *    - `arrow` : 表示文字列（初期値 : ' ≫'）
+     *    - `overFolder` : フォルダ外も含めるかどうか（初期値 : false）
+     *    - `escape` : エスケープするかどうか
+     * @return string|false
+     * @checked
+     * @noTodo
+     * @unitTest
+     * @doc
+     */
+    public function getPrevLink($title = '', $options = [])
+    {
+        $request = $this->getView()->getRequest();
+        if (empty($request->getAttribute('currentContent')->id) || empty($request->getAttribute('currentContent')->parent_id)) {
+            return false;
+        }
+        $options = array_merge([
+            'class' => 'prev-link',
+            'arrow' => '≪ ',
+            'overFolder' => false,
+            'escape' => true
+        ], $options);
+
+        $arrow = $options['arrow'];
+        $overFolder = $options['overFolder'];
+        unset($options['arrow']);
+        unset($options['overFolder']);
+        $content = $request->getAttribute('currentContent');
+        $neighbors = $this->getPageNeighbors($content, $overFolder);
+
+        if (empty($neighbors['prev'])) {
+            return false;
+        } else {
+            if (!$title) {
+                $title = $arrow . $neighbors['prev']['title'];
+            }
+            $url = $neighbors['prev']['url'];
+            return $this->BcBaser->getLink($title, $url, $options);
+        }
+    }
+
+    /**
+     * フォルダ内の前のコンテンツへのリンクを出力する
+     *
+     * @param string $title
+     * @param array $options オプション（初期値 : array()）
+     *    - `class` : CSSのクラス名（初期値 : 'prev-link'）
+     *    - `arrow` : 表示文字列（初期値 : ' ≫'）
+     *    - `overFolder` : フォルダ外も含めるかどうか（初期値 : false）
+     *        ※ overFolder が true の場合は、BcPageHelper::contentsNaviAvailable() が false だとしても強制的に出力する
+     * @return void コンテンツナビが無効かつオプションoverFolderがtrueでない場合はfalseを返す
+     * @checked
+     * @noTodo
+     * @unitTest
+     * @doc
+     */
+    public function prevLink($title = '', $options = [])
+    {
+        echo $this->getPrevLink($title, $options);
+    }
+
+    /**
+     * 指定した固定ページデータの次、または、前のデータを取得する
+     *
+     * @param Content $content
+     * @param bool $overFolder フォルダ外も含めるかどうか
+     * @return array 次、または、前の固定ページデータ
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    protected function getPageNeighbors($content, $overFolder = false)
+    {
+        $conditions = array_merge($this->ContentsService->getConditionAllowPublish(), [
+            'Contents.type <>' => 'ContentFolder',
+            'Contents.site_id' => $content->site_id
+        ]);
+        if ($overFolder !== true) {
+            $conditions['Contents.parent_id'] = $content->parent_id;
+        }
+        $options = [
+            'field' => 'lft',
+            'value' => $content->lft,
+            'conditions' => $conditions,
+            'order' => ['Contents.lft'],
+        ];
+        return $this->ContentsService->getNeighbors($options);
+    }
 }

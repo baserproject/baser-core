@@ -11,6 +11,7 @@
 
 namespace BaserCore\Service;
 
+use BaserCore\Error\BcException;
 use BaserCore\Model\Entity\Permission;
 use BaserCore\Model\Table\PermissionsTable;
 use Cake\Core\Configure;
@@ -54,6 +55,10 @@ class PermissionsService implements PermissionsServiceInterface
 
     /**
      * PermissionsService constructor.
+     *
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function __construct()
     {
@@ -64,9 +69,9 @@ class PermissionsService implements PermissionsServiceInterface
 
     /**
      * パーミッションの新規データ用の初期値を含んだエンティティを取得する
+     * 
      * @param int $userGroupId
      * @return Permission
-     *
      * @checked
      * @noTodo
      * @unitTest
@@ -82,7 +87,11 @@ class PermissionsService implements PermissionsServiceInterface
     /**
      * リストデータを取得
      * 対応しない
+     * 
      * @return array
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function getList(): array
     {
@@ -91,9 +100,9 @@ class PermissionsService implements PermissionsServiceInterface
 
     /**
      * パーミッションを取得する
+     * 
      * @param int $id
      * @return EntityInterface
-     *
      * @checked
      * @noTodo
      * @unitTest
@@ -107,9 +116,9 @@ class PermissionsService implements PermissionsServiceInterface
 
     /**
      * パーミッション管理の一覧用のデータを取得
+     * 
      * @param array $queryParams
      * @return Query
-     *
      * @checked
      * @noTodo
      * @unitTest
@@ -126,10 +135,10 @@ class PermissionsService implements PermissionsServiceInterface
 
     /**
      * パーミッション登録
+     * 
      * @param ServerRequest $request
      * @return EntityInterface
      * @throws \Cake\ORM\Exception\PersistenceFailedException
-     *
      * @checked
      * @noTodo
      * @unitTest
@@ -144,11 +153,11 @@ class PermissionsService implements PermissionsServiceInterface
 
     /**
      * パーミッション情報を更新する
+     * 
      * @param EntityInterface $target
      * @param array $data
      * @return EntityInterface
      * @throws \Cake\ORM\Exception\PersistenceFailedException
-     *
      * @checked
      * @noTodo
      * @unitTest
@@ -164,7 +173,6 @@ class PermissionsService implements PermissionsServiceInterface
      *
      * @param int $id
      * @return bool
-     *
      * @checked
      * @noTodo
      * @unitTest
@@ -181,7 +189,6 @@ class PermissionsService implements PermissionsServiceInterface
      *
      * @param int $id
      * @return bool
-     *
      * @checked
      * @noTodo
      * @unitTest
@@ -198,7 +205,6 @@ class PermissionsService implements PermissionsServiceInterface
      *
      * @param int $permissionId
      * @return EntityInterface|false
-     *
      * @checked
      * @noTodo
      * @unitTest
@@ -222,9 +228,9 @@ class PermissionsService implements PermissionsServiceInterface
 
     /**
      * パーミッション情報を削除する
+     * 
      * @param int $id
      * @return bool
-     *
      * @checked
      * @noTodo
      * @unitTest
@@ -262,10 +268,10 @@ class PermissionsService implements PermissionsServiceInterface
     }
 
     /**
-     *  レコード作成に必要なデータを代入する
+     * レコード作成に必要なデータを代入する
+     * 
      * @param array $data
      * @return array $data
-     *
      * @noTodo
      * @unitTest
      * @checked
@@ -326,6 +332,9 @@ class PermissionsService implements PermissionsServiceInterface
      * 標準アクセス許可リクエストを設定
      *
      * @return void
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     private function setDefaultAllow(): void
     {
@@ -335,7 +344,8 @@ class PermissionsService implements PermissionsServiceInterface
             '/^' . preg_quote($this->adminUrlPrefix . '/baser-core/dashboard/', '/') . '.*?/',
             '/^' . preg_quote($this->adminUrlPrefix . '/baser-core/dblogs/', '/') . '.*?/',
             '/^' . preg_quote($this->adminUrlPrefix . '/baser-core/users/logout', '/') . '$/',
-            '/^' . preg_quote($this->adminUrlPrefix . '/baser-core/user_groups/set_default_favorites', '/') . '$/',
+            '/^' . preg_quote($this->adminUrlPrefix . '/baser-core/users/back_agent', '/') . '$/',
+            '/^' . preg_quote($this->adminUrlPrefix . '/baser-core/user_groups', '/') . '$/',
         ];
         $sessionKey = Configure::read('BcPrefixAuth.Admin.sessionKey');
         if (!empty($_SESSION[$sessionKey]['id'])) {
@@ -394,7 +404,7 @@ class PermissionsService implements PermissionsServiceInterface
      */
     private function checkGroup(string $url, array $groupPermission): bool
     {
-        $ret = false;
+        $ret = true;
         foreach($groupPermission as $permission) {
             $pattern = $permission->url;
             $pattern = preg_quote($pattern, '/');
@@ -483,6 +493,44 @@ class PermissionsService implements PermissionsServiceInterface
         }
 
         return true;
+    }
+
+    /**
+     * 一括処理
+     * 
+     * @param array $ids
+     * @return bool
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function batch($method, array $ids): bool
+    {
+        if (!$ids) return true;
+        $db = $this->Permissions->getConnection();
+        $db->begin();
+        foreach($ids as $id) {
+            if (!$this->{$method}($id)) {
+                $db->rollback();
+                throw new BcException(__d('baser', 'データベース処理中にエラーが発生しました。'));
+            }
+        }
+        $db->commit();
+        return true;
+    }
+
+    /**
+     * IDを指定して名前リストを取得する
+     * 
+     * @param $ids
+     * @return array
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function getNamesById($ids): array
+    {
+        return $this->Permissions->find('list')->where(['id IN' => $ids])->toArray();
     }
 
 }

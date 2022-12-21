@@ -75,6 +75,15 @@ class UsersServiceTest extends BcTestCase
     }
 
     /**
+     * test construct
+     * @return void
+     */
+    public function testConstruct(){
+        $this->assertTrue(isset($this->Users->Users));
+        $this->assertTrue(isset($this->Users->LoginStores));
+    }
+
+    /**
      * Test getNew
      */
     public function testGetNew()
@@ -180,7 +189,7 @@ class UsersServiceTest extends BcTestCase
      */
     public function testLoginAndLogout()
     {
-        $request = $this->getRequest('/baser/admin/users/index');
+        $request = $this->getRequest('/baser/admin/baser-core/users/index');
         $authentication = $this->BaserCore->getAuthenticationService($request);
         $request = $request->withAttribute('authentication', $authentication);
         $response = new Response();
@@ -250,7 +259,7 @@ class UsersServiceTest extends BcTestCase
     public function testReload()
     {
         // 未ログイン
-        $request = $this->loginAdmin($this->getRequest('/baser/admin/users/index'));
+        $request = $this->loginAdmin($this->getRequest('/baser/admin/baser-core/users/index'));
         $noLoginUser = $this->Users->reload($request);
         $this->assertTrue($noLoginUser);
 
@@ -286,6 +295,15 @@ class UsersServiceTest extends BcTestCase
         // シナリオを利用して無効ユーザーを50人追加
         $this->loadFixtureScenario(SuspendedUsersScenario::class, 50);
         $this->assertEquals(153, UserFactory::find()->count());
+    }
+
+    /**
+     * test isAvailable
+     */
+    public function testIsAvailable()
+    {
+        $this->assertTrue($this->Users->isAvailable(1));
+        $this->assertFalse($this->Users->isAvailable(3));
     }
 
 }

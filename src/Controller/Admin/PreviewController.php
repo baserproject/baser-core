@@ -8,20 +8,19 @@
  * @since         5.0.0
  * @license       https://basercms.net/license/index.html MIT License
  */
+
 namespace BaserCore\Controller\Admin;
 
-use Cake\Core\Configure;
-use Cake\Routing\Router;
-use Cake\Utility\Inflector;
-use Cake\Http\ServerRequest;
 use BaserCore\Utility\BcUtil;
+use Cake\Http\Response;
+use Cake\Routing\Router;
+use Cake\Http\ServerRequest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
 use BaserCore\Annotation\UnitTest;
-use Cake\Http\ServerRequestFactory;
 use BaserCore\Utility\BcContainerTrait;
-use Cake\Http\Exception\ForbiddenException;
-use BaserCore\Service\ContentsServiceInterface;
+use Cake\Utility\Inflector;
+use ReflectionClass;
 
 class PreviewController extends BcAdminAppController
 {
@@ -42,35 +41,41 @@ class PreviewController extends BcAdminAppController
     public function initialize(): void
     {
         parent::initialize();
-        $this->loadComponent('BaserCore.BcFrontContents');
-        $this->ContentsService = $this->getService(ContentsServiceInterface::class);
+        $this->Security->setConfig('unlockedActions', ['view']);
     }
 
     /**
      * view
      *
-     * @param  mixed $path
-     * @return void
+     * @return Response|void
      * @checked
-     * @unitTest
      * @noTodo
+     * @unitTest
      */
-    public function view(...$path)
+    public function view()
     {
-        if (in_array('..', $path, true) || in_array('.', $path, true)) {
-            throw new ForbiddenException();
-        }
-        $request = $this->createRequest($this->request->getQuery('url'));
-        $serviceName = $request->getParam('plugin') . '\\Service\\' . $request->getParam('controller') . Inflector::camelize($request->getParam('action')) . 'ServiceInterface';
-        $service = $this->getService($serviceName);
+        $request = $this->_createPreviewRequest($this->getRequest());
         try {
-            $previewData = $service->getPreviewData($this->getRequest());
+            Router::setRequest($request);
             $this->setRequest($request);
-            $this->set(strtolower(Inflector::singularize($request->getParam('controller'))), $previewData);
+            $action = $request->getParam('action');
+            $controller = $request->getParam('controller');
+            $this->setName($controller);
             $this->viewBuilder()->setLayout('default');
-            $this->viewBuilder()->setTemplate($request->getParam('action'));
-            $this->viewBuilder()->setTemplatePath($request->getParam('controller'));
-            return $this->render('/' . $request->getParam('controller') .'/default');
+            $this->viewBuilder()->setTemplate($action);
+            $this->viewBuilder()->setTemplatePath($controller);
+            $this->loadComponent('BaserCore.BcFrontContents');
+            $this->BcFrontContents->setupFront();
+            $this->setupFrontView();
+
+            $serviceName = $request->getParam('plugin') . '\\Service\\Front\\' . $request->getParam('controller') . 'FrontServiceInterface';
+            if($this->hasService($serviceName)) {
+                $service = $this->getService($serviceName);
+                $setupPreviewAction = 'setupPreviewFor' . Inflector::camelize($action);
+                if (method_exists($service, $setupPreviewAction)) {
+                    $service->{$setupPreviewAction}($this);
+                }
+            }
         } catch (\Cake\Http\Exception\NotFoundException $e) {
             $this->BcMessage->setError(__d('baser', $e->getMessage()));
             return $this->redirect($this->referer());
@@ -78,48 +83,68 @@ class PreviewController extends BcAdminAppController
     }
 
     /**
-     * createRequest
+     * プレビュー用のリクエストを作成する
      *
-     * @param  string $url
+     * @param ServerRequest $request
      * @return ServerRequest
      * @checked
-     * @unitTest
      * @noTodo
+     * @unitTest
      */
-    protected function createRequest($url): ServerRequest
+    private function _createPreviewRequest($request)
     {
-        $config = [];
-        $method = 'GET';
-        if(preg_match('/^https?/', $url)) {
-            $parseUrl = $this->ContentsService->encodeParsedUrl($url);
-            Configure::write('BcEnv.host', $parseUrl['host']);
-            $uri = ServerRequestFactory::createUri([
-                'HTTP_HOST' => $parseUrl['host'],
-                'REQUEST_URI' => $url,
-                'REQUEST_METHOD' => $method,
-                'HTTPS' => (preg_match('/^https/', $url))? 'on' : ''
-            ])->withPath($parseUrl['path']);
-            $defaultConfig = [
-                'webroot' => $this->request->getAttribute('webroot'),
-                'uri' => $uri
-            ];
-        } else {
-            $defaultConfig = [
-                'url' => $url,
-                'webroot' => $this->request->getAttribute('webroot'),
-                'environment' => [
-                    'REQUEST_METHOD' => $method
-            ]];
+        $query = $request->getQueryParams();
+        $url = $query['url'];
+        unset($query['url']);
+        $params = [];
+        foreach($query as $key => $value) {
+            $params[] = $key . '=' . $value;
         }
-        $defaultConfig = array_merge($defaultConfig, $config);
-        $request = new ServerRequest($defaultConfig);
-        try {
-            Router::setRequest($request);
-            $params = Router::parseRequest($request);
-        } catch (\Exception $e) {
-            return $request;
-        }
-        $request = $request->withAttribute('params', $params);
+        $url .= '?' . implode('&', $params);
+        $request = BcUtil::createRequest(
+            $url,
+            $this->getRequest()->getData(),
+            $this->getRequest()->getMethod()
+        );
+        //========================================================================
+        // 2022/12/02 by ryuring
+        // メールフォームのフォームを生成する際、$this->>formProtector が存在しないとエラーとなる。
+        // formProtector をセットするには、FormHelper::create() 内にて、生成する必要があるが、
+        // 生成条件として $request の attribute に formTokenData がセットされていないといけない。
+        //
+        // $request の attribute に formTokenData をセットするためには、
+        // FormProtectionComponent を有効にするか、SecurityComponent で生成する必要がある。
+        //
+        // FormProtectionComponent では、_Tokenを送っても「_Token was not found in request data.」
+        // となり、理由がわからず断念。SecurityComponent を利用する。
+        //
+        // SecurityComponent は、SecurityComponent::_validatePost() で引っかかってしまうため、
+        // initialize でアンロックしている。
+        // $this->Security->setConfig('unlockedActions', ['view']);
+        //
+        // そのため、自動で formTokenData が生成されないため、明示的にここで生成する。
+        //========================================================================
+        $request = $this->Security->generateToken($request);
+
+        //========================================================================
+        // 2022/12/02 by ryuring
+        // 上記に続き、メールフォームの FormHelper::create() 内にて、formProtector を生成するには、
+        // セッションが「正常に」スタートしている事が前提となる。
+        //
+        // リクエストの早い段階にてセッションはスタートしているが、$request を模倣する前提のため
+        // PHPでは、セッションはスタート済で、 $request 内の セッションオブジェクトは未スタートという
+        // 矛盾が発生してしまっているので、強制的にスタート済に設定している。
+        //
+        // BcUtil::createRequest() でやるべきかもしれないが影響範囲を考えここで記述
+        // 上記に移行が問題なければ移行する
+        //========================================================================
+        $session = $request->getSession();
+        $startedProperty = (new ReflectionClass($session))->getProperty('_started');
+        $startedProperty->setAccessible(true);
+        $startedProperty->setValue($session, true);
+        $sessionProperty = (new ReflectionClass($request))->getProperty('session');
+        $sessionProperty->setAccessible(true);
+        $sessionProperty->setValue($request, $session);
         return $request;
     }
 

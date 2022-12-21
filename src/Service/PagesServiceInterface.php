@@ -11,19 +11,23 @@
 
 namespace BaserCore\Service;
 
+use BaserCore\Model\Entity\Page;
 use Cake\Datasource\EntityInterface;
 
 /**
  * Interface PagesServiceInterface
- * @package BaserCore\Service
  */
 interface PagesServiceInterface extends CrudBaseServiceInterface
 {
 
     /**
      * 固定ページをゴミ箱から取得する
+     * 
      * @param int $id
      * @return EntityInterface|array
+     * @checked
+     * @unitTest
+     * @noTodo
      */
     public function getTrash($id);
 
@@ -33,6 +37,9 @@ interface PagesServiceInterface extends CrudBaseServiceInterface
      * @param int $contentId
      * @param array|string $plugins
      * @return array
+     * @checked
+     * @unitTest
+     * @noTodo
      */
     public function getPageTemplateList($contentId, $plugins);
 
@@ -44,6 +51,21 @@ interface PagesServiceInterface extends CrudBaseServiceInterface
      *
      * @param array $postData
      * @return Page $result
+     * @checked
+     * @unitTest
+     * @noTodo
      */
     public function copy($postData);
+
+    /**
+     * 物理削除
+     * 
+     * @param int $id
+     * @return bool
+     * @checked
+     * @unitTest
+     * @noTodo
+     */
+    public function delete(int $id): bool;
+
 }

@@ -17,6 +17,7 @@ use Cake\Filesystem\Folder;
 use Cake\Core\App;
 use Cake\Core\Configure\Engine\PhpConfig;
 use Cake\TestSuite\IntegrationTestTrait;
+use Composer\Package\Archiver\ZipArchiver;
 
 /**
  * BaserCore\Controller\Api\PluginsController Test Case
@@ -36,6 +37,9 @@ class PluginsControllerTest extends BcTestCase
         'plugin.BaserCore.UserGroups',
         'plugin.BaserCore.Plugins',
         'plugin.BaserCore.Permissions',
+        'plugin.BaserCore.Sites',
+        'plugin.BaserCore.SiteConfigs',
+        'plugin.BaserCore.Dblogs'
     ];
 
     /**
@@ -55,6 +59,7 @@ class PluginsControllerTest extends BcTestCase
      */
     public function setUp(): void
     {
+        $this->setFixtureTruncate();
         parent::setUp();
         Configure::config('baser', new PhpConfig());
         Configure::load('BaserCore.setting', 'baser');
@@ -81,6 +86,11 @@ class PluginsControllerTest extends BcTestCase
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('BcBlog', $result->plugin->name);
+        $this->assertEquals('ブログ', $result->plugin->title);
+        $this->assertEquals('1.0.0', $result->plugin->version);
+        $this->assertEquals(1, $result->plugin->priority);
+        $this->assertTrue($result->plugin->status);
+        $this->assertTrue($result->plugin->db_init);
     }
 
     /**
@@ -143,6 +153,23 @@ class PluginsControllerTest extends BcTestCase
     }
 
     /**
+     * test attach
+     */
+    public function testAttach()
+    {
+        $this->post('/baser/api/baser-core/plugins/attach/BcBlog.json?token=' . $this->accessToken);
+        $this->assertResponseOk();
+        $result = json_decode((string)$this->_response->getBody());
+        $this->assertEquals('プラグイン「BcBlog」を有効にしました。', $result->message);
+        $this->assertTrue($result->plugin->status);
+
+        $this->post('/baser/api/baser-core/plugins/attach/test.json?token=' . $this->accessToken);
+        $this->assertResponseCode(400);
+        $result = json_decode((string)$this->_response->getBody());
+        $this->assertNull($result->plugin);
+    }
+
+    /**
      * test reset_db
      */
     public function testRestDb()
@@ -172,26 +199,71 @@ class PluginsControllerTest extends BcTestCase
         // TODO インストールの処理とまとめる予定
         $this->markTestIncomplete('このテストは、まだ実装されていません。');
     }
+
+    /**
+     * test add
+     */
+    public function test_add()
+    {
+        $this->get('/baser/api/baser-core/themes/add.json?token=' . $this->accessToken);
+        $this->assertResponseCode(405);
+
+        $path = BASER_PLUGINS . 'BcSpaSample';
+        $zipSrcPath = TMP . 'zip' . DS;
+        $folder = new Folder();
+        $folder->create($zipSrcPath, 0777);
+        $folder->copy($zipSrcPath . 'BcSpaSample2', ['from' => $path, 'mode' => 0777]);
+        $plugin = 'BcSpaSample2';
+        $zip = new ZipArchiver();
+        $testFile = $zipSrcPath . $plugin . '.zip';
+        $zip->archive($zipSrcPath, $testFile, true);
+
+        $this->setUploadFileToRequest('file', $testFile);
+        $this->post('/baser/api/baser-core/plugins/add.json?token=' . $this->accessToken);
+        $this->assertResponseOk();
+        $result = json_decode((string)$this->_response->getBody());
+        $this->assertEquals('新規プラグイン「' . $plugin . '」を追加しました。', $result->message);
+
+        $folder = new Folder();
+        $folder->delete(BASER_PLUGINS . $plugin);
+        $folder->delete($zipSrcPath);
+    }
+
     /**
      * test update_sort
      */
     public function testUpdateSort()
     {
-        $this->post('/baser/api/baser-core/plugins/update_sort/BcBlog.json?offset=1&token=' . $this->accessToken);
+        $this->post('/baser/api/baser-core/plugins/update_sort.json?token=' . $this->accessToken, [
+            'id' => 1,
+            'offset' => 1
+        ]);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('プラグイン「BcBlog」の並び替えを更新しました。', $result->message);
     }
 
     /**
-     * test get_market_plugins
+     * 一括処理できてるかテスト
      */
-    public function testGetMarketPlugins()
+    public function test_batch()
     {
-        $this->post('/baser/api/baser-core/plugins/get_market_plugins.json?token=' . $this->accessToken);
+        $batchList = [1, 2];
+        $this->post('/baser/api/baser-core/plugins/batch.json?token=' . $this->accessToken, [
+            'batch' => 'detach',
+            'batch_targets' => $batchList
+        ]);
         $this->assertResponseOk();
+        $plugins = $this->getTableLocator()->get('Plugins');
+        $query = $plugins->find()->select(['id', 'status']);
+        // 複数detachされてるかテスト
+        foreach($query as $plugin) {
+            if (in_array($plugin->id, $batchList)) {
+                $this->assertFalse($plugin->status);
+            }
+        }
         $result = json_decode((string)$this->_response->getBody());
-        $this->assertIsArray($result->plugins);
+        $this->assertEquals('一括処理が完了しました。', $result->message);
     }
 
 }

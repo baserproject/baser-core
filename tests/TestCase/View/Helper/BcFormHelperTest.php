@@ -52,7 +52,10 @@ class BcFormHelperTest extends BcTestCase
     {
         parent::setUp();
         $View = new BcAdminAppView($this->getRequest('/contacts/add'));
-        $eventedView = $View->setEventManager(EventManager::instance()->on(new BcContentsEventListener())->setEventList(new EventList()));
+        $View->setRequest($View->getRequest()->withAttribute('formTokenData', [
+            'unlockedFields' => [],
+        ]));
+        $eventedView = $View->setEventManager(EventManager::instance()->on(new BcContentsEventListener('page'))->setEventList(new EventList()));
         $this->BcForm = new BcFormHelper($eventedView);
     }
     /**
@@ -128,6 +131,7 @@ class BcFormHelperTest extends BcTestCase
      */
     public function testDateTimePicker($fieldName, $attributes, $expected, $message)
     {
+        $this->BcForm->create();
         $result = $this->BcForm->dateTimePicker($fieldName, $attributes);
         $this->assertMatchesRegularExpression('/' . $expected . '/s', $result, $message);
     }
@@ -188,6 +192,7 @@ class BcFormHelperTest extends BcTestCase
      */
     public function testHidden($fieldName, $options, $expected, $message)
     {
+        $this->BcForm->create();
         $result = $this->BcForm->hidden($fieldName, $options);
         $this->assertMatchesRegularExpression('/' . $expected . '/s', $result, $message);
     }
@@ -313,7 +318,7 @@ class BcFormHelperTest extends BcTestCase
                 ]
             ];
         }
-        $result = $this->BcAdminForm->control($fieldName, $options);
+        $result = $this->BcForm->control($fieldName, $options);
         $this->assertMatchesRegularExpression('/' . $expected . '/s', $result);
         $this->resetEvent();
     }
@@ -740,7 +745,7 @@ class BcFormHelperTest extends BcTestCase
 
         $this->BcForm->request['_Token'] = ['key' => 'testKey'];
         $encoding = strtolower(Configure::read('App.encoding'));
-        $result = $this->BcAdminForm->create('Contact', ['url' => '/contacts/add']);
+        $result = $this->BcForm->create('Contact', ['url' => '/contacts/add']);
         $expected = [
             'form' => ['action' => '/contacts/add', 'novalidate' => 'novalidate', 'id' => 'ContactAddForm', 'method' => 'post', 'accept-charset' => $encoding],
             'div' => ['style' => 'display:none;'],
@@ -751,7 +756,7 @@ class BcFormHelperTest extends BcTestCase
             '/div'
         ];
         $this->assertTags($result, $expected);
-        $result = $this->BcAdminForm->create('Contact', ['url' => '/contacts/add', 'id' => 'MyForm']);
+        $result = $this->BcForm->create('Contact', ['url' => '/contacts/add', 'id' => 'MyForm']);
         $expected['form']['id'] = 'MyForm';
         $this->assertTags($result, $expected);
     }
@@ -931,7 +936,6 @@ class BcFormHelperTest extends BcTestCase
         //     ['CakeSchema', 'CakeSchemaAddForm'],
         //     ['Content', 'ContentAddForm'],
         //     ['EditTemplate', 'EditTemplateAddForm'],
-        //     ['Favorite', 'FavoriteAddForm'],
         //     ['Member', 'MemberAddForm'],
         //     ['Page', 'PageAddForm'],
         //     ['Plugin', 'PluginAddForm'],
@@ -989,6 +993,20 @@ class BcFormHelperTest extends BcTestCase
         // アソシエーションのテーブル名あり
         $table = $this->BcForm->getTable('Pages.content.eyecatch');
         $this->assertEquals('BaserCore\Model\Table\ContentsTable', get_class($table));
+    }
+
+    /**
+     * test control
+     */
+    public function test_control()
+    {
+        $option = ['type' => 'radio', 'options' => [1, 2]];
+        $result = $this->BcForm->control('country', $option);
+        $this->assertStringContainsString('name="country"', $result);
+        $this->assertStringContainsString('type="radio"', $result);
+        $this->assertStringNotContainsString('legend', $result);
+        $this->assertStringNotContainsString('error', $result);
+        $this->assertStringNotContainsString('<label>', $result);
     }
 
 }

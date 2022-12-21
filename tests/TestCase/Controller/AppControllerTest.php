@@ -73,7 +73,7 @@ class AppControllerTest extends BcTestCase
      */
     public function testConstruct(): void
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
+        $this->assertNotEmpty($this->getRequest()->getSession());
     }
 
     /**
@@ -130,6 +130,32 @@ class AppControllerTest extends BcTestCase
     }
 
     /**
+     * test beforeRender
+     */
+    public function test_beforeRender()
+    {
+        $this->AppController->beforeRender(new Event('beforeRender'));
+        $this->assertEquals('BcAdminThird', $this->AppController->viewBuilder()->getVars()['currentAdminTheme']);
+    }
+
+    /**
+     * Test setupFrontView
+     */
+    public function test_setupFrontView()
+    {
+        $this->AppController->setupFrontView();
+        $this->assertEquals('BaserCore.BcFrontApp', $this->AppController->viewBuilder()->getClassName());
+        $this->assertEquals('BcFront', $this->AppController->viewBuilder()->getTheme());
+        $request = $this->AppController->getRequest();
+        $site = $request->getAttribute('currentSite');
+        $site['theme'] = 'test';
+        $request = $request->withParam('Site', $site);
+        $this->AppController->setRequest($request);
+        $this->AppController->setupFrontView();
+        $this->assertEquals('test', $this->AppController->viewBuilder()->getTheme());
+    }
+
+    /**
      * test blackHoleCallback
      */
     public function test_blackHoleCallback()
@@ -141,23 +167,6 @@ class AppControllerTest extends BcTestCase
             'name' => 'Test_test_Man'
         ]);
         $this->assertResponseRegExp('/不正なリクエストと判断されました。/');
-    }
-
-    /**
-     * Test beforeRender
-     */
-    public function testBeforeRender()
-    {
-        $this->AppController->beforeRender(new Event('beforeRender'));
-        $this->assertEquals('BaserCore.BcFrontApp', $this->AppController->viewBuilder()->getClassName());
-        $this->assertEquals('BcFront', $this->AppController->viewBuilder()->getTheme());
-        $request = $this->AppController->getRequest();
-        $site = $request->getParam('Site');
-        $site['theme'] = 'test';
-        $request = $request->withParam('Site', $site);
-        $this->AppController->setRequest($request);
-        $this->AppController->beforeRender(new Event('beforeRender'));
-        $this->assertEquals('test', $this->AppController->viewBuilder()->getTheme());
     }
 
     /**
@@ -193,7 +202,7 @@ class AppControllerTest extends BcTestCase
         $this->AppController->setRequest($this->getRequest('/', [], 'GET', ['ajax' => true]));
         $this->_response = $this->AppController->redirectIfIsRequireMaintenance();
         $this->assertNull($this->_response);
-        $this->AppController->setRequest($this->getRequest('http://localhost/baser/admin'));
+        $this->AppController->setRequest($this->getRequest('https://localhost/baser/admin'));
         $this->_response = $this->AppController->redirectIfIsRequireMaintenance();
         $this->assertNull($this->_response);
         $this->loginAdmin($this->getRequest());
@@ -242,4 +251,93 @@ class AppControllerTest extends BcTestCase
         $this->assertEquals(['a' => '1', 'b' => '2'], $result);
     }
 
+    /**
+     * test notFound
+     */
+    public function test_notFound()
+    {
+        $this->expectException("Cake\Http\Exception\NotFoundException");
+        $this->expectExceptionMessage("見つかりませんでした。");
+        $this->AppController->notFound();
+    }
+
+    /**
+     * test saveViewConditions
+     */
+    public function test_saveViewConditions()
+    {
+        // クエリパラメーターが保存されるテスト
+        $this->AppController->setRequest($this->getRequest()->withQueryParams(['limit' => 10]));
+        $options = ['group' => 'index', 'post' => false, 'get' => true];
+        $this->execPrivateMethod($this->AppController, 'saveViewConditions', [['Content'], $options]);
+        $session = $this->AppController->getRequest()->getSession();
+        $query = $session->read('BcApp.viewConditions.PagesView.index.query');
+        $this->assertEquals(['limit' => 10], $query);
+
+        // POSTデータが保存されるテスト
+        $this->AppController->setRequest($this->getRequest()->withData('title', 'default'));
+        $options = ['group' => 'index', 'post' => true, 'get' => false];
+        $this->execPrivateMethod($this->AppController, 'saveViewConditions', [['Content'], $options]);
+        $session = $this->AppController->getRequest()->getSession();
+        $query = $session->read('BcApp.viewConditions.PagesView.index.data.Content');
+        $this->assertEquals(['title' => 'default'], $query);
+    }
+
+    /**
+     * test loadViewConditions
+     */
+    public function test_loadViewConditions()
+    {
+        // セッションデータからクエリパラメーターを設定する
+        $options = [
+            'group' => 'index',
+            'default' => ['Content' => ['q' => 'keyword'], 'query' => ['limit' => 10]],
+            'post' => false,
+            'get' => true
+        ];
+        $request = $this->getRequest();
+        $request->getSession()->write('BcApp.viewConditions.PagesView.index.query', ['id' => 1]);
+        $this->AppController->setRequest($request);
+        $this->execPrivateMethod($this->AppController, 'loadViewConditions', [['Content'], $options]);
+        $this->assertEquals(['limit' => 10, 'id' => 1], $this->AppController->getRequest()->getQueryParams());
+        $this->assertEquals(['q' => 'keyword'], $this->AppController->getRequest()->getParsedBody());
+
+        // セッションデータからPOSTデータを設定する
+        $options = ['group' => 'index', 'default' => ['Content' => ['q' => 'keyword']], 'post' => true, 'get' => false];
+        $request = $this->getRequest();
+        $request->getSession()->write('BcApp.viewConditions.PagesView.index.data.Content', ['title' => 'default']);
+        $this->AppController->setRequest($request);
+        $this->execPrivateMethod($this->AppController, 'loadViewConditions', [['Content'], $options]);
+        $this->assertEmpty($this->AppController->getRequest()->getQueryParams());
+        $this->assertEquals(['q' => 'keyword', 'title' => 'default'], $this->AppController->getRequest()->getParsedBody());
+    }
+
+    /**
+     * test setViewConditions
+     */
+    public function test_setViewConditions()
+    {
+        $targetModel = ['Content'];
+        $options = [
+            'group' => 'index',
+            'default' => [
+                'query' => ['limit' => 10],
+                'Content' => ['title' => 'default']
+            ],
+            'get' => true,
+            'post' => true,
+        ];
+        $request = $this->getRequest()->withQueryParams(['limit' => 10])->withData('title', 'default');
+        $this->AppController->setRequest($request);
+        $this->execPrivateMethod($this->AppController, 'setViewConditions', [$targetModel, $options]);
+
+        $this->assertEquals(['limit' => 10], $this->AppController->getRequest()->getQueryParams());
+        $this->assertEquals(['title' => 'default'], $this->AppController->getRequest()->getParsedBody());
+
+        $session = $this->AppController->getRequest()->getSession();
+        $query = $session->read('BcApp.viewConditions.PagesView.index.query');
+        $this->assertEquals(['limit' => 10], $query);
+        $data = $session->read('BcApp.viewConditions.PagesView.index.data.Content');
+        $this->assertEquals(['title' => 'default'], $data);
+    }
 }

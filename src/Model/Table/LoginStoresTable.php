@@ -16,6 +16,9 @@ use Cake\Utility\Security;
 use Cake\ORM\Table;
 use Cake\ORM\Entity;
 use Cake\ORM\RulesChecker;
+use BaserCore\Annotation\NoTodo;
+use BaserCore\Annotation\Checked;
+use BaserCore\Annotation\UnitTest;
 
 /**
  * Class LoginStoresTable
@@ -44,6 +47,9 @@ class LoginStoresTable extends Table
     /**
      * initialize
      * @param array $config
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function initialize(array $config): void
     {
@@ -55,6 +61,9 @@ class LoginStoresTable extends Table
      * buildRules
      * @param RulesChecker $rules
      * @return RulesChecker
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function buildRules(RulesChecker $rules): RulesChecker
     {
@@ -68,6 +77,9 @@ class LoginStoresTable extends Table
      * @param string $prefix ログイン対象
      * @param int $user_id ユーザID
      * @return EntityInterface
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function addKey(string $prefix, int $user_id): EntityInterface
     {
@@ -100,6 +112,9 @@ class LoginStoresTable extends Table
      * @param string $prefix ログイン対象
      * @param int $user_id ユーザID
      * @return int 削除行数
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function removeKey(string $prefix, int $user_id): int
     {
@@ -114,6 +129,9 @@ class LoginStoresTable extends Table
      *
      * @param string $key
      * @return Entity
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function getEnableLoginStore($key): ?Entity
     {
@@ -138,6 +156,9 @@ class LoginStoresTable extends Table
      * @param string $prefix ログイン対象
      * @param int $user_id ユーザID
      * @return EntityInterface|null
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function refresh($prefix, $user_id): EntityInterface
     {

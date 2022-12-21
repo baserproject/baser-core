@@ -11,7 +11,10 @@
 
 namespace BaserCore\Service;
 
+use BaserCore\Error\BcException;
+use BaserCore\Model\Entity\Plugin;
 use BaserCore\Model\Table\PluginsTable;
+use BaserCore\Utility\BcZip;
 use Cake\Cache\Cache;
 use Cake\Http\Client;
 use Cake\ORM\TableRegistry;
@@ -45,15 +48,19 @@ class PluginsService implements PluginsServiceInterface
 
     /**
      * PluginsService constructor.
+     * 
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function __construct()
     {
         $this->Plugins = TableRegistry::getTableLocator()->get('BaserCore.Plugins');
-        $this->UserGroups = TableRegistry::getTableLocator()->get('BaserCore.UserGroups');
     }
 
     /**
      * プラグインを取得する
+     * 
      * @param int $id
      * @return EntityInterface
      * @checked
@@ -67,6 +74,7 @@ class PluginsService implements PluginsServiceInterface
 
     /**
      * プラグイン一覧を取得
+     * 
      * @param string $sortMode
      * @return array $plugins
      * @checked
@@ -79,12 +87,12 @@ class PluginsService implements PluginsServiceInterface
             ->order(['priority'])
             ->all()
             ->toArray();
-        if($sortMode) {
+        if ($sortMode) {
             return $plugins;
         } else {
             $registeredName = Hash::extract($plugins, '{n}.name');
             // DBに登録されてないもの含めて、プラグインフォルダから取得
-            if(!$plugins) {
+            if (!$plugins) {
                 $plugins = [];
             }
             $paths = App::path('plugins');
@@ -93,9 +101,14 @@ class PluginsService implements PluginsServiceInterface
                 $files = $Folder->read(true, true, true);
                 foreach($files[0] as $file) {
                     $name = Inflector::camelize(Inflector::underscore(basename($file)));
-                    if (!in_array(basename($file), Configure::read('BcApp.core'))
-                            && !in_array($name, $registeredName)) {
-                        $plugins[] = $this->Plugins->getPluginConfig($name);
+                    if (in_array(Inflector::camelize(basename($file), '-'), Configure::read('BcApp.core'))) continue;
+                    if(in_array($name, $registeredName)) {
+                        $plugins[array_search($name, $registeredName)] = $this->Plugins->getPluginConfig($name);
+                    } else {
+                        $plugin = $this->Plugins->getPluginConfig($name);
+                        if(in_array($plugin->type, ['CorePlugin', 'Plugin'])) {
+                            $plugins[] = $plugin;
+                        }
                     }
                 }
             }
@@ -105,9 +118,10 @@ class PluginsService implements PluginsServiceInterface
 
     /**
      * プラグインをインストールする
+     * 
      * @param string $name プラグイン名
-     * @return bool|null
      * @param string $connection test connection指定用
+     * @return bool|null
      * @throws Exception
      * @checked
      * @noTodo
@@ -115,7 +129,11 @@ class PluginsService implements PluginsServiceInterface
      */
     public function install($name, $connection = 'default'): ?bool
     {
-        $options = ['connection' => $connection];
+        if($connection) {
+            $options = ['connection' => $connection];
+        } else {
+            $options = [];
+        }
         BcUtil::includePluginClass($name);
         $plugins = CakePlugin::getCollection();
         $plugin = $plugins->create($name);
@@ -127,19 +145,147 @@ class PluginsService implements PluginsServiceInterface
     }
 
     /**
+     * プラグインをアップデートする
+     * 
+     * @param string $name プラグイン名
+     * @param string $connection コネクション名
+     * @return bool
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function update($name, $connection = 'default'): ?bool
+    {
+        $options = ['connection' => $connection];
+        BcUtil::includePluginClass($name);
+
+        if (function_exists('ini_set')) {
+            ini_set('max_execution_time', 0);
+            ini_set('memory_limit', '512M');
+        }
+        if(file_exists(LOGS . 'update.log')) {
+            unlink(LOGS . 'update.log');
+        }
+
+        if ($name === 'BaserCore') {
+            $names = array_merge(['BaserCore'], Configure::read('BcApp.corePlugins'));
+            $ids = $this->detachAll();
+        } else {
+            $names = [$name];
+        }
+
+        $result = true;
+        $pluginCollection = CakePlugin::getCollection();
+        foreach($names as $name) {
+            if($name !== 'BaserCore') {
+                $entity = $this->Plugins->getPluginConfig($name);
+                if(!$entity->registered) continue;
+            }
+            $plugin = $pluginCollection->create($name);
+            if (!method_exists($plugin, 'update')) {
+                throw new Exception(__d('baser', 'プラグインに Plugin クラスが存在しません。src ディレクトリ配下に作成してください。'));
+            } else {
+                if(!$plugin->update($options)) {
+                    $result = false;
+                }
+            }
+        }
+
+        if ($name === 'BaserCore') {
+            $this->attachAllFromIds($ids);
+        }
+
+        return $result;
+    }
+
+    /**
+     * プラグインを全て無効化する
+     * 
+     * @return array 無効化したIDのリスト
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function detachAll()
+    {
+        $plugins = $this->Plugins->find()->where(['status' => true])->all();
+        $ids = [];
+        if ($plugins) {
+            foreach($plugins as $plugin) {
+                $ids[] = $plugin->id;
+                $plugin->status = false;
+                $this->Plugins->save($plugin);
+            }
+        }
+        return $ids;
+    }
+
+    /**
+     * 複数のIDからプラグインを有効化する
+     * 
+     * @param $ids
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function attachAllFromIds($ids)
+    {
+        if (!$ids) {
+            return;
+        }
+        foreach($ids as $id) {
+            $this->Plugins->save(new Plugin(['id' => $id, 'status' => true]));
+        }
+    }
+
+    /**
+     * バージョンを取得する
+     * 
+     * @param $name
+     * @return mixed|string
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function getVersion($name)
+    {
+        $plugin = $this->Plugins->find()->where(['name' => $name])->first();
+        if ($plugin) {
+            return $plugin->version;
+        } else {
+            return '';
+        }
+    }
+
+    /**
      * プラグインを無効にする
+     * 
      * @param string $name
      * @checked
      * @noTodo
      * @unitTest
      */
-    public function detach(string $name):bool
+    public function detach(string $name): bool
     {
         return $this->Plugins->detach($name);
     }
 
     /**
+     * プラグインを有効にする
+     * 
+     * @param string $name
+     * @checked
+     * @noTodo
+     * @unitTest PluginsTable::attach() のテストに委ねる
+     */
+    public function attach(string $name): bool
+    {
+        return $this->Plugins->attach($name);
+    }
+
+    /**
      * プラグイン名からプラグインエンティティを取得
+     * 
      * @param string $name
      * @return array|EntityInterface|null
      * @checked
@@ -157,6 +303,9 @@ class PluginsService implements PluginsServiceInterface
      * @param string $name
      * @param string $connection
      * @throws Exception
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function resetDb(string $name, $connection = 'default'): void
     {
@@ -182,6 +331,7 @@ class PluginsService implements PluginsServiceInterface
 
     /**
      * プラグインを削除する
+     * 
      * @param string $name
      * @param array $connection
      * @checked
@@ -195,16 +345,17 @@ class PluginsService implements PluginsServiceInterface
         BcUtil::includePluginClass($name);
         $plugins = CakePlugin::getCollection();
         $plugin = $plugins->create($name);
-        if (!method_exists($plugin, 'uninstall')) {
-            throw new Exception(__d('baser', 'プラグインに Plugin クラスが存在しません。手動で削除してください。'));
-        }
         if (!$plugin->uninstall($options)) {
             throw new Exception(__d('baser', 'プラグインの削除に失敗しました。'));
+        }
+        if (!method_exists($plugin, 'uninstall')) {
+            throw new Exception(__d('baser', 'プラグインに Plugin クラスが存在しません。手動で削除してください。'));
         }
     }
 
     /**
      * 優先度を変更する
+     * 
      * @param int $id
      * @param int $offset
      * @param array $conditions
@@ -215,13 +366,20 @@ class PluginsService implements PluginsServiceInterface
      */
     public function changePriority(int $id, int $offset, array $conditions = []): bool
     {
-        $result = $this->Plugins->changePriority($id, $offset, $conditions);
+        $result = $this->Plugins->changeSort($id, $offset, [
+            'conditions' => $conditions,
+            'sortFieldName' => 'priority',
+        ]);
         return $result;
     }
 
     /**
      * baserマーケットのプラグイン一覧を取得する
+     * 
      * @return array|mixed
+     * @checked
+     * @unitTest
+     * @noTodo
      */
     public function getMarketPlugins(): array
     {
@@ -232,12 +390,10 @@ class PluginsService implements PluginsServiceInterface
             $Xml = new Xml();
             try {
                 $client = new Client([
-                    'host' => ''
+                    'host' => '',
+                    'redirect' => true,
                 ]);
                 $response = $client->get(Configure::read('BcLinks.marketPluginRss'));
-                if ($response->getStatusCode() !== 200) {
-                    return [];
-                }
                 $baserPlugins = $Xml->build($response->getBody()->getContents());
                 $baserPlugins = $Xml->toArray($baserPlugins->channel);
                 $baserPlugins = $baserPlugins['channel']['item'];
@@ -271,7 +427,7 @@ class PluginsService implements PluginsServiceInterface
 
         foreach($userGroups as $userGroup) {
 
-            $permissionAuthPrefix = $this->UserGroups->getAuthPrefix($userGroup->id);
+            $permissionAuthPrefix = $permissions->UserGroups->getAuthPrefix($userGroup->id);
             $url = '/baser/' . $permissionAuthPrefix . '/' . Inflector::underscore($data['name']) . '/*';
 
             $prePermissions = $permissions->find()->where(['url' => $url])->first();
@@ -349,6 +505,113 @@ class PluginsService implements PluginsServiceInterface
             return 'このプラグイン名のフォルダ名を' . $config['name'] . 'にしてください。';
         }
         return '';
+    }
+
+    /**
+     * 一括処理
+     * 
+     * @param array $ids
+     * @return bool
+     * @checked
+     * @unitTest
+     * @noTodo
+     */
+    public function batch(string $method, array $ids): bool
+    {
+        if (!$ids) return true;
+        $db = $this->Plugins->getConnection();
+        $db->begin();
+        foreach($ids as $id) {
+            $plugin = $this->Plugins->get($id);
+            if (!$this->$method($plugin->name)) {
+                $db->rollback();
+                throw new BcException(__d('baser', 'データベース処理中にエラーが発生しました。'));
+            }
+        }
+        $db->commit();
+        return true;
+    }
+
+    /**
+     * IDを指定して名前リストを取得する
+     * 
+     * @param $ids
+     * @return array
+     * @checked
+     * @unitTest
+     * @noTodo
+     */
+    public function getNamesById($ids): array
+    {
+        return $this->Plugins->find('list')->where(['id IN' => $ids])->toArray();
+    }
+
+    /**
+     * プラグインをアップロードする
+     *
+     * POSTデータにて キー`file` で Zipファイルをアップロードとすると、
+     * /plugins/ 内に、Zipファイルを展開して配置する。
+     *
+     * ### エラー
+     * post_max_size　を超えた場合、サーバーに設定されているサイズ制限を超えた場合、
+     * Zipファイルの展開に失敗した場合は、Exception を発生。
+     *
+     * ### リネーム処理
+     * 展開後のフォルダー名はアッパーキャメルケースにリネームする。
+     * 既に /plugins/ 内に同名のプラグインが存在する場合には、数字付きのディレクトリ名（PluginName2）にリネームする。
+     * 数字付きのディレクトリ名にリネームする際、プラグイン内の Plugin クラスの namespace もリネームする。
+     *
+     * @param array $postData
+     * @return string Zip を展開したフォルダ名
+     * @checked
+     * @noTodo
+     * @unitTest
+     * @throws BcException
+     */
+    public function add(array $postData)
+    {
+        if (BcUtil::isOverPostSize()) {
+            throw new BcException(__d(
+                'baser',
+                '送信できるデータ量を超えています。合計で %s 以内のデータを送信してください。',
+                ini_get('post_max_size')
+            ));
+        }
+        if (empty($_FILES['file']['tmp_name'])) {
+            $message = '';
+            if ($postData['file']->getError() === 1) {
+                $message = __d('baser', 'サーバに設定されているサイズ制限を超えています。');
+            }
+            throw new BcException($message);
+        }
+        $name = $postData['file']->getClientFileName();
+        $postData['file']->moveTo(TMP . $name);
+        $srcName = basename($name, '.zip');
+        $zip = new BcZip();
+        if (!$zip->extract(TMP . $name, TMP)) {
+            throw new BcException(__d('baser', 'アップロードしたZIPファイルの展開に失敗しました。'));
+        }
+
+        $dstName = Inflector::camelize($srcName);
+        if(preg_match('/^(.+?)([0-9]+)$/', $dstName, $matches)) {
+            $baseName = $matches[1];
+            $num = $matches[2];
+        } else {
+            $baseName = $dstName;
+            $num = null;
+        }
+        while(is_dir(BASER_PLUGINS . $dstName) || is_dir(BASER_THEMES . Inflector::dasherize($dstName))) {
+            if(is_null($num)) {
+                $num = 1;
+            }
+            $num++;
+            $dstName = Inflector::camelize($baseName) . $num;
+        }
+        $folder = new Folder(TMP . $srcName);
+        $folder->move(BASER_PLUGINS . $dstName, ['mode' => 0777]);
+        unlink(TMP . $name);
+        BcUtil::changePluginNameSpace($dstName);
+        return $dstName;
     }
 
 }

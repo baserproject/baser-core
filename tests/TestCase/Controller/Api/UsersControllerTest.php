@@ -11,6 +11,7 @@
 
 namespace BaserCore\Test\TestCase\Controller\Api;
 
+use BaserCore\Controller\Api\UsersController;
 use BaserCore\TestSuite\BcTestCase;
 use Cake\Core\Configure;
 use Cake\TestSuite\IntegrationTestTrait;
@@ -31,7 +32,9 @@ class UsersControllerTest extends BcTestCase
         'plugin.BaserCore.Users',
         'plugin.BaserCore.UsersUserGroups',
         'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.LoginStores'
+        'plugin.BaserCore.LoginStores',
+        'plugin.BaserCore.Sites',
+        'plugin.BaserCore.SiteConfigs'
     ];
 
     /**
@@ -66,6 +69,18 @@ class UsersControllerTest extends BcTestCase
     {
         Configure::clear();
         parent::tearDown();
+    }
+
+    /**
+     * test initialize
+     * @return void
+     */
+    public function testInitialize(){
+        $request = $this->getRequest('/baser/api/baser-core/users/');
+        $request = $this->loginAdmin($request);
+        $usersController = new UsersController($request);
+
+        $this->assertEquals($usersController->Authentication->unauthenticatedActions, ['login']);
     }
 
     public function testLoginAndRefreshToken()
@@ -171,4 +186,37 @@ class UsersControllerTest extends BcTestCase
         $this->assertEquals('baser admin', $result->user->name);
     }
 
+    /**
+     * test refresh_token function
+     * @return void
+     */
+    public function testRefreshToken(){
+        $this->get('/baser/api/baser-core/users/refresh_token.json');
+        $this->assertResponseCode(401);
+
+        $this->post('/baser/api/baser-core/users/login.json', ['email' => 'testuser1@example.com', 'password' => 'password']);
+
+        $body = json_decode($this->_getBodyAsString());
+        $this->get('/baser/api/baser-core/users/refresh_token.json?token=' . $body->refresh_token);
+        $this->assertResponseContains('access_token');
+    }
+    /**
+     * test Login
+     * @return void
+     */
+    public function testLogin()
+    {
+        $this->get('/baser/api/baser-core/users/login.json');
+        $this->assertResponseCode(401);
+
+        $this->post('/baser/api/baser-core/users/login.json');
+        $this->assertResponseCode(401);
+
+        $this->post('/baser/api/baser-core/users/login.json', ['email' => 'testuser1@example.com', 'password' => 'password']);
+        $this->assertResponseOk();
+        $this->assertFlashMessage('ようこそ、ニックネーム1さん。');
+
+        $body = json_decode($this->_getBodyAsString());
+        $this->assertEquals('/baser/admin', $body->redirect);
+    }
 }

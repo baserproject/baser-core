@@ -54,6 +54,7 @@ class BcBaserHelperTest extends BcTestCase
         'plugin.BaserCore.SiteConfigs',
         'plugin.BaserCore.Contents',
         'plugin.BaserCore.ContentFolders',
+        'plugin.BaserCore.Permissions',
         // TODO: basercms4系より移植
         // 'baser.Default.Page',    // メソッド内で読み込む
         // 'baser.Default.Content',    // メソッド内で読み込む
@@ -64,8 +65,6 @@ class BcBaserHelperTest extends BcTestCase
         // 'baser.Default.SearchIndex',
         // 'baser.Default.User',
         // 'baser.Default.UserGroup',
-        // 'baser.Default.Favorite',
-        // 'baser.Default.Permission',
         // 'baser.Default.ThemeConfig',
         // 'baser.Default.WidgetArea',
         // 'baser.Default.Plugin',
@@ -105,6 +104,7 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function setUp(): void
     {
+        $this->setFixtureTruncate();
         parent::setUp();
         $this->BcAdminAppView = new BcAdminAppView($this->getRequest(), null, null, [
             'name' => 'Pages',
@@ -157,17 +157,7 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testJs()
     {
-        // $inlineがfalseの場合
-        $options = ['block' => false];
-        $result = $this->BcBaser->js("sampletest", $options['block'], $options);
-        $this->assertNull($result);
-        // $inlineがtrueの場合
-        $options = ['block' => true];
-        $result = $this->BcBaser->js("sampletest", $options['block'], $options);
-        ob_start();
-        $this->Html->script("sampletest", $options);
-        $expected = ob_get_clean();
-        $this->assertEquals($expected, $result);
+        $this->markTestIncomplete('このテストは、まだ実装されていません。');
     }
 
     /**
@@ -358,21 +348,6 @@ class BcBaserHelperTest extends BcTestCase
     }
 
     /**
-     * Test BcBaser->getLinkが適切なリンクを取得できているかテスト
-     * @return void
-     * @todo basercms4統合必要
-     */
-    public function testGeLink()
-    {
-        $options = ['confirm' => true];
-        $title = 'sampletest';
-        $link = 'sampletest/';
-        $result = $this->BcBaser->getLink($title, $link, $options, $options['confirm']);
-        $expected = $this->Html->link($title, $link, $options);
-        $this->assertEquals($expected, $result);
-    }
-
-    /**
      * アンカータグを取得する
      * @param string $title タイトル
      * @param string $url URL
@@ -383,13 +358,11 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testGetLink($title, $url, $option, $expected)
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-
         if (!empty($option['prefix'])) {
             $this->BcBaser->getView()->setRequest($this->getRequest('/admin'));
         }
         if (!empty($option['forceTitle'])) {
-            $this->_View->viewVars['user']['user_group_id'] = 2;
+            $this->loginAdmin($this->getRequest('/baser/admin'), 2);
         }
         if (!empty($option['ssl'])) {
             Configure::write('BcEnv.sslUrl', 'https://localhost/');
@@ -405,10 +378,13 @@ class BcBaserHelperTest extends BcTestCase
             ['', '/', [], '<a href="/"></a>'],
             ['会社案内', '/about', [], '<a href="/about">会社案内</a>'],
             ['会社案内 & 会社データ', '/about', ['escape' => true], '<a href="/about">会社案内 &amp; 会社データ</a>'],    // エスケープ
-            ['固定ページ管理', ['controller' => 'pages', 'action' => 'index'], ['prefix' => true], '<a href="/admin/pages/">固定ページ管理</a>'],    // プレフィックス
-            ['システム設定', ['admin' => true, 'controller' => 'site_configs', 'action' => 'form'], ['forceTitle' => true], '<span>システム設定</span>'],    // 強制タイトル
+            ['<b>title</b>', 'https://example.com/<b>link</b>', [], '<a href="https://example.com/&lt;b&gt;link&lt;/b&gt;">&lt;b&gt;title&lt;/b&gt;</a>'], // エスケープ
+            ['<b>title</b>', 'https://example.com/<b>link</b>', ['escape' => false], '<a href="https://example.com/<b>link</b>"><b>title</b></a>'], // エスケープ
+            ['<b>title</b>', 'https://example.com/<b>link</b>', ['escapeTitle' => false], '<a href="https://example.com/&lt;b&gt;link&lt;/b&gt;"><b>title</b></a>'], // エスケープ
+            ['固定ページ管理', ['prefix' => 'Admin', 'controller' => 'pages', 'action' => 'index'], [], '<a href="/baser/admin/baser-core/pages/index">固定ページ管理</a>'],    // プレフィックス
+            ['システム設定', ['Admin' => true, 'controller' => 'site_configs', 'action' => 'index'], ['forceTitle' => true], '<span>システム設定</span>'],    // 強制タイトル
             ['会社案内', '/about', ['ssl' => true], '<a href="https://localhost/about">会社案内</a>'], // SSL
-            ['テーマファイル管理', ['controller' => 'themes', 'action' => 'manage', 'jsa'], ['ssl' => true], '<a href="https://localhost/themes/manage/jsa">テーマファイル管理</a>'], // SSL
+            ['テーマファイル管理', ['controller' => 'themes', 'action' => 'manage', 'jsa'], ['ssl' => true], '<a href="https://localhost/baser-core/themes/manage/jsa">テーマファイル管理</a>'], // SSL
             ['画像', '/img/test.jpg', ['ssl' => true], '<a href="https://localhost/img/test.jpg">画像</a>'], // SSL
         ];
     }
@@ -538,11 +514,9 @@ class BcBaserHelperTest extends BcTestCase
     /**
      * コンテンツタイトルを取得する
      * @return void
-     * @todo メソッド未実装
      */
-    public function testGetContentsTitle()
+    public function testGetContentsTitle(): void
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
         // 設定なし
         $this->assertEmpty($this->BcBaser->getContentsTitle());
 
@@ -609,7 +583,6 @@ class BcBaserHelperTest extends BcTestCase
      * ・トップページは、Home
      * @param string $url URL
      * @param string $expects コンテンツ名
-     * @return void*
      * @dataProvider getContentsNameDataProvider
      */
     public function getContentsNameDataProvider()
@@ -641,86 +614,37 @@ class BcBaserHelperTest extends BcTestCase
 
     /**
      * Test BcBaser->getUrlが適切なURLを取得してるかテスト
-     * @return void
-     * @todo testGetUrl_basercms4を統合する
+     * @dataProvider getUrlDataProvider
      */
-    public function testGetUrl()
+    public function testGetUrl($url, $full, $base, $expected)
     {
-        $url = '/sampletest';
-        $result = $this->BcBaser->getUrl($url, false);
-        $this->assertEquals('/sampletest', $result);
-        // フルパスかどうか
-        $result = $this->BcBaser->getUrl($url, true);
-        $this->assertEquals("https://localhost/sampletest", $result);
+        if($base) {
+            $this->BcBaser->getView()->setRequest($this->getRequest('/', [], 'GET', ['base' => $base]));
+        }
+        $this->assertEquals($expected, $this->BcBaser->getUrl($url, $full));
     }
 
-    /**
-     * Test BcBaser->getUrlが適切なURLを取得してるかテスト
-     * @return void
-     * @todo testGetUrlに統合する
-     */
-    public function testGetUrl_Version4()
+    public function getUrlDataProvider()
     {
-        // TODO; basercms4系より移植
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-
-        // ノーマル
-        $result = $this->BcBaser->getUrl('/about');
-        $this->assertEquals('/about', $result);
-
-        // 省略した場合
-        $result = $this->BcBaser->getUrl();
-        $this->assertEquals('/', $result);
-
-        // フルURL
-        $result = $this->BcBaser->getUrl('/about', true);
-        $this->assertEquals(Configure::read('App.fullBaseUrl') . '/about', $result);
-
-        // 配列URL
-        $result = $this->BcBaser->getUrl([
-            'admin' => true,
-            'plugin' => 'blog',
-            'controller' => 'blog_posts',
-            'action' => 'edit',
-            1
-        ]);
-        $this->assertEquals('/admin/blog/blog_posts/edit/1', $result);
-
-        // セッションIDを付加する場合
-        // TODO セッションIDを付加する場合、session.use_trans_sid の値が0である必要が
-        // があるが、上記の値はセッションがスタートした後では書込不可のため見送り
-        /*Configure::write('BcRequest.agent', 'mobile');
-        Configure::write('BcAgent.mobile.sessionId', true);
-        ini_set('session.use_trans_sid', 0);*/
-
-        // --- サブフォルダ+スマートURLオフ ---
-        Configure::write('App.baseUrl', '/basercms/index.php');
-        $this->BcBaser->request = $this->_getRequest('/');
-
-        // ノーマル
-        $result = $this->BcBaser->getUrl('/about');
-        $this->assertEquals('/basercms/index.php/about', $result);
-
-        // 省略した場合
-        $result = $this->BcBaser->getUrl();
-
-        $this->assertEquals('/basercms/index.php/', $result);
-
-        // フルURL
-        $result = $this->BcBaser->getUrl('/about', true);
-        $this->assertEquals(Configure::read('App.fullBaseUrl') . '/basercms/index.php/about', $result);
-
-        // 配列URL
-        $result = $this->BcBaser->getUrl([
-            'admin' => true,
-            'plugin' => 'blog',
-            'controller' => 'blog_posts',
-            'action' => 'edit',
-            1
-        ]);
-        $this->assertEquals('/basercms/index.php/admin/blog/blog_posts/edit/1', $result);
+        return [
+            // ノーマル
+            ['/sampletest', false, false, '/sampletest'],
+            // フルパス
+            ['/sampletest', true, false, 'https://localhost/sampletest'],
+            // 省略
+            [null, false, false, '/'],
+            // 配列
+            [[
+                'prefix' => 'Admin',
+                'plugin' => 'BcBlog',
+                'controller' => 'BlogPosts',
+                'action' =>
+                'edit', 1
+            ], false, false, '/baser/admin/bc-blog/blog_posts/edit/1'],
+            // サブフォルダ
+            ['/sampletest', false, '/sub', '/sub/sampletest'],
+        ];
     }
-
 
     /**************** TODO:下記basercms4系より移行 メソッドが準備され次第　調整して上記のテストコードに追加してください　********************/
 
@@ -820,8 +744,6 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testSet()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-
         $this->BcBaser->set('keywords', 'baserCMS,国産,オープンソース');
         $this->assertEquals('baserCMS,国産,オープンソース', $this->BcBaser->getKeywords());
     }
@@ -1006,7 +928,6 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testContentsTitle()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
         $this->expectOutputString('会社データ');
         $this->BcBaser->setTitle('会社データ');
         $this->BcBaser->contentsTitle();
@@ -1140,16 +1061,6 @@ class BcBaserHelperTest extends BcTestCase
     }
 
     /**
-     * baserCMSが設置されているパスを取得する
-     * @param string $expected 期待値
-     * @return void
-     */
-    public function testGetRoot()
-    {
-        $this->assertEquals('/', $this->BcBaser->getRoot());
-    }
-
-    /**
      * ヘッダーテンプレートを出力する
      *
      * @return void
@@ -1183,7 +1094,7 @@ class BcBaserHelperTest extends BcTestCase
         $this->markTestIncomplete('このテストは、まだ実装されていません。');
 
         $this->expectOutputRegex('/<div class="pagination">/');
-        $this->BcBaser->request->params['paging']['Model'] = [
+        $this->BcBaser->getRequest()->withParam('paging.Model', [
             'count' => 100,
             'pageCount' => 3,
             'page' => 2,
@@ -1193,7 +1104,7 @@ class BcBaserHelperTest extends BcTestCase
             'nextPage' => 3,
             'options' => [],
             'paramType' => 'named'
-        ];
+        ]);
         $this->BcBaser->pagination();
     }
 
@@ -1401,25 +1312,40 @@ class BcBaserHelperTest extends BcTestCase
         ob_start();
         $this->BcBaser->css('admin/import');
         $result = ob_get_clean();
-        $expected = '<link rel="stylesheet" href="css/admin/import.css"/>';
+        $expected = '<link rel="stylesheet" href="/css/admin/import.css"/>';
         $this->assertEquals($expected, $result);
         // // 拡張子あり
         ob_start();
         $this->BcBaser->css('admin/import.css');
         $result = ob_get_clean();
-        $expected = '<link rel="stylesheet" href="css/admin/import.css"/>';
+        $expected = '<link rel="stylesheet" href="/css/admin/import.css"/>';
         $this->assertEquals($expected, $result);
-        // ブロックオン（array）
+        // インライン
         ob_start();
-        $this->BcBaser->css('admin/import2.css', ['block' => null]);
+        $this->BcBaser->css('admin/import2.css', true);
         $result = ob_get_clean();
-        $expected = '<link rel="stylesheet" href="css/admin/import2.css"/>';
+        $expected = '<link rel="stylesheet" href="/css/admin/import2.css"/>';
         $this->assertEquals($expected, $result);
-        // インラインオフ（array）
+        // ブロック
         ob_start();
-        $this->BcBaser->css('admin/import3.css', ['inline' => false]);
+        $this->BcBaser->css('admin/import3.css', false);
         $result = ob_get_clean();
         $this->assertEmpty($result);
+        $this->assertEquals('<link rel="stylesheet" href="/css/admin/import3.css"/>',
+            $this->BcAdminAppView->fetch('css'));
+        // ブロック指定
+        ob_start();
+        $this->BcBaser->css('admin/import4.css', false, ['block' => 'testblock']);
+        $result = ob_get_clean();
+        $this->assertEmpty($result);
+        $this->assertEquals('<link rel="stylesheet" href="/css/admin/import4.css"/>',
+            $this->BcAdminAppView->fetch('testblock'));
+        ob_start();
+        $this->BcBaser->css('admin/import5.css', true, ['block' => 'testblock2']);
+        $result = ob_get_clean();
+        $this->assertEmpty($result);
+        $this->assertEquals('<link rel="stylesheet" href="/css/admin/import5.css"/>',
+            $this->BcAdminAppView->fetch('testblock2'));
     }
 
     /**
@@ -1849,32 +1775,6 @@ class BcBaserHelperTest extends BcTestCase
         ];
     }
 
-    /**
-     * ウィジェットエリアを出力する
-     * TODO: $noが指定されてない(null)場合のテストを記述する
-     * $noを指定していない場合、ウィジェットが出力されません。
-     *
-     * @param string $url 現在のURL
-     * @param int $no
-     * @param string $expected 期待値
-     * @dataProvider getWidgetAreaDataProvider
-     */
-    public function testGetWidgetArea($url, $no, $expected)
-    {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        App::uses('BlogHelper', 'BcBlog.View/Helper');
-        $this->BcBaser->request = $this->_getRequest($url);
-        $this->assertMatchesRegularExpression('/' . $expected . '/', $this->BcBaser->getWidgetArea($no));
-    }
-
-    public function getWidgetAreaDataProvider()
-    {
-        return [
-            ['/company', 1, '<div class="widget-area widget-area-1">'],
-            ['/company', 2, '<div class="widget-area widget-area-2">'],
-            ['/company', null, '<div class="widget-area widget-area-1">'],
-        ];
-    }
 
     /**
      * 指定したURLが現在のURLかどうか判定する
@@ -1960,101 +1860,6 @@ class BcBaserHelperTest extends BcTestCase
             [false, 'Elements/footer', [], [], '<div id="Footer">', 'コアテンプレートを読み込めません'],
             [true, 'Test.test', [], [], 'test', 'コアテンプレートを読み込めません'],
         ];
-    }
-
-    /**
-     * ロゴを出力する
-     * @return void
-     */
-    public function testLogo()
-    {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        $this->expectOutputRegex('/<img src="\/theme\/nada-icons\/img\/logo.png" alt="baserCMS"\/>/');
-        $this->BcBaser->logo();
-    }
-
-    /**
-     * メインイメージを出力する
-     * @param array $options 指定するオプション
-     * @param string $expect
-     * @dataProvider mainImageDataProvider
-     */
-    public function testMainImage($options, $expect)
-    {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        $this->expectOutputRegex('/' . $expect . '/s');
-        $this->BcBaser->mainImage($options);
-    }
-
-    /**
-     * mainImage用のデータプロバイダ
-     *
-     * このテストは、getThemeImage()のテストも併せて行っています。
-     * 1. $optionに指定なし
-     * 2. numに指定した番号の画像を表示
-     * 3. allをtrue、numに番号を入力し、画像を複数表示
-     * 4. 画像にidとclassを付与
-     * 5. 画像にpoplinkを付与
-     * 6. 画像にaltを付与
-     * 7. 画像のlink先を指定
-     * 8. 画像にmaxWidth、maxHeightを指定。テストに使う画像は横長なのでwidthが指定される。
-     * 9. 画像にwidth、heightを指定。
-     * 10. 適当な名前のパラメータを渡す
-     * @return array
-     */
-    public function mainImageDataProvider()
-    {
-        return [
-            [[], '<img src="\/theme\/nada-icons\/img\/main_image_1.jpg" alt="コーポレートサイトにちょうどいい国産CMS"\/>'],
-            [['num' => 2], 'main_image_2'],
-            [['all' => true, 'num' => 2], '^(.*main_image_1.*main_image_2)'],
-            [['all' => true, 'class' => 'test-class', 'id' => 'test-id'], '^(.*id="test-id".*class="test-class")'],
-            [['popup' => true], 'href="\/theme\/nada-icons\/img\/main_image_1.jpg"'],
-            [['alt' => 'テスト'], 'alt="テスト"'],
-            [['link' => '/test'], 'href="\/test"'],
-            [['maxWidth' => '200', 'maxHeight' => '200'], 'width="200"'],
-            [['width' => '200', 'height' => '200'], '^(.*width="200".*height="200")'],
-            [['hoge' => 'hoge'], 'main_image_1'],
-        ];
-    }
-
-    /**
-     * メインイメージの取得でidやclassを指定するオプション
-     * @return void
-     */
-    public function testMainImageIdClass()
-    {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        $num = 2;
-        $idName = 'testIdName';
-        $className = 'testClassName';
-
-        //getMainImageを叩いてULを入手(default)
-        ob_start();
-        $this->BcBaser->mainImage(['all' => true, 'num' => $num]);
-        $tags = ob_get_clean();
-        $check = preg_match('|<ul id="MainImage">|', $tags) === 1;
-        $this->assertTrue($check);
-
-        //getMainImageを叩いてULを入手(id指定)
-        ob_start();
-        $this->BcBaser->mainImage(['all' => true, 'num' => $num, 'id' => $idName]);
-        $tags = ob_get_clean();
-        $check = preg_match('|<ul id="' . $idName . '">|', $tags) === 1;
-        $this->assertTrue($check);
-
-        //getMainImageを叩いてULを入手(class指定・id非表示)
-        ob_start();
-        $this->BcBaser->mainImage(['all' => true, 'num' => $num, 'id' => false, 'class' => $className]);
-        $tags = ob_get_clean();
-        $check = preg_match('|<ul class="' . $className . '">|', $tags) === 1;
-        $this->assertTrue($check);
-        //getMainImageを叩いてULを入手(全てなし)
-        ob_start();
-        $this->BcBaser->mainImage(['all' => true, 'num' => $num, 'id' => false, 'class' => false]);
-        $tags = ob_get_clean();
-        $check = preg_match('|<ul>|', $tags) === 1;
-        $this->assertTrue($check);
     }
 
     /**
@@ -2231,18 +2036,50 @@ class BcBaserHelperTest extends BcTestCase
     }
 
     /**
-     * URLのパラメータ情報を返す
+     * パラメータ情報を取得する
      * @return void
      */
     public function testGetParams()
     {
-        $this->BcBaser->getView()->setRequest($this->getRequest('/?name=value'));
+        $this->BcBaser->getView()->setRequest($this->getRequest('/'));
         $params = $this->BcBaser->getParams();
         $this->assertEquals('BaserCore', $params['plugin']);
+        $this->assertEquals('Pages', $params['controller']);
+        $this->assertEquals('view', $params['action']);
         $this->assertEquals(['index'], $params['pass']);
-        $this->assertEquals('value', $params['query']['name']);
-        $this->assertEquals('', $params['url']);
-        $this->assertEquals('/', $params['here']);
+    }
+
+    /**
+     * URL情報を取得する
+     * @return void
+     */
+    public function testGetUrlParams()
+    {
+        $this->BcBaser->getView()->setRequest($this->getRequest('/?a=b'));
+        $urlParams = $this->BcBaser->getUrlParams();
+        $this->assertEquals([
+            'url' => 'https://localhost/?a=b',
+            'here' => '/',
+            'path' => '/',
+            'webroot' => '/',
+            'base' => '',
+            'query' => [
+                'a' => 'b',
+            ],
+        ], $urlParams);
+
+        $this->BcBaser->getView()->setRequest(
+            $this->getRequest('/test', [], null, ['base' => '/baser', 'webroot' => '/baser/'])
+        );
+        $urlParams = $this->BcBaser->getUrlParams();
+        $this->assertEquals([
+            'url' => 'https://localhost/baser/test',
+            'here' => '/baser/test',
+            'path' => '/test',
+            'webroot' => '/baser/',
+            'base' => '/baser',
+            'query' => [],
+        ], $urlParams);
     }
 
     /**

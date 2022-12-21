@@ -39,13 +39,17 @@ class SiteConfigsService implements SiteConfigsServiceInterface
     public $SiteConfigs;
 
     /**
-     * Entity
+     * キャッシュ用 Entity
      * @var SiteConfig
      */
     protected $entity;
 
     /**
      * SiteConfigsService constructor.
+     * 
+     * @checked
+     * @unitTest
+     * @noTodo
      */
     public function __construct()
     {
@@ -54,6 +58,7 @@ class SiteConfigsService implements SiteConfigsServiceInterface
 
     /**
      * フィールドの値を取得する
+     * 
      * @param string $fieldName
      * @return string|null
      * @checked
@@ -68,6 +73,7 @@ class SiteConfigsService implements SiteConfigsServiceInterface
 
     /**
      * データを取得する
+     * 
      * @return array
      * @checked
      * @noTodo
@@ -75,7 +81,7 @@ class SiteConfigsService implements SiteConfigsServiceInterface
      */
     public function get(): SiteConfig
     {
-        if(!$this->entity) {
+        if (!$this->entity) {
             $this->entity = $this->SiteConfigs->newEntity(array_merge($this->SiteConfigs->getKeyValue(), [
                 'mode' => Configure::read('debug'),
                 'site_url' => Configure::read('BcEnv.siteUrl'),
@@ -88,28 +94,20 @@ class SiteConfigsService implements SiteConfigsServiceInterface
 
     /**
      * データを更新する
+     * 
      * @param array $postData
      * @return SiteConfig|false
      * @checked
      * @noTodo
      * @unitTest
      */
-    public function update(array $postData): SiteConfig
+    public function update(array $postData)
     {
 
         $siteConfig = $this->SiteConfigs->newEntity($postData, ['validate' => 'keyValue']);
-        if($siteConfig->hasErrors()) {
+        if ($siteConfig->hasErrors()) {
             return $siteConfig;
         }
-
-        // TODO 未実装のためコメントアウト
-        /* >>>
-        $beforeSiteConfig = $this->get();
-        if ($beforeSiteConfig->admin_theme !== $siteConfig->admin_theme) {
-            $this->BcManager->deleteAdminAssets();
-            $this->BcManager->deployAdminAssets();
-        }
-        <<< */
 
         $sites = TableRegistry::getTableLocator()->get('BaserCore.Sites');
         if ($siteConfig->use_site_device_setting === "0" && $this->SiteConfigs->isChange('use_site_device_setting', "0")) {
@@ -126,11 +124,11 @@ class SiteConfigsService implements SiteConfigsServiceInterface
             $siteConfig->ssl_url .= '/';
         }
 
-        if($this->isWritableEnv()) {
-            if(isset($siteConfig->mode)) $this->putEnv('DEBUG', ($siteConfig->mode)? 'true' : 'false');
-            if(isset($siteConfig->site_url)) $this->putEnv('SITE_URL', $siteConfig->site_url);
-            if(isset($siteConfig->ssl_url)) $this->putEnv('SSL_URL', $siteConfig->ssl_url);
-            if(isset($siteConfig->admin_ssl)) $this->putEnv('ADMIN_SSL', ($siteConfig->admin_ssl)? 'true' : 'false');
+        if ($this->isWritableEnv()) {
+            if (isset($siteConfig->mode)) $this->putEnv('DEBUG', ($siteConfig->mode)? 'true' : 'false');
+            if (isset($siteConfig->site_url)) $this->putEnv('SITE_URL', $siteConfig->site_url);
+            if (isset($siteConfig->ssl_url)) $this->putEnv('SSL_URL', $siteConfig->ssl_url);
+            if (isset($siteConfig->admin_ssl)) $this->putEnv('ADMIN_SSL', ($siteConfig->admin_ssl)? 'true' : 'false');
         }
 
         $siteConfigArray = $siteConfig->toArray();
@@ -151,6 +149,7 @@ class SiteConfigsService implements SiteConfigsServiceInterface
 
     /**
      * .env が書き込み可能かどうか
+     * 
      * @return bool
      * @checked
      * @noTodo
@@ -163,6 +162,7 @@ class SiteConfigsService implements SiteConfigsServiceInterface
 
     /**
      * .env に設定値を書き込む
+     * 
      * @param $key
      * @param $value
      * @return bool
@@ -174,13 +174,13 @@ class SiteConfigsService implements SiteConfigsServiceInterface
     {
         $key = str_replace([';', '"'], '', $key);
         $value = str_replace([';', '"'], '', $value);
-        if(!$this->isWritableEnv()) {
+        if (!$this->isWritableEnv()) {
             return false;
         }
         $file = new File(CONFIG . '.env');
         $contents = $file->read();
         $newLine = "export $key=\"$value\"";
-        if(isset($_ENV[$key])) {
+        if (isset($_ENV[$key])) {
             $contents = preg_replace('/export ' . $key . '=\".*?\"/', $newLine, $contents);
         } else {
             $contents .= "\n" . $newLine;
@@ -190,7 +190,11 @@ class SiteConfigsService implements SiteConfigsServiceInterface
 
     /**
      * アプリケーションモードリストを取得
+     * 
      * @return array
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function getModeList(): array
     {
@@ -198,10 +202,10 @@ class SiteConfigsService implements SiteConfigsServiceInterface
     }
 
     /**
-     * サイト全体の設定値を更新する
+     * サイト基本設定の設定値を更新する
      *
-     * @param  string $name
-     * @param  string $value
+     * @param string $name
+     * @param string $value
      * @return SiteConfig
      * @checked
      * @noTodo
@@ -215,7 +219,7 @@ class SiteConfigsService implements SiteConfigsServiceInterface
     /**
      * サイト全体の設定値をリセットする
      *
-     * @param  string $name
+     * @param string $name
      * @return SiteConfig
      * @checked
      * @noTodo
@@ -225,4 +229,29 @@ class SiteConfigsService implements SiteConfigsServiceInterface
     {
         return $this->setValue($name, '');
     }
+
+    /**
+     * baserCMSのDBのバージョンを取得する
+     * 
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function getVersion():string
+    {
+        return (string) $this->getValue('version');
+    }
+
+    /**
+     * キャッシュ用 Entity を削除
+     * 
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function clearCache()
+    {
+        $this->entity = null;
+    }
+
 }
