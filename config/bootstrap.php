@@ -23,7 +23,29 @@ use BaserCore\Annotation\Note;
 use BaserCore\Utility\BcUtil;
 use Cake\Cache\Cache;
 use Cake\Core\Configure;
+use Cake\Datasource\ConnectionManager;
 use Cake\Validation\Validator;
+
+/**
+ * dotenv 設定
+ */
+if (!env('APP_NAME') && file_exists(CONFIG . '.env')) {
+    $dotenv = new \josegonzalez\Dotenv\Loader([CONFIG . '.env']);
+    $dotenv->parse()
+        ->putenv()
+        ->toEnv()
+        ->toServer();
+}
+
+/**
+ * DB設定読み込み
+ */
+ConnectionManager::drop('default');
+ConnectionManager::drop('test');
+if (file_exists(CONFIG . 'install.php')) {
+    Configure::load('install');
+    ConnectionManager::setConfig(Configure::consume('Datasources'));
+}
 
 /**
  * キャッシュ設定
@@ -63,7 +85,7 @@ if (function_exists('mb_detect_order')) {
  * コンソールの場合、CakePHP の ShellDispatcher において、
  * http://localhost で設定されるため https に書き換える
  */
-if(BcUtil::isConsole()) {
+if (BcUtil::isConsole()) {
     Configure::write('App.fullBaseUrl', 'https://localhost');
 }
 
