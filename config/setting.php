@@ -151,6 +151,11 @@ return [
             'session.use_trans_sid' => 0,
             'session.gc_divisor' => 1,
             'session.gc_probability' => 1,
+            /**
+             * クッキーの有効期限（秒）
+             * デフォルト：1年間
+             */
+            'session.cookie_lifetime' => 60 * 60 * 24 * 365
         ]
     ],
 
@@ -203,6 +208,10 @@ return [
         'adminGroup' => ['admins'],
         // 管理者グループID
         'adminGroupId' => 1,
+        /**
+         * スーパーユーザーID
+         */
+        'superUserId' => 1,
         // お名前ドットコムの場合、CLI版PHPの存在確認の段階で固まってしまう
         'validSyntaxWithPage' => true,
         // 管理者以外のPHPコードを許可するかどうか
@@ -238,7 +247,8 @@ return [
             'BcUploader',
             'BcWidgetArea',
             'BcContentLink',
-            'BcFavorite'
+            'BcFavorite',
+            'BcCustomContent'
         ],
         'defaultInstallCorePlugins' => [
             'BcSearchIndex',
@@ -268,6 +278,13 @@ return [
          * 例）https://localhost/update
          */
         'updateKey' => env('UPDATE_KEY', 'update'),
+
+        /**
+         * 予約語
+         * 主にDBの予約語としてテーブルのフィールドで利用できない名称
+         */
+        'reservedWords' => ['group', 'rows', 'option'],
+
         /**
          * システムナビ
          *
@@ -406,6 +423,7 @@ return [
         ],
         'defaultAllows' => [
             '/baser/admin',
+            '/baser/admin/baser-core/users/login',
             '/baser/admin/baser-core/dashboard/*',
             '/baser/admin/baser-core/dblogs/*',
             '/baser/admin/baser-core/users/logout',
@@ -432,31 +450,46 @@ return [
 
     /**
      * プレフィックス認証
+     *
+     * プレフィックスに紐付ける認証設定を定義する
+     *
+     * - `name`: 認証設定名
+     * - `type`: 認証タイプ（ Session | Jwt ）
+     *      セッション認証、または、 JWT 認証を提供。
+     *      どちらにおいても、テーブルにおける ユーザー名とパスワードで識別する。
+     * - `alias`: URLにおけるエイリアス
+     * - `loginRedirect`: 認証後のリダイレクト先のURL
+     * - `loginAction`: ログインページURL
+     * - `logoutAction`: ログアウトページURL
+     * - `username`: ユーザー識別用テーブルにおけるユーザー名。配列での複数指定が可能
+     * - `password`: ユーザー識別用テーブルにおけるパスワード
+     * - `userModel`: ユーザー識別用のテーブル（プラグイン記法）
+     * - `sessionKey`: セッションを利用する場合のセッションキー
      */
     'BcPrefixAuth' => [
         // 管理画面
         'Admin' => [
-            // 認証設定名
             'name' => __d('baser', '管理システム'),
-            // 認証タイプ
-            'type' => 'Form',
-            // URLにおけるエイリアス
+            'type' => 'Session',
             'alias' => '/' . $adminPrefix,
-            // 認証後リダイレクト先
             'loginRedirect' => ['plugin' => 'BaserCore', 'prefix' => 'Admin', 'controller' => 'Dashboard', 'action' => 'index'],
-            // ログインページURL
             'loginAction' => ['plugin' => 'BaserCore', 'prefix' => 'Admin', 'controller' => 'Users', 'action' => 'login'],
-            // ログアウトページURL
             'logoutAction' => ['plugin' => 'BaserCore', 'prefix' => 'Admin', 'controller' => 'Users', 'action' => 'logout'],
-            // ユーザー名フィールド
             'username' => ['email', 'name'],
-            // パスワードフィールド
             'password' => 'password',
-            // モデル
             'userModel' => 'BaserCore.Users',
-            // セッションキー
             'sessionKey' => 'AuthAdmin',
         ],
+        // Api
+        'Api' => [
+            'name' => __d('baser', 'Web API'),
+            'type' => 'Jwt',
+            'alias' => '/api',
+            'username' => ['email', 'name'],
+            'password' => 'password',
+            'userModel' => 'BaserCore.Users',
+            'sessionKey' => 'AuthAdmin',
+        ]
     ],
     'Jwt' => [
         // kid（鍵の識別子）
@@ -553,7 +586,7 @@ return [
      */
     'BcEncode' => [
         // 文字コードの検出順
-        'detectOrder' => 'ASCII,JIS,UTF-8,SJIS-win,EUC-JP',
+        'detectOrder' => ['UTF-8', 'ASCII', 'JIS', 'SJIS-win', 'EUC-JP'],
         'mail' => [
             'UTF-8' => 'UTF-8',
             'ISO-2022-JP' => 'ISO-2022-JP'

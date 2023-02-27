@@ -14,7 +14,6 @@ namespace BaserCore\Controller\Admin;
 use Authentication\Controller\Component\AuthenticationComponent;
 use BaserCore\Controller\BcAppController;
 use BaserCore\Service\Admin\BcAdminAppServiceInterface;
-use BaserCore\Service\PermissionsServiceInterface;
 use BaserCore\Service\UsersService;
 use BaserCore\Service\UsersServiceInterface;
 use BaserCore\Utility\BcContainerTrait;
@@ -24,7 +23,6 @@ use Cake\Event\EventInterface;
 use Cake\Http\Exception\NotFoundException;
 use Cake\Http\Response;
 use Cake\Routing\Router;
-use Cake\Utility\Hash;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
@@ -50,28 +48,34 @@ class BcAdminAppController extends BcAppController
     public function initialize(): void
     {
         parent::initialize();
-
-        if(!BcUtil::isInstalled()) return;
-
+        if (!BcUtil::isInstalled()) return;
         $this->loadComponent('Authentication.Authentication', [
             'logoutRedirect' => Router::url(Configure::read('BcPrefixAuth.Admin.loginAction'), true),
         ]);
-
         if (Configure::read('BcApp.adminSsl') && !BcUtil::isConsole()) $this->Security->requireSecure();
+    }
 
-        // TODO ucmitz 未移行のためコメントアウト
-        // >>>
-//        $this->loadComponent('BaserCore.BcManager');
-        // <<<
-
+    /**
+     * Before Filter
+     * @param EventInterface $event
+     * @return Response|void|null
+     */
+    public function beforeFilter(EventInterface $event)
+    {
+        if (!BcUtil::isInstalled()) return;
         /** @var UsersService $usersService */
         $usersService = $this->getService(UsersServiceInterface::class);
-        $this->response = $usersService->checkAutoLogin($this->request, $this->response);
+        $result = $usersService->checkAutoLogin($this->request, $this->response);
+        if ($result) {
+            $this->setResponse($usersService->setCookieAutoLoginKey($this->getResponse(), $result->id));
+            return $this->redirect($this->getRequest()->getPath());
+        }
 
         // ログインユーザ再読込
         if (!$usersService->reload($this->request)) {
-            $this->redirect($this->Authentication->logout());
+            return $this->redirect($this->Authentication->logout());
         }
+        return parent::beforeFilter($event);
     }
 
     /**

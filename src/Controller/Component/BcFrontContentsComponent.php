@@ -12,6 +12,7 @@
 namespace BaserCore\Controller\Component;
 
 use BaserCore\Service\ContentsServiceInterface;
+use BaserCore\Service\Front\BcFrontContentsService;
 use BaserCore\Service\Front\BcFrontContentsServiceInterface;
 use BaserCore\Utility\BcContainerTrait;
 use Cake\Event\EventInterface;
@@ -49,7 +50,7 @@ class BcFrontContentsComponent extends Component
      * Initialize
      *
      * 設定の初期化を行う
-     * - `isContentsPage`: 対象コンテンツのページかどうか
+     * - `viewContentCrumb`: コンテンツ管理対象コンテンツのパンくずを表示するかどうか
      *
      * @param array $config
      * @return void
@@ -60,7 +61,7 @@ class BcFrontContentsComponent extends Component
     public function initialize(array $config): void
     {
         $config = array_merge([
-            'isContentsPage' => true
+            'viewContentCrumb' => false
         ], $config);
         $this->setConfig($config);
     }
@@ -95,8 +96,9 @@ class BcFrontContentsComponent extends Component
         // 表示設定
         if ($currentContent) {
             $this->setLayout($currentContent);
+            /** @var BcFrontContentsService $bcFrontContentsService */
             $bcFrontContentsService = $this->getService(BcFrontContentsServiceInterface::class);
-            $controller->set($bcFrontContentsService->getViewVarsForFront($currentContent, $this->getConfig('isContentsPage')));
+            $controller->set($bcFrontContentsService->getViewVarsForFront($currentContent, $this->getConfig('viewContentCrumb')));
         }
     }
 

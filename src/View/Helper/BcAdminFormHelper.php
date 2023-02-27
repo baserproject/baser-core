@@ -77,7 +77,10 @@ class BcAdminFormHelper extends BcFormHelper
                     break;
                 case 'text':
                 case 'password':
+                case 'date':
                 case 'datePicker':
+                case 'tel':
+                case 'email':
                     $class = 'bca-textbox__input';
                     $containerClass = 'bca-textbox';
                     $labelClass = 'bca-textbox__label';

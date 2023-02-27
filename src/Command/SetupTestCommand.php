@@ -39,7 +39,8 @@ class SetupTestCommand extends Command
     {
         $siteConfigsService = $this->getService(SiteConfigsServiceInterface::class);
         $siteConfigsService->putEnv('DEBUG', 'true');
-        $siteConfigsService->putEnv('USE_API', 'true');
+        $siteConfigsService->putEnv('USE_CORE_API', 'true');
+        $siteConfigsService->putEnv('USE_CORE_ADMIN_API', 'true');
         $io->out(__d('baser', 'ユニットテストの準備ができました。'));
     }
 
