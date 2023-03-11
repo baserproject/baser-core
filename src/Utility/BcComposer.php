@@ -12,6 +12,9 @@
 namespace BaserCore\Utility;
 
 use Exception;
+use BaserCore\Annotation\UnitTest;
+use BaserCore\Annotation\NoTodo;
+use BaserCore\Annotation\Checked;
 
 /**
  * BcComposer
@@ -76,7 +79,7 @@ class BcComposer {
         if(!file_exists(self::$composerDir . 'composer.phar')) {
             $result = self::installComposer();
             if(!file_exists(self::$composerDir . 'composer.phar')) {
-                throw new Exception(__d('baser', 'composer がインストールできません。{0}', implode("\n", $result['out'])));
+                throw new Exception(__d('baser_core', 'composer がインストールできません。{0}', implode("\n", $result['out'])));
             }
             self::selfUpdate();
         }
@@ -91,19 +94,19 @@ class BcComposer {
     {
         $error = [];
         if (!is_writable(ROOT . DS . 'composer')) {
-            $error[] = __d('baser', '/composer に書き込み権限がありません。書き込み権限を与えてください。');
+            $error[] = __d('baser_core', '/composer に書き込み権限がありません。書き込み権限を与えてください。');
         }
         if (!is_writable(ROOT . DS . 'vendor')) {
-            $error[] = __d('baser', '/vendor に書き込み権限がありません。書き込み権限を与えてください。');
+            $error[] = __d('baser_core', '/vendor に書き込み権限がありません。書き込み権限を与えてください。');
         }
         if (!is_writable(ROOT . DS . 'config')) {
-            $error[] = __d('baser', '/config に書き込み権限がありません。書き込み権限を与えてください。');
+            $error[] = __d('baser_core', '/config に書き込み権限がありません。書き込み権限を与えてください。');
         }
         if (!is_writable(ROOT . DS . 'tmp')) {
-            $error[] = __d('baser', '/tmp に書き込み権限がありません。書き込み権限を与えてください。');
+            $error[] = __d('baser_core', '/tmp に書き込み権限がありません。書き込み権限を与えてください。');
         }
         if (!is_writable(ROOT . DS . 'logs')) {
-            $error = __d('baser', '/logs に書き込み権限がありません。書き込み権限を与えてください。');
+            $error = __d('baser_core', '/logs に書き込み権限がありません。書き込み権限を与えてください。');
         }
         if($error) {
             throw new Exception(implode('\n', $error));
@@ -120,7 +123,7 @@ class BcComposer {
      */
     public static function installComposer()
     {
-        $command = 'cd ' . self::$composerDir . '; ' . self::$export . ' curl -sS https://getcomposer.org/installer' . ' | ' . self::$php;
+        $command = 'cd ' . self::$composerDir . '; ' . self::$export . ' curl -sS https://getcomposer.org/installer' . ' | ' . self::$php . ' 2>&1';
         exec($command, $out, $code);
         return [
             'out' => $out,
@@ -140,7 +143,7 @@ class BcComposer {
      */
     public static function require(string $package, string $version)
     {
-        return self::execCommand("require baserproject/{$package}:{$version} --with-all-dependencies 2>&1");
+        return self::execCommand("require baserproject/{$package}:{$version} --with-all-dependencies");
     }
 
     /**
@@ -187,7 +190,7 @@ class BcComposer {
      */
     public static function createCommand(string $command)
     {
-        return  self::$cd . ' ' . self::$export . ' ' . self::$php . ' ' . self::$composerDir . 'composer.phar ' . $command;
+        return  self::$cd . ' ' . self::$export . ' ' . self::$php . ' ' . self::$composerDir . 'composer.phar ' . $command . ' 2>&1';
     }
 
 }

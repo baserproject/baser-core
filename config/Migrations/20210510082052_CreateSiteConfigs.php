@@ -1,29 +1,24 @@
 <?php
 declare(strict_types=1);
 
-use Migrations\AbstractMigration;
+use BaserCore\Database\Migration\BcMigration;
 
-class CreateSiteConfigs extends AbstractMigration
+class CreateSiteConfigs extends BcMigration
 {
     /**
-     * Change Method.
+     * Up Method.
      *
      * More information on this method is available here:
      * https://book.cakephp.org/phinx/0/en/migrations.html#the-change-method
      * @return void
      */
-    public function change()
+    public function up()
     {
-        $table = $this->table('site_configs', ['id' => false]);
-        $table->addColumn('id', 'integer', [
-            'autoIncrement' => true,
-            'default' => null,
-            'null' => false,
-        ]);
+        $table = $this->table('site_configs');
         $table->addColumn('name', 'string', [
             'default' => null,
             'limit' => 255,
-            'null' => false,
+            'null' => true,
         ]);
         $table->addColumn('value', 'text', [
             'default' => null,
@@ -37,9 +32,6 @@ class CreateSiteConfigs extends AbstractMigration
         $table->addColumn('modified', 'datetime', [
             'default' => null,
             'null' => true,
-        ]);
-        $table->addPrimaryKey([
-            'id',
         ]);
         $table->create();
     }

@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
 
-use Migrations\AbstractMigration;
+use BaserCore\Database\Migration\BcMigration;
 
-class CreatePermissionGroups extends AbstractMigration
+class CreatePermissionGroups extends BcMigration
 {
     /**
      * Up Method.
@@ -33,7 +33,7 @@ class CreatePermissionGroups extends AbstractMigration
             ->addColumn('status', 'boolean', [
                 'default' => true,
                 'limit' => null,
-                'null' => false,
+                'null' => true,
             ])
             ->addColumn('created', 'datetime', [
                 'default' => null,

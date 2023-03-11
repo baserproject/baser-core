@@ -1,53 +1,48 @@
 <?php
 declare(strict_types=1);
 
-use Migrations\AbstractMigration;
+use BaserCore\Database\Migration\BcMigration;
 
-class CreatePermissions extends AbstractMigration
+class CreatePermissions extends BcMigration
 {
     /**
-     * Change Method.
+     * Up Method.
      *
      * More information on this method is available here:
      * https://book.cakephp.org/phinx/0/en/migrations.html#the-change-method
      * @return void
      */
-    public function change()
+    public function up()
     {
-        $table = $this->table('permissions', ['id' => false]);
-        $table->addColumn('id', 'integer', [
-            'autoIncrement' => true,
-            'default' => null,
-            'null' => false,
-        ]);
+        $table = $this->table('permissions');
         $table->addColumn('no', 'integer', [
             'default' => null,
             'limit' => 11,
-            'null' => false,
+            'null' => true,
         ]);
         $table->addColumn('sort', 'integer', [
             'default' => null,
             'limit' => 11,
-            'null' => false,
+            'null' => true,
         ]);
         $table->addColumn('name', 'string', [
             'default' => null,
             'limit' => 255,
-            'null' => false,
+            'null' => true,
         ]);
         $table->addColumn('user_group_id', 'integer', [
             'default' => null,
             'limit' => 11,
-            'null' => false,
+            'null' => true,
         ]);
         $table->addColumn('url', 'string', [
             'default' => null,
             'limit' => 255,
-            'null' => false,
+            'null' => true,
         ]);
         $table->addColumn('auth', 'boolean', [
             'default' => null,
-            'null' => false,
+            'null' => true,
         ]);
         $table->addColumn('method', 'string', [
             'default' => null,
@@ -56,18 +51,15 @@ class CreatePermissions extends AbstractMigration
         ]);
         $table->addColumn('status', 'boolean', [
             'default' => null,
-            'null' => false,
+            'null' => true,
         ]);
         $table->addColumn('created', 'datetime', [
             'default' => null,
-            'null' => false,
+            'null' => true,
         ]);
         $table->addColumn('modified', 'datetime', [
             'default' => null,
             'null' => true,
-        ]);
-        $table->addPrimaryKey([
-            'id',
         ]);
         $table->create();
     }

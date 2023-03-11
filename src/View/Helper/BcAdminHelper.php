@@ -15,6 +15,7 @@ use BaserCore\Event\BcEventDispatcherTrait;
 use BaserCore\Service\PermissionsService;
 use BaserCore\Service\PermissionsServiceInterface;
 use BaserCore\Service\SitesServiceInterface;
+use BaserCore\Utility\BcSiteConfig;
 use BaserCore\Utility\BcUtil;
 use BaserCore\Utility\BcContainerTrait;
 use Cake\Core\Configure;
@@ -445,7 +446,7 @@ class BcAdminHelper extends Helper
     public function editLink(): void
     {
         if ($this->existsEditLink()) {
-            $this->BcBaser->link(__d('baser', '編集する'), $this->_View->get('editLink'), ['class' => 'tool-menu']);
+            $this->BcBaser->link(__d('baser_core', '編集する'), $this->_View->get('editLink'), ['class' => 'tool-menu']);
         }
     }
 
@@ -469,8 +470,18 @@ class BcAdminHelper extends Helper
                 $fullUrl = true;
             }
             $url = $this->BcContents->getUrl($this->_View->get('publishLink'), $fullUrl, $useSubdomain, false);
-            $this->BcBaser->link(__d('baser', 'サイト確認'), $url, ['class' => 'tool-menu']);
+            $this->BcBaser->link(__d('baser_core', 'サイト確認'), $url, ['class' => 'tool-menu']);
         }
+    }
+
+    /**
+     * 初回アクセス時のメッセージ表示
+     * @return void
+     */
+    public function firstAccess()
+    {
+        if($this->getView()->getRequest()->getParam('controller') === 'installations') return;
+        $this->BcBaser->element('first_access');
     }
 
 }

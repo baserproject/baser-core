@@ -11,6 +11,7 @@
 
 namespace BaserCore\View\Helper;
 
+use BaserCore\Utility\BcSiteConfig;
 use Cake\Core\Plugin;
 use Cake\Datasource\EntityInterface;
 use Cake\Utility\Hash;
@@ -40,6 +41,7 @@ use BaserCore\Annotation\Doc;
  * @property BcAuthHelper $BcAuth
  * @property BreadcrumbsHelper $Breadcrumbs
  * @property BcContentsHelper $BcContents
+ * @property BcGoogleMapsHelper $BcGoogleMaps
  */
 class BcBaserHelper extends Helper
 {
@@ -62,7 +64,8 @@ class BcBaserHelper extends Helper
         'BaserCore.BcPage',
         'BaserCore.BcContents',
         'BaserCore.BcAuth',
-        'Breadcrumbs'
+        'Breadcrumbs',
+        'BaserCore.BcGoogleMaps'
     ];
 
     /**
@@ -410,9 +413,10 @@ class BcBaserHelper extends Helper
 
         // 認証チェック
         $user = Bcutil::loginUser();
-        if ($user && BcUtil::isInstalled()) {
-            $userGruops = array_column($user->user_groups, 'id');
-            if (!$this->PermissionsService->check($_url, $userGruops)) {
+        if (BcUtil::isInstalled()) {
+            $userGroups = [];
+            if($user) $userGroups = array_column($user->user_groups, 'id');
+            if (!$this->PermissionsService->check($_url, $userGroups)) {
                 $enabled = false;
             }
         }
@@ -716,6 +720,7 @@ class BcBaserHelper extends Helper
         if ($underscore) {
             $contentsName = Inflector::underscore($contentsName);
         } else {
+            $contentsName = str_replace('-', '_', $contentsName);
             $contentsName = Inflector::camelize($contentsName);
         }
 
@@ -1248,14 +1253,14 @@ class BcBaserHelper extends Helper
         // - ログインしている
         if (empty($this->_View->get('preview')) && $toolbar) {
             if ($this->_View->getRequest()->getQuery('toolbar') !== false && $this->_View->getRequest()->getQuery('toolbar') !== 'false') {
-                if ($currentPrefix !== 'Admin' && BcUtil::isAdminUser()) {
+                if ($currentPrefix !== 'Admin' && BcUtil::loginUser()) {
                     $this->css('admin/toolbar');
                 }
             }
         }
 
         if (empty($this->_View->get('preview')) && Configure::read('BcWidget.editLinkAtFront')) {
-            if ($currentPrefix !== 'Admin' && BcUtil::isAdminUser()) {
+            if ($currentPrefix !== 'Admin' && BcUtil::loginUser()) {
                 $this->css('admin/widget_link');
             }
         }
@@ -1313,7 +1318,7 @@ class BcBaserHelper extends Helper
         // - ログインしている
         if (empty($this->_View->get('preview')) && $toolbar) {
             if ($this->_View->getRequest()->getQuery('toolbar') !== false && $this->_View->getRequest()->getQuery('toolbar') !== 'false') {
-                if ($currentPrefix !== 'Admin' && BcUtil::isAdminUser()) {
+                if ($currentPrefix !== 'Admin' && BcUtil::loginUser()) {
                     $adminTheme = Inflector::camelize(Configure::read('BcApp.defaultAdminTheme'), '-');
                     $this->element($adminTheme . '.toolbar');
                 }
@@ -2273,7 +2278,7 @@ END_FLASH;
     public function googleAnalytics($data = [], $options = [])
     {
         $data = array_merge([
-            'useUniversalAnalytics' => (bool)@$this->siteConfig['use_universal_analytics']
+            'useUniversalAnalytics' => (bool) BcSiteConfig::get('use_universal_analytics')
         ], $data);
         $this->element('google_analytics', $data, $options);
     }
@@ -2282,26 +2287,32 @@ END_FLASH;
      * Google Maps を出力する
      *
      * @param array $data 読み込むテンプレートに引き継ぐパラメータ（初期値 : array()）
-     * @param array $options オプション（初期値 : array()）
-     *    ※ その他のパラメータについては、View::element() を参照
      * @return void
+     * @noTodo
+     * @checked
+     * @unitTest ラッパーメソッドに付きテスト不要
      */
-    public function googleMaps($data = [], $options = [])
+    public function googleMaps($data = [])
     {
-        echo $this->getGoogleMaps($data, $options);
+        echo $this->getGoogleMaps($data);
     }
 
     /**
      * Google Maps を取得する
      *
      * @param array $data 読み込むテンプレートに引き継ぐパラメータ（初期値 : array()）
-     * @param array $options オプション（初期値 : array()）
-     *    ※ その他のパラメータについては、View::element() を参照
      * @return string
+     * @noTodo
+     * @checked
+     * @unitTest ラッパーメソッドに付きテスト不要
      */
-    public function getGoogleMaps($data = [], $options = [])
+    public function getGoogleMaps($data = [])
     {
-        return $this->getElement('google_maps', $data, $options);
+        try {
+            return $this->BcGoogleMaps->load($data);
+        } catch (\Throwable $e) {
+            return $e->getMessage();
+        }
     }
 
     /**

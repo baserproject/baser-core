@@ -13,6 +13,7 @@ namespace BaserCore\Service;
 
 use BaserCore\Database\Schema\BcSchema;
 use BaserCore\Error\BcException;
+use BaserCore\Model\Table\AppTable;
 use BaserCore\Utility\BcContainerTrait;
 use BaserCore\Utility\BcUtil;
 use Cake\Cache\Cache;
@@ -297,6 +298,9 @@ class BcDatabaseService implements BcDatabaseServiceInterface
             BcUtil::getCurrentThemesPlugins()
         );
 
+		$db = BcUtil::getCurrentDb();
+		$db->begin();
+
         // データを削除する
         $excludes = ['plugins', 'dblogs', 'users'];
         $this->resetAllTables($excludes);
@@ -304,12 +308,17 @@ class BcDatabaseService implements BcDatabaseServiceInterface
         $result = true;
         $this->clearAppTableList();
 
-        foreach($plugins as $plugin) {
-            if (!$this->_loadDefaultDataPattern($pattern, $theme, $plugin, $excludes)) {
-                $result = false;
-                $this->log(sprintf(__d('baser', '%s %s の初期データのロードに失敗しました。'), $theme . '.' . $pattern, $plugin));
-            }
-        }
+		try {
+			foreach($plugins as $plugin) {
+				if (!$this->_loadDefaultDataPattern($pattern, $theme, $plugin, $excludes)) {
+					$result = false;
+					$this->log(sprintf(__d('baser_core', '%s %s の初期データのロードに失敗しました。'), $theme . '.' . $pattern, $plugin));
+				}
+			}
+		} catch (\Throwable $e) {
+			$db->rollback();
+			return false;
+		}
 
         if (!$result) {
             $this->resetAllTables($excludes);
@@ -319,16 +328,20 @@ class BcDatabaseService implements BcDatabaseServiceInterface
                 foreach($plugins as $plugin) {
                     if (!$this->_loadDefaultDataPattern($pattern, $theme, $plugin, $excludes)) {
                         $result = false;
-                        $this->log(sprintf(__d('baser', '%s %s の初期データのロードに失敗しました。'), $theme . '.' . $pattern, $plugin));
+                        $this->log(sprintf(__d('baser_core', '%s %s の初期データのロードに失敗しました。'), $theme . '.' . $pattern, $plugin));
                     }
                 }
             }
             if ($result) {
-                throw new BcException(__d('baser', '初期データの読み込みに失敗しましたので baserCMSコアの初期データを読み込みました。ログを確認してください。'));
+            	$db->commit();
+                throw new BcException(__d('baser_core', '初期データの読み込みに失敗しましたので baserCMSコアの初期データを読み込みました。ログを確認してください。'));
             } else {
-                throw new BcException(__d('baser', '初期データの読み込みに失敗しました。データが不完全な状態です。正常に動作しない可能性があります。ログを確認してください。'));
+            	$db->rollback();
+                throw new BcException(__d('baser_core', '初期データの読み込みに失敗しました。データが不完全な状態です。正常に動作しない可能性があります。ログを確認してください。'));
             }
         }
+
+        $db->commit();
         return $result;
     }
 
@@ -363,12 +376,16 @@ class BcDatabaseService implements BcDatabaseServiceInterface
                 if (!preg_match('/\.csv$/', $file)) continue;
                 $table = basename($file, '.csv');
                 if ($table !== $targetTable) continue;
-                if (!$this->loadCsv(['path' => $file, 'encoding' => 'auto'])) {
-                    $this->log(sprintf(__d('baser', '%s の読み込みに失敗。'), $file));
-                    $result = false;
-                } else {
-                    break;
-                }
+                try {
+					if (!$this->loadCsv(['path' => $file, 'encoding' => 'auto'])) {
+						$this->log(sprintf(__d('baser_core', '%s の読み込みに失敗。'), $file));
+						$result = false;
+					} else {
+						break;
+					}
+				} catch(\Throwable $e) {
+					throw $e;
+				}
             }
         }
         return $result;
@@ -397,14 +414,11 @@ class BcDatabaseService implements BcDatabaseServiceInterface
         }
 
         $table = basename($options['path'], '.csv');
-        $appTable = TableRegistry::getTableLocator()
-            ->get('BaserCore.App');
-        $schema = $appTable
-            ->getConnection()
-            ->getSchemaCollection()
-            ->describe($table);
-        $appTable->setTable($table);
-        $appTable->setSchema($schema);
+        $locator = TableRegistry::getTableLocator();
+        $locator->setFallbackClassName(AppTable::class);
+        $appTable = $locator->get(Inflector::camelize($table), ['allowFallbackClass' => true]);
+        $schema = $appTable->getSchema();
+
         $indexField = $schema->getPrimaryKey()[0];
         $records = $this->loadCsvToArray($options['path'], $options['encoding']);
         if ($records) {
@@ -414,24 +428,22 @@ class BcDatabaseService implements BcDatabaseServiceInterface
                     if ($key === $indexField && empty($value)) {
                         unset($record[$indexField]);
                     }
+                    $type = $schema->getColumnType($key);
                     if ($key === 'created' && empty($value)) {
                         $record['created'] = date('Y-m-d H:i:s');
-                    } elseif ($schema->getColumnType($key) === 'datetime' && empty($value)) {
+                    } elseif ($type === 'datetime' && empty($value)) {
                         $record[$key] = null;
-                    }
-                    if ($schema->getColumnType($key) === 'boolean' && empty($value)) {
+                    } elseif ($type === 'boolean' && empty($value)) {
                         $record[$key] = 0;
+                    } elseif (in_array($type, ['string', 'text']) && is_null($value)) {
+                        $record[$key] = '';
                     }
                 }
                 try {
-                    if (!$appTable->saveOrFail(new Entity($record))) {
-                        return false;
-                    }
-                } catch (BcException $e) {
-                    $this->log($e->getMessage());
-                    return false;
-                }
-
+					$appTable->saveOrFail($appTable->newEntity($record, ['validate' => false]), ['atomic' => false]);
+				} catch (\Throwable $e){
+					throw $e;
+				}
             }
         }
 
@@ -499,6 +511,8 @@ class BcDatabaseService implements BcDatabaseServiceInterface
      */
     public function truncate($table): bool
     {
+        $locator = TableRegistry::getTableLocator();
+        $locator->setFallbackClassName(AppTable::class);
         $table = TableRegistry::getTableLocator()->get(
             Inflector::camelize($table),
             ['allowFallbackClass' => true]
@@ -555,7 +569,7 @@ class BcDatabaseService implements BcDatabaseServiceInterface
         //======================================================================
         if (!$options['excludeUsers']) {
             if (!$this->truncate('users')) {
-                $this->log(__d('baser', 'users テーブルの初期化に失敗。'));
+                $this->log(__d('baser_core', 'users テーブルの初期化に失敗。'));
                 $result = false;
             }
         }
@@ -572,13 +586,13 @@ class BcDatabaseService implements BcDatabaseServiceInterface
         // sites の初期データを設定
         $sitesTable = TableRegistry::getTableLocator()->get('BaserCore.Sites');
         $site = $sitesTable->get(1);
-        $site->theme = $options['theme'];
+        $site->theme = Inflector::camelize($options['theme'], '-');
         if (!$sitesTable->save($site)) {
             $result = false;
         }
 
         if (!$result) {
-            $this->log(__d('baser', 'システムデータの初期化に失敗しました。'));
+            $this->log(__d('baser_core', 'システムデータの初期化に失敗しました。'));
         }
         return $result;
     }
@@ -600,7 +614,7 @@ class BcDatabaseService implements BcDatabaseServiceInterface
         $MailMessage = new MailMessage();
         $result = true;
         if (!$MailMessage->reconstructionAll()) {
-            $this->log(__d('baser', 'メールプラグインのメール受信用テーブルの生成に失敗しました。'));
+            $this->log(__d('baser_core', 'メールプラグインのメール受信用テーブルの生成に失敗しました。'));
             $result = false;
         }
         BcUtil::clearAllCache();
@@ -682,7 +696,11 @@ class BcDatabaseService implements BcDatabaseServiceInterface
             }
             $values = [];
             foreach($record as $key => $value) {
-                $values[$head[$key]] = $value;
+                if(!$value) {
+                    $values[$head[$key]] = null;
+                } else {
+                    $values[$head[$key]] = $value;
+                }
             }
             $records[] = $values;
         }
@@ -898,6 +916,7 @@ class BcDatabaseService implements BcDatabaseServiceInterface
             ->listTables();
         $plugins = Plugin::loaded();
         $list = [];
+        $prefix = BcUtil::getCurrentDbConfig()['prefix'];
         foreach($plugins as $value) {
             $pluginPath = BcUtil::getPluginPath($value);
             if (!$pluginPath) continue;
@@ -908,9 +927,10 @@ class BcDatabaseService implements BcDatabaseServiceInterface
             if (empty($files[1])) continue;
             foreach($files[1] as $file) {
                 if (!preg_match('/Create([a-zA-Z]+)\./', $file, $matches)) continue;
-                $checkName = Inflector::tableize($matches[1]);
+                $tableName = Inflector::tableize($matches[1]);
+                $checkName = $prefix . $tableName;
                 if (in_array($checkName, $tables)) {
-                    $list[$value][] = $checkName;
+                    $list[$value][] = $tableName;
                 }
             }
         }
@@ -947,6 +967,13 @@ class BcDatabaseService implements BcDatabaseServiceInterface
      */
     public function writeSchema($table, $options)
     {
+        $options = array_merge([
+            'path' => '',
+            'prefix' => ''
+        ], $options);
+
+        $prefixTable = $options['prefix'] . $table;
+
         $dir = dirname($options['path']);
         if (!is_dir($dir)) {
             $folder = new Folder();
@@ -956,7 +983,7 @@ class BcDatabaseService implements BcDatabaseServiceInterface
             ->get('BaserCore.App')
             ->getConnection()
             ->getSchemaCollection()
-            ->describe($table);
+            ->describe($prefixTable);
         $schema = $this->_generateSchema($describe);
         $renderer = new View();
         $renderer->disableAutoLayout();
@@ -1080,12 +1107,15 @@ class BcDatabaseService implements BcDatabaseServiceInterface
         $options = array_merge([
             'type' => 'create',
             'path' => '',
-            'file' => ''
+            'file' => '',
+            'prefix' => ''
         ], $options);
         $schemaName = basename($options['file'], '.php');
         require_once $options['path'] . $options['file'];
         /* @var BcSchema $schema */
         $schema = new $schemaName();
+        $schema->setTable($options['prefix'] . $schema->table);
+
         switch($options['type']) {
             case 'create':
                 $schema->create();
@@ -1201,13 +1231,14 @@ class BcDatabaseService implements BcDatabaseServiceInterface
     {
         $db = $this->getDataSource($dbConfigKeyName, $dbConfig);
         if (!$dbConfig) $dbConfig = ConnectionManager::getConfig($dbConfigKeyName);
-        $prefix = Configure::read('Datasources.default.prefix');
+        $prefix = BcUtil::getCurrentDbConfig()['prefix'];
         $datasource = strtolower(str_replace('Cake\\Database\\Driver\\', '', $dbConfig['driver']));
         switch($datasource) {
             case 'mysql':
                 $sources = $db->getSchemaCollection()->listTables();
                 foreach($sources as $source) {
-                    if (!preg_match("/^" . $prefix . "([^_].+)$/", $source)) continue;
+                    if (!preg_match('/_phinxlog$/', $source) &&
+                        !preg_match("/^" . $prefix . "([^_].+)$/", $source)) continue;
                     try {
                         $db->execute('DROP TABLE ' . $source);
                     } catch (BcException $e) {
@@ -1291,18 +1322,18 @@ class BcDatabaseService implements BcDatabaseServiceInterface
                 case 'sqlite':
                     if (file_exists($database)) {
                         if (!is_writable($database)) {
-                            throw new BcException(__d('baser', "データベースファイルに書き込み権限がありません。"));
+                            throw new BcException(__d('baser_core', "データベースファイルに書き込み権限がありません。"));
                         }
                     } else {
                         if (!is_writable(dirname($database))) {
-                            throw new BcException(__d('baser', 'データベースの保存フォルダに書き込み権限がありません。'));
+                            throw new BcException(__d('baser_core', 'データベースの保存フォルダに書き込み権限がありません。'));
                         }
                     }
                     $dsn = "sqlite:" . $database;
                     $pdo = new PDO($dsn);
                     break;
                 default:
-                    throw new BcException(__d('baser', 'ドライバが見つかりません Driver is not defined.(MySQL|Postgres|SQLite)'));
+                    throw new BcException(__d('baser_core', 'ドライバが見つかりません Driver is not defined.(MySQL|Postgres|SQLite)'));
             }
             unset($pdo);
         } catch (PDOException $e) {
@@ -1322,11 +1353,11 @@ class BcDatabaseService implements BcDatabaseServiceInterface
             $this->checkDbConnection($config);
         } catch (PDOException $e) {
             if ($e->getCode() === 2002) {
-                throw new PDOException(__d('baser', "データベースへの接続でエラーが発生しました。データベース設定を見直してください。\nサーバー上に指定されたデータベースが存在しない可能性が高いです。\n" . $e->getMessage()));
+                throw new PDOException(__d('baser_core', "データベースへの接続でエラーが発生しました。データベース設定を見直してください。\nサーバー上に指定されたデータベースが存在しない可能性が高いです。\n" . $e->getMessage()));
             }
             throw $e;
         } catch (BcException $e) {
-            $message = __d('baser', "データベースへの接続でエラーが発生しました。データベース設定を見直してください。\nサーバー上に指定されたデータベースが存在しない可能性が高いです。");
+            $message = __d('baser_core', "データベースへの接続でエラーが発生しました。データベース設定を見直してください。\nサーバー上に指定されたデータベースが存在しない可能性が高いです。");
             if (preg_match('/with message \'(.+?)\' in/s', $e->getMessage(), $matches)) {
                 $message .= "\n" . $matches[1];
             }
@@ -1338,7 +1369,7 @@ class BcDatabaseService implements BcDatabaseServiceInterface
         $db = $this->connectDb($config);
 
         if (!$db->isConnected()) {
-            throw new BcException(__d('baser', "データベースへの接続でエラーが発生しました。データベース設定を見直してください。"));
+            throw new BcException(__d('baser_core', "データベースへの接続でエラーが発生しました。データベース設定を見直してください。"));
         }
 
         //version check
@@ -1347,7 +1378,7 @@ class BcDatabaseService implements BcDatabaseServiceInterface
             case 'Cake\Database\Driver\Mysql' :
                 $result = $db->execute("SELECT version() as version")->fetch();
                 if (version_compare($result[0], Configure::read('BcRequire.MySQLVersion')) == -1) {
-                    throw new BcException(sprintf(__d('baser', 'データベースのバージョンが %s 以上か確認してください。'), Configure::read('BcRequire.MySQLVersion')));
+                    throw new BcException(sprintf(__d('baser_core', 'データベースのバージョンが %s 以上か確認してください。'), Configure::read('BcRequire.MySQLVersion')));
                 }
                 break;
             case 'Cake\Database\Driver\Postgres' :
@@ -1355,7 +1386,7 @@ class BcDatabaseService implements BcDatabaseServiceInterface
                 $result = $db->query("SELECT version() as version")->fetch();
                 [, $version] = explode(" ", $result[0]);
                 if (version_compare(trim($version), Configure::read('BcRequire.PostgreSQLVersion')) == -1) {
-                    throw new BcException(sprintf(__d('baser', 'データベースのバージョンが %s 以上か確認してください。'), Configure::read('BcRequire.PostgreSQLVersion')));
+                    throw new BcException(sprintf(__d('baser_core', 'データベースのバージョンが %s 以上か確認してください。'), Configure::read('BcRequire.PostgreSQLVersion')));
                 }
                 break;
         }
@@ -1366,17 +1397,18 @@ class BcDatabaseService implements BcDatabaseServiceInterface
             $db->execute("CREATE TABLE $randomtablename (a varchar(10))");
             $db->execute('drop TABLE ' . $randomtablename);
         } catch (PDOException $e) {
-            throw new PDOException(__d('baser', "データベースへの接続でエラーが発生しました。\n") . $e->getMessage());
+            throw new PDOException(__d('baser_core', "データベースへの接続でエラーが発生しました。\n") . $e->getMessage());
         }
 
         // データベースのテーブルをチェック
         $tableNames = $db->getSchemaCollection()->listTables();
         $prefix = Hash::get($config, 'prefix');
+        if(!$prefix) return;
         $duplicateTableNames = array_filter($tableNames, function($tableName) use ($prefix) {
             return strpos($tableName, $prefix) === 0;
         });
         if (count($duplicateTableNames) > 0) {
-            throw new BcException(__d('baser', 'データベースへの接続に成功しましたが、プレフィックスが重複するテーブルが存在します。') . implode(', ', $duplicateTableNames));
+            throw new BcException(__d('baser_core', 'データベースへの接続に成功しましたが、プレフィックスが重複するテーブルが存在します。') . implode(', ', $duplicateTableNames));
         }
     }
 

@@ -11,6 +11,7 @@
 
 namespace BaserCore\Controller\Admin;
 
+use BaserCore\Service\Admin\PermissionsAdminServiceInterface;
 use Cake\Event\EventInterface;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
@@ -21,6 +22,7 @@ use BaserCore\Service\PermissionsServiceInterface;
 use BaserCore\Service\UserGroupsServiceInterface;
 use BaserCore\Controller\Component\BcMessageComponent;
 use Authentication\Controller\Component\AuthenticationComponent;
+use Cake\ORM\Exception\PersistenceFailedException;
 use Cake\ORM\TableRegistry;
 
 /**
@@ -67,27 +69,24 @@ class PermissionsController extends BcAdminAppController
      * @noTodo
 	 */
 	public function index(
-	    PermissionsServiceInterface $service,
-	    UserGroupsServiceInterface $userGroupsService,
+	    PermissionsAdminServiceInterface $service,
 	    $userGroupId = ''
 	) {
-		$currentUserGroup = $userGroupsService->get($userGroupId);
-
         $this->request = $this->request->withQueryParams(array_merge(
             $this->getRequest()->getQueryParams(),
             ['user_group_id' => $userGroupId]
         ));
+
         $this->setViewConditions('Permission', ['default' => ['query' => [
             'sort' => 'sort',
             'direction' => 'asc',
             'permission_group_id' => null,
             'permission_group_type' => null
         ]]]);
+
         $request = $this->getRequest();
         $this->setRequest($request->withParsedBody($request->getQueryParams()));
-        $this->set('currentUserGroup', $currentUserGroup);
-        $this->set('permissions', $service->getIndex($this->request->getQueryParams()));
-		$this->set('sortmode', $this->request->getQuery('sortmode'));
+        $this->set($service->getViewVarsForIndex($request, $userGroupId));
 	}
 
     /**
@@ -103,30 +102,28 @@ class PermissionsController extends BcAdminAppController
      * @unitTest
      */
 	public function add(
-	    PermissionsServiceInterface $service,
-	    UserGroupsServiceInterface $userGroupsService,
+	    PermissionsAdminServiceInterface $service,
 	    int $userGroupId,
 	    int $permissionGroupId = null
 	) {
-		$currentUserGroup = $userGroupsService->get($userGroupId);
         if ($this->request->is('post')) {
             try {
-                $permission = $service->create($this->request->withData('user_group_id', $currentUserGroup->id)->getData());
-                $this->BcMessage->setSuccess(sprintf(__d('baser', '新規アクセスルール「%s」を追加しました。'), $permission->name));
+                $permission = $service->create($this->request->withData('user_group_id', $userGroupId)->getData());
+                $this->BcMessage->setSuccess(sprintf(__d('baser_core', '新規アクセスルール「%s」を追加しました。'), $permission->name));
                 if($permissionGroupId) {
                     return $this->redirect(['controller' => 'PermissionGroups', 'action' => 'edit', $userGroupId, $permissionGroupId]);
                 } else {
                     return $this->redirect(['action' => 'index', $userGroupId]);
                 }
-            } catch (\Cake\ORM\Exception\PersistenceFailedException $e) {
+            } catch (PersistenceFailedException $e) {
                 $permission = $e->getEntity();
-                $this->BcMessage->setError(__d('baser', '入力エラーです。内容を修正してください。'));
+                $this->BcMessage->setError(__d('baser_core', '入力エラーです。内容を修正してください。'));
             }
         }
-        $permissionGroupsTable = TableRegistry::getTableLocator()->get('BaserCore.PermissionGroups');
-        $this->set('permissionGroups', $permissionGroupsTable->find()->all());
-        $this->set('permission', $permission ?? $service->getNew($userGroupId, $permissionGroupId));
-        $this->set('currentUserGroup', $currentUserGroup);
+        $this->set($service->getViewVarsForAdd(
+            $userGroupId,
+            $permission ?? $service->getNew($userGroupId, $permissionGroupId)
+        ));
 	}
 
     /**
@@ -141,31 +138,30 @@ class PermissionsController extends BcAdminAppController
      * @unitTest
      */
 	public function edit(
-	    PermissionsServiceInterface $service,
-	    UserGroupsServiceInterface $userGroupsService,
+	    PermissionsAdminServiceInterface $service,
 	    $userGroupId,
 	    $permissionId,
 	    $permissionGroupId = null
 	) {
-		$currentUserGroup = $userGroupsService->get($userGroupId);
         $permission = $service->get($permissionId);
         if ($this->request->is(['patch', 'post', 'put'])) {
             try {
-                $permission = $service->update($permission, $this->request->withData('user_group_id', $currentUserGroup->id)->getData());
-                $this->BcMessage->setSuccess(sprintf(__d('baser', 'アクセスルール「%s」を更新しました。'), $permission->name));
+                $permission = $service->update($permission, $this->request->withData('user_group_id', $userGroupId)->getData());
+                $this->BcMessage->setSuccess(sprintf(__d('baser_core', 'アクセスルール「%s」を更新しました。'), $permission->name));
                 if($permissionGroupId) {
                     return $this->redirect(['controller' => 'PermissionGroups', 'action' => 'edit', $userGroupId, $permissionGroupId]);
                 } else {
                     return $this->redirect(['action' => 'index', $userGroupId]);
                 }
             } catch (\Exception $e) {
-                $this->BcMessage->setError(__d('baser', '入力エラーです。内容を修正してください。'));
+                $this->BcMessage->setError(__d('baser_core', '入力エラーです。内容を修正してください。'));
             }
         }
-        $permissionGroupsTable = TableRegistry::getTableLocator()->get('BaserCore.PermissionGroups');
-        $this->set('permissionGroups', $permissionGroupsTable->find()->all());
-        $this->set('permission', $permission);
-        $this->set('currentUserGroup', $currentUserGroup);
+
+        $this->set($service->getViewVarsForEdit(
+            $userGroupId,
+            $permission
+        ));
     }
 
     /**
@@ -185,7 +181,7 @@ class PermissionsController extends BcAdminAppController
 
         if ($this->request->is(['patch', 'post', 'put'])) {
             $service->delete($permissionId);
-            $this->BcMessage->setSuccess(sprintf(__d('baser', 'アクセスルール「%s」を削除しました。'), $permissionName));
+            $this->BcMessage->setSuccess(sprintf(__d('baser_core', 'アクセスルール「%s」を削除しました。'), $permissionName));
         }
         return $this->redirect(['action' => 'index', $userGroupId]);
     }
@@ -206,10 +202,10 @@ class PermissionsController extends BcAdminAppController
 
         if ($this->request->is(['patch', 'post', 'put'])) {
             if ($service->copy($permissionId)) {
-                $this->BcMessage->setSuccess(sprintf(__d('baser', 'アクセスルール「%s」を複製しました。'), $permission->name));
+                $this->BcMessage->setSuccess(sprintf(__d('baser_core', 'アクセスルール「%s」を複製しました。'), $permission->name));
                 return $this->redirect(['action' => 'index', $userGroupId]);
             }
-            $this->BcMessage->setError(__d('baser', '入力エラーです。内容を修正してください。'));
+            $this->BcMessage->setError(__d('baser_core', '入力エラーです。内容を修正してください。'));
         }
         return $this->redirect(['action' => 'index', $userGroupId]);
     }
@@ -230,7 +226,7 @@ class PermissionsController extends BcAdminAppController
 
         if ($this->request->is(['patch', 'post', 'put'])) {
             if ($service->unpublish($permissionId)) {
-                $this->BcMessage->setSuccess(sprintf(__d('baser', 'アクセスルール「%s」を無効にしました。'),
+                $this->BcMessage->setSuccess(sprintf(__d('baser_core', 'アクセスルール「%s」を無効にしました。'),
                     $permission->name));
             }
         }
@@ -253,7 +249,7 @@ class PermissionsController extends BcAdminAppController
 
         if ($this->request->is(['patch', 'post', 'put'])) {
             if ($service->publish($permissionId)) {
-                $this->BcMessage->setSuccess(sprintf(__d('baser', 'アクセスルール「%s」を有効にしました。'),
+                $this->BcMessage->setSuccess(sprintf(__d('baser_core', 'アクセスルール「%s」を有効にしました。'),
                     $permission->name));
             }
         }

@@ -142,11 +142,24 @@ class BcToolbarHelper extends Helper
     {
         $loginUser = $this->BcAuth->getCurrentLoginUser();
         if (!$loginUser) return '';
+
         if ($this->BcAuth->isCurrentUserAdminAvailable()) {
-            return ['prefix' => 'Admin', 'controller' => 'Users', 'action' => 'edit', $loginUser->id];
+            $prefix = 'Admin';
         } else {
-            return ['prefix' => $this->BcAuth->getCurrentPrefix(), 'controller' => 'Users', 'action' => 'edit', $loginUser->id];
+            $prefix = $this->BcAuth->getCurrentPrefix();
         }
+
+        $model = Configure::read('BcPrefixAuth.' . $prefix . '.userModel');
+        list($plugin,) = pluginSplit($model);
+        if(!$plugin) $plugin = 'BaserCore';
+
+        return [
+            'plugin' => $plugin,
+            'prefix' => $prefix,
+            'controller' => 'Users',
+            'action' => 'edit',
+            $loginUser->id
+        ];
     }
 
     /**
@@ -212,9 +225,9 @@ class BcToolbarHelper extends Helper
     {
         switch($this->getMode()) {
             case 'debug':
-                return __d('baser', 'デバッグモード');
+                return __d('baser_core', 'デバッグモード');
             case 'install':
-                return __d('baser', 'インストールモード');
+                return __d('baser_core', 'インストールモード');
         }
         return '';
     }
@@ -230,9 +243,9 @@ class BcToolbarHelper extends Helper
     {
         switch($this->getMode()) {
             case 'debug':
-                return __d('baser', 'デバッグモードです。運営を開始する前にシステム設定よりノーマルモードに戻しましょう。');
+                return __d('baser_core', 'デバッグモードです。運営を開始する前にシステム設定よりノーマルモードに戻しましょう。');
             case 'install':
-                return __d('baser', 'インストールモードです。運営を開始する前にシステム設定よりノーマルモードに戻しましょう。');
+                return __d('baser_core', 'インストールモードです。運営を開始する前にシステム設定よりノーマルモードに戻しましょう。');
         }
         return '';
     }
@@ -284,12 +297,15 @@ class BcToolbarHelper extends Helper
     {
         if(!BcUtil::isInstalled()) return Configure::read('BcLinks.installManual');
         $currentSite = $this->_View->getRequest()->getAttribute('currentSite');
-        /* @var SitesService $siteService */
-        $siteService = $this->getService(SitesServiceInterface::class);
-        $content = $siteService->getRootContent($currentSite->id);
         $normalUrl = '/';
-        if($content) $normalUrl = $this->BcBaser->getContentsUrl($content->url, true, $currentSite->use_subdomain);
+        if($currentSite) {
+            /* @var SitesService $siteService */
+            $siteService = $this->getService(SitesServiceInterface::class);
+            $content = $siteService->getRootContent($currentSite->id);
+            if($content) $normalUrl = $this->BcBaser->getContentsUrl($content->url, true, $currentSite->use_subdomain);
+        }
         $links = [
+            'install' => '',
             'update' => Configure::read('BcLinks.updateManual'),
             'normal' => $normalUrl,
             'frontAdminAvailable' => ['prefix' => 'Admin', 'plugin' => 'BaserCore', 'controller' => 'dashboard', 'action' => 'index'],
@@ -308,8 +324,8 @@ class BcToolbarHelper extends Helper
     public function getLogoText()
     {
         $texts = [
-            'install' => __d('baser', 'インストールマニュアル'),
-            'update' => __d('baser', 'アップデートマニュアル'),
+            'install' => __d('baser_core', 'インストールマニュアル'),
+            'update' => __d('baser_core', 'アップデートマニュアル'),
             'normal' => 'サイト表示',
             'frontAdminAvailable' => 'ダッシュボード',
             'frontAdminNotAvailable' => $this->BcAuth->getCurrentName(),
@@ -331,7 +347,7 @@ class BcToolbarHelper extends Helper
             'update' => ['target' => '_blank', 'class' => 'bca-toolbar__logo-link', 'escapeTitle' => false],
             'normal' => ['class' => 'bca-toolbar__logo-link', 'escapeTitle' => false],
             'frontAdminAvailable' => ['class' => 'bca-toolbar__logo-link', 'escapeTitle' => false],
-            'frontAdminNotAvailable' => ['title' => $this->BcAuth->getCurrentName()],
+            'frontAdminNotAvailable' => ['class' => 'bca-toolbar__logo-link', 'title' => $this->BcAuth->getCurrentName(), 'escapeTitle' => false],
         ];
         return $options[$this->getLogoType()];
     }

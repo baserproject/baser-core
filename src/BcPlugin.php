@@ -169,7 +169,7 @@ class BcPlugin extends BasePlugin
             try {
                 foreach($updaters as $version => $updateVerPoint) {
                     $version = explode('-', $version)[1];
-                    BcUpdateLog::set(__d('baser', 'アップデートプログラム {0} を実行します。', $version));
+                    BcUpdateLog::set(__d('baser_core', 'アップデートプログラム {0} を実行します。', $version));
                     $this->execScript($version);
                 }
             } catch (\Throwable $e) {
@@ -412,6 +412,8 @@ class BcPlugin extends BasePlugin
          */
         $prefixSettings = Configure::read('BcPrefixAuth');
         foreach($prefixSettings as $prefix => $setting) {
+            if(empty($setting['type'])) throw new BcException(__d('baser_core', 'BcPrefixAuth の {0} で type が指定されていません。', $prefix));
+            if(empty($setting['alias'])) throw new BcException(__d('baser_core', 'BcPrefixAuth の {0} で alias が指定されていません。', $prefix));
             $isApi = ($setting['type'] === 'Jwt')? true : false;
             if(in_array($prefix, ['Admin', 'Api'])) {
                 $path = '/' . BcUtil::getBaserCorePrefix() . $setting['alias'];

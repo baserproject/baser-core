@@ -41,9 +41,28 @@ class PermissionFactory extends CakephpBaseFactory
     {
         $this->setDefaultData(function (Generator $faker) {
             return [
-                'name' => $faker->text
+                'name' => $faker->text(),
+                'no' => $faker->randomNumber(),
+                'sort' => $faker->randomNumber(),
+                'url' => $faker->text(),
+                'auth' => true,
+                'permission_group_id' => $faker->randomNumber()
             ];
         });
+    }
+
+    /**
+     * ゲストに許可するURLを登録
+     *
+     * @param string $url
+     * @return PermissionFactory
+     */
+    public function allowGuest(string $url)
+    {
+        return $this->setField('user_group_id', "0")
+            ->setField('auth', true)
+            ->setField('status', true)
+            ->setField('url', $url);
     }
 
 }

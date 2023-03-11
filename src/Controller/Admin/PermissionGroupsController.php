@@ -29,16 +29,55 @@ class PermissionGroupsController extends BcAdminAppController
      * アクセスルールグループの一覧を表示する
      *
      * @param PermissionGroupsAdminService $service
-     * @param int $userGroupId
+     * @param int|null $userGroupId
      */
-    public function index(PermissionGroupsAdminServiceInterface $service, int $userGroupId)
+    public function index(PermissionGroupsAdminServiceInterface $service, ?int $userGroupId = null)
     {
         $this->setViewConditions('Site', ['default' => ['query' => [
             'list_type' => 'Admin'
         ]]]);
+
+        if(is_null($userGroupId)) {
+            $userGroupId = $service->getAvailableMinUserGroupId();
+            if(!$userGroupId) {
+                $this->BcMessage->setWarning(__d('baser_core', 'アクセスルールを設定できるユーザーグループがありません。'));
+                return $this->redirect('/baser/admin');
+            }
+        }
+
         $request = $this->getRequest();
-        $this->setRequest($request->withData('list_type', $request->getQuery('list_type')));
+        $this->setRequest($request->withParsedBody([
+            'list_type' => $request->getQuery('list_type'),
+            'filter_user_group_id' => $userGroupId
+        ]));
         $this->set($service->getViewVarsForIndex($userGroupId, $request));
+    }
+
+    /**
+     * アクセスグループ新規登録
+     *
+     * @param PermissionGroupsAdminServiceInterface $service
+     * @param int $userGroupId
+     * @param int $id
+     */
+    public function add(PermissionGroupsAdminServiceInterface $service, int $userGroupId, string $prefix)
+    {
+        if($this->getRequest()->is(['post', 'put'])) {
+            try {
+                $entity = $service->create($this->getRequest()->getData());
+                $this->BcMessage->setSuccess(__d('baser_core', 'ルールグループ「{0}」を登録しました。', $entity->name));
+                $this->redirect(['action' => 'edit', $userGroupId, $entity->id]);
+            } catch (PersistenceFailedException $e) {
+                $entity = $e->getEntity();
+                $this->BcMessage->setError(__d('baser_core', '入力エラーです。内容を修正してください。'));
+            } catch (\Throwable $e) {
+                $this->BcMessage->setError(__d('baser_core', 'データベース処理中にエラーが発生しました。') . $e->getMessage());
+            }
+        }
+        $this->set($service->getViewVarsForForm(
+            $userGroupId,
+            $entity?? $service->getNew($prefix)
+        ));
     }
 
     /**
@@ -54,16 +93,37 @@ class PermissionGroupsController extends BcAdminAppController
         if($this->getRequest()->is(['post', 'put'])) {
             try {
                 $entity = $service->update($entity, $this->getRequest()->getData());
-                $this->BcMessage->setSuccess(__d('baser', 'ルールグループ「{0}」を更新しました。', $entity->name));
+                $this->BcMessage->setSuccess(__d('baser_core', 'ルールグループ「{0}」を更新しました。', $entity->name));
                 $this->redirect(['action' => 'edit', $userGroupId, $id]);
             } catch (PersistenceFailedException $e) {
                 $entity = $e->getEntity();
-                $this->BcMessage->setError(__d('baser', '入力エラーです。内容を修正してください。'));
+                $this->BcMessage->setError(__d('baser_core', '入力エラーです。内容を修正してください。'));
             } catch (\Throwable $e) {
-                $this->BcMessage->setError(__d('baser', 'データベース処理中にエラーが発生しました。') . $e->getMessage());
+                $this->BcMessage->setError(__d('baser_core', 'データベース処理中にエラーが発生しました。') . $e->getMessage());
             }
         }
-        $this->set($service->getViewVarsForEdit($userGroupId, $entity));
+        $this->set($service->getViewVarsForForm($userGroupId, $entity));
+    }
+
+    /**
+     * アクセスグループを削除する
+     *
+     * @param PermissionGroupsServiceInterface $service
+     * @param int $id
+     * @return \Cake\Http\Response|null
+     */
+    public function delete(PermissionGroupsServiceInterface $service, int $userGroupId, int $id)
+    {
+        $this->request->allowMethod(['post', 'delete']);
+        try {
+            $entity = $service->get($id);
+            if ($service->delete($id)) {
+                $this->BcMessage->setSuccess(__d('baser_core', 'アクセスグループ「{0}」を削除しました。', $entity->name));
+            }
+        } catch (\Throwable $e) {
+            $this->BcMessage->setError(__d('baser_core', 'データベース処理中にエラーが発生しました。') . $e->getMessage());
+        }
+        return $this->redirect(['action' => 'index', $userGroupId]);
     }
 
     /**
@@ -77,9 +137,9 @@ class PermissionGroupsController extends BcAdminAppController
     {
         $this->request->allowMethod(['post', 'put']);
         if($service->rebuildByUserGroup($userGroupId)) {
-            $this->BcMessage->setSuccess(__d('baser', 'アクセスルールの再構築に成功しました。'));
+            $this->BcMessage->setSuccess(__d('baser_core', 'アクセスルールの再構築に成功しました。'));
         } else {
-            $this->BcMessage->setError(__d('baser', 'アクセスルールの再構築に失敗しました。'));
+            $this->BcMessage->setError(__d('baser_core', 'アクセスルールの再構築に失敗しました。'));
         }
         return $this->redirect(['action' => 'index', $userGroupId]);
     }

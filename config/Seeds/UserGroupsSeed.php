@@ -1,12 +1,12 @@
 <?php
 declare(strict_types=1);
 
-use Migrations\AbstractSeed;
+use BaserCore\Database\Migration\BcSeed;
 
 /**
  * UserGroups seed.
  */
-class UserGroupsSeed extends AbstractSeed
+class UserGroupsSeed extends BcSeed
 {
     /**
      * Run Method.
@@ -25,7 +25,8 @@ class UserGroupsSeed extends AbstractSeed
                 'id' => '1',
                 'name' => 'admins',
                 'title' => 'システム管理',
-                'auth_prefix' => 'Admin',
+                'auth_prefix' => 'Admin,Api',
+                'auth_prefix_settings' => '',
                 'use_move_contents' => '1',
                 'modified' => '2022-10-01 09:00:00',
                 'created' => '2022-10-01 09:00:00',
@@ -35,6 +36,7 @@ class UserGroupsSeed extends AbstractSeed
                 'name' => 'operators',
                 'title' => 'サイト運営',
                 'auth_prefix' => 'Admin',
+                'auth_prefix_settings' => '{"Admin":{"type":"2"},"Api":{"type":"2"}}',
                 'use_move_contents' => '0',
                 'modified' => NULL,
                 'created' => '2022-10-01 09:00:00',

@@ -11,10 +11,12 @@
 
 namespace BaserCore\Controller\Admin;
 
+use BaserCore\Error\BcException;
 use BaserCore\Service\Admin\DashboardAdminServiceInterface;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
 use BaserCore\Annotation\UnitTest;
+use function PHPUnit\Framework\throwException;
 
 /**
  * Class DashboardController
@@ -33,7 +35,7 @@ class DashboardController extends BcAdminAppController
      */
     public function index(DashboardAdminServiceInterface $service)
     {
-        $this->setTitle(__d('baser', 'ダッシュボード'));
+        $this->setTitle(__d('baser_core', 'ダッシュボード'));
         $this->set($service->getViewVarsForIndex(5));
     }
 

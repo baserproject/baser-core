@@ -298,6 +298,7 @@ class PermissionsServiceTest extends BcTestCase
      */
     public function testCheck($url, $userGroup, $expected)
     {
+        $this->loadPlugins(['BcBlog']);
         $this->PermissionsService->addCheck("/fuga", false);
         $this->PermissionsService->addCheck("/piyo", true);
         $result = $this->PermissionsService->check($url, $userGroup);
@@ -314,9 +315,9 @@ class PermissionsServiceTest extends BcTestCase
             ['/piyo', [2], true],
             ['/baser/admin/baser-core/users/logout', [2], true],
             ['/baser/admin/pages/2000', [2], true],
-            ['/baser/admin/bc-blog/blog_post/edit/100', [2, 3], true],
-            ['/baser/admin/bc-blog/blog_post/edit/100', [2], false],
-            ['/baser/admin/bc-blog/blog_post/add', [2, 3], false],
+            ['/baser/admin/bc-blog/blog_posts/edit/100', [2, 3], true],
+            ['/baser/admin/bc-blog/blog_posts/edit/100', [2], false],
+            ['/baser/admin/bc-blog/blog_posts/add', [2, 3], false],
             ['/baser/admin/baser-core/contents/delete', [2, 3], true],
         ];
     }
@@ -437,9 +438,9 @@ class PermissionsServiceTest extends BcTestCase
      */
     public function testBatch()
     {
-        PermissionFactory::make(['id' => 100, 'user_group_id' => 100, 'status' => 1], 1)->persist();
-        PermissionFactory::make(['id' => 101, 'user_group_id' => 100, 'status' => 1], 1)->persist();
-        PermissionFactory::make(['id' => 102, 'user_group_id' => 100, 'status' => 1], 1)->persist();
+        PermissionFactory::make(['id' => 100, 'no' => 1, 'user_group_id' => 100, 'status' => 1], 1)->persist();
+        PermissionFactory::make(['id' => 101, 'no' => 2, 'user_group_id' => 100, 'status' => 1], 1)->persist();
+        PermissionFactory::make(['id' => 102, 'no' => 3, 'user_group_id' => 100, 'status' => 1], 1)->persist();
 
         $this->PermissionsService->batch('delete', [100, 101, 102]);
 

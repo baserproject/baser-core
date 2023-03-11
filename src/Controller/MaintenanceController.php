@@ -19,25 +19,10 @@ class MaintenanceController extends BcFrontAppController
 
     /**
      * メンテナンス中ページを表示する
-     *
-     * @return void
-     * @access    public
      */
     public function index()
     {
-        $this->setTitle(__d('baser', 'メンテナンス中'));
-        $this->response->statusCode(503);
-    }
-
-    /**
-     * [スマートフォン] メンテナンス中ページを表示する
-     *
-     * @return void
-     * @access public
-     */
-    public function smartphone_index()
-    {
-        $this->setAction('index');
+        $this->getResponse()->withStatus(503);
     }
 
 }

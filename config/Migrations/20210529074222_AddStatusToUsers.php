@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
 
-use Migrations\AbstractMigration;
+use BaserCore\Database\Migration\BcMigration;
 
-class AddStatusToUsers extends AbstractMigration
+class AddStatusToUsers extends BcMigration
 {
     /**
      * Change Method.
@@ -17,7 +17,7 @@ class AddStatusToUsers extends AbstractMigration
         $table = $this->table('users');
         $table->addColumn('status', 'boolean', [
             'default' => true,
-            'null' => false,
+            'null' => true,
         ]);
         $table->update();
     }

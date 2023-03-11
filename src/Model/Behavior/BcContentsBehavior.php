@@ -53,13 +53,15 @@ class BcContentsBehavior extends Behavior
     public function initialize(array $config): void
     {
         $this->table = $this->table();
+        $prefix = $this->table->getConnection()->config()['prefix'];
+        $type = preg_replace('/^' . $prefix . '/', '', $this->table->getTable());
         if (!$this->table-> __isset('Contents')) {
             $this->table->hasOne('Contents', ['className' => 'BaserCore.Contents'])
             ->setForeignKey('entity_id')
             ->setDependent(false)
             ->setJoinType('INNER')
             ->setConditions([
-                'Contents.type' => Inflector::classify($this->table->getTable()),
+                'Contents.type' => Inflector::classify($type),
                 'Contents.alias_id IS' => null,
             ]);
         }
@@ -80,12 +82,14 @@ class BcContentsBehavior extends Behavior
      */
     public function afterMarshal(EventInterface $event, EntityInterface $entity, ArrayObject $data, ArrayObject $options)
     {
-        if (!isset($data['content'])) {
-            $entity->setError('content', ['_required' => '関連するコンテンツがありません']);
-        } else {
-            [$plugin, $type] = pluginSplit($this->table->getRegistryAlias());
-            $entity->content->plugin = $entity->content->plugin ?? $plugin;
-            $entity->content->type = $entity->content->type ?? Inflector::classify($type);
+        if($options['validate']) {
+            if (!isset($data['content'])) {
+                $entity->setError('content', ['_required' => __d('baser_core', '関連するコンテンツがありません')]);
+            } else {
+                [$plugin, $type] = pluginSplit($this->table->getRegistryAlias());
+                $entity->content->plugin = $entity->content->plugin ?? $plugin;
+                $entity->content->type = $entity->content->type ?? Inflector::classify($type);
+            }
         }
     }
 

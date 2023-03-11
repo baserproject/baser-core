@@ -15,6 +15,7 @@ use BaserCore\Error\BcException;
 use BaserCore\Model\Entity\Plugin;
 use BaserCore\Model\Table\PluginsTable;
 use BaserCore\Utility\BcContainerTrait;
+use BaserCore\Utility\BcSiteConfig;
 use BaserCore\Utility\BcUpdateLog;
 use BaserCore\Utility\BcZip;
 use Cake\Cache\Cache;
@@ -146,7 +147,7 @@ class PluginsService implements PluginsServiceInterface
         $plugins = CakePlugin::getCollection();
         $plugin = $plugins->create($name);
         if (!method_exists($plugin, 'install')) {
-            throw new Exception(__d('baser', 'プラグインに Plugin クラスが存在しません。src ディレクトリ配下に作成してください。'));
+            throw new Exception(__d('baser_core', 'プラグインに Plugin クラスが存在しません。src ディレクトリ配下に作成してください。'));
         } else {
             return $plugin->install($options);
         }
@@ -194,7 +195,7 @@ class PluginsService implements PluginsServiceInterface
                 if (!$entity->registered) continue;
             }
             $targetVersion = BcUtil::getVersion($name);
-            BcUpdateLog::set(__d('baser', '{0} プラグイン {1} へのアップデートを開始します。', $name, $targetVersion));
+            BcUpdateLog::set(__d('baser_core', '{0} プラグイン {1} へのアップデートを開始します。', $name, $targetVersion));
             $plugin = $pluginCollection->create($name);
             $migrate = false;
             if (method_exists($plugin, 'migrate')) {
@@ -221,7 +222,7 @@ class PluginsService implements PluginsServiceInterface
                     $plugin['instance']->migrations->rollback($options);
                 }
             }
-            BcUpdateLog::set(__d('baser', 'アップデート処理が途中で失敗しました。'));
+            BcUpdateLog::set(__d('baser_core', 'アップデート処理が途中で失敗しました。'));
             BcUpdateLog::set($e->getMessage());
             BcUtil::clearAllCache();
             BcUpdateLog::save();
@@ -233,7 +234,7 @@ class PluginsService implements PluginsServiceInterface
             $pluginsTable = TableRegistry::getTableLocator()->get('BaserCore.Plugins');
             foreach($plugins as $name => $plugin) {
                 $pluginsTable->update($name, $plugin['version']);
-                BcUpdateLog::set(__d('baser', '{0} プラグイン {1} へのアップデートが完了しました。', $name, $plugin['version']));
+                BcUpdateLog::set(__d('baser_core', '{0} プラグイン {1} へのアップデートが完了しました。', $name, $plugin['version']));
             }
         } catch (\Throwable $e) {
             foreach($plugins as $plugin) {
@@ -241,7 +242,7 @@ class PluginsService implements PluginsServiceInterface
                     $plugin['instance']->migrations->rollback($options);
                 }
             }
-            BcUpdateLog::set(__d('baser', 'アップデート処理が途中で失敗しました。'));
+            BcUpdateLog::set(__d('baser_core', 'アップデート処理が途中で失敗しました。'));
             BcUpdateLog::set($e->getMessage());
             BcUtil::clearAllCache();
             BcUpdateLog::save();
@@ -272,7 +273,7 @@ class PluginsService implements PluginsServiceInterface
         // Composer 実行
         $command = ROOT . DS . 'bin' . DS . 'cake composer ' . $targetVersion . ' --php ' . $php;
         exec($command, $out, $code);
-        if ($code !== 0) throw new BcException(__d('baser', 'プログラムファイルのアップデートに失敗しました。ログを確認してください。'));
+        if ($code !== 0) throw new BcException(__d('baser_core', 'プログラムファイルのアップデートに失敗しました。ログを確認してください。'));
 
         // マイグレーション、アップデートスクリプト実行、バージョン番号更新
         // マイグレーションファイルがプログラムに反映されないと実行できないため、別プロセスとして実行する
@@ -284,9 +285,9 @@ class PluginsService implements PluginsServiceInterface
             $command = ROOT . DS . 'bin' . DS . 'cake composer ' . $currentVersion;
             exec($command, $out, $code);
             if ($code !== 0) {
-                throw new BcException(__d('baser', 'アップデートスクリプトの処理が失敗したので、プログラムファイルを元に戻そうとしましたが失敗しました。。ログを確認してください。'));
+                throw new BcException(__d('baser_core', 'アップデートスクリプトの処理が失敗したので、プログラムファイルを元に戻そうとしましたが失敗しました。。ログを確認してください。'));
             } else {
-                throw new BcException(__d('baser', 'アップデートスクリプトの処理が失敗したので、プログラムファイルを元に戻しました。。ログを確認してください。'));
+                throw new BcException(__d('baser_core', 'アップデートスクリプトの処理が失敗したので、プログラムファイルを元に戻しました。。ログを確認してください。'));
             }
         }
     }
@@ -412,12 +413,12 @@ class PluginsService implements PluginsServiceInterface
         $plugins = CakePlugin::getCollection();
         $pluginClass = $plugins->create($plugin->name);
         if (!method_exists($pluginClass, 'rollbackDb')) {
-            throw new Exception(__d('baser', 'プラグインに Plugin クラスが存在しません。手動で削除してください。'));
+            throw new Exception(__d('baser_core', 'プラグインに Plugin クラスが存在しません。手動で削除してください。'));
         }
 
         $plugin->db_init = false;
         if (!$pluginClass->rollbackDb($options) || !$this->Plugins->save($plugin)) {
-            throw new Exception(__d('baser', '処理中にエラーが発生しました。プラグインの開発者に確認してください。'));
+            throw new Exception(__d('baser_core', '処理中にエラーが発生しました。プラグインの開発者に確認してください。'));
         }
 
         // アクセスルールを削除する
@@ -445,10 +446,10 @@ class PluginsService implements PluginsServiceInterface
         $plugins = CakePlugin::getCollection();
         $plugin = $plugins->create($name);
         if (!$plugin->uninstall($options)) {
-            throw new Exception(__d('baser', 'プラグインの削除に失敗しました。'));
+            throw new Exception(__d('baser_core', 'プラグインの削除に失敗しました。'));
         }
         if (!method_exists($plugin, 'uninstall')) {
-            throw new Exception(__d('baser', 'プラグインに Plugin クラスが存在しません。手動で削除してください。'));
+            throw new Exception(__d('baser_core', 'プラグインに Plugin クラスが存在しません。手動で削除してください。'));
         }
     }
 
@@ -482,29 +483,8 @@ class PluginsService implements PluginsServiceInterface
      */
     public function getMarketPlugins(): array
     {
-        if (Configure::read('debug') > 0) {
-            Cache::delete('baserMarketPlugins', '_bc_env_');
-        }
-        if (!($baserPlugins = Cache::read('baserMarketPlugins', '_bc_env_'))) {
-            $Xml = new Xml();
-            try {
-                $client = new Client([
-                    'host' => '',
-                    'redirect' => true,
-                ]);
-                $response = $client->get(Configure::read('BcLinks.marketPluginRss'));
-                $baserPlugins = $Xml->build($response->getBody()->getContents());
-                $baserPlugins = $Xml->toArray($baserPlugins->channel);
-                $baserPlugins = $baserPlugins['channel']['item'];
-            } catch (Exception $e) {
-                return [];
-            }
-            Cache::write('baserMarketPlugins', $baserPlugins, '_bc_env_');
-        }
-        if ($baserPlugins) {
-            return $baserPlugins;
-        }
-        return [];
+        $bcOfficialApiService = $this->getService(BcOfficialApiServiceInterface::class);
+        return $bcOfficialApiService->getRss('marketPluginRss');
     }
 
     /**
@@ -578,7 +558,7 @@ class PluginsService implements PluginsServiceInterface
             $plugin = $this->Plugins->get($id);
             if (!$this->$method($plugin->name)) {
                 $db->rollback();
-                throw new BcException(__d('baser', 'データベース処理中にエラーが発生しました。'));
+                throw new BcException(__d('baser_core', 'データベース処理中にエラーが発生しました。'));
             }
         }
         $db->commit();
@@ -624,8 +604,7 @@ class PluginsService implements PluginsServiceInterface
     public function add(array $postData)
     {
         if (BcUtil::isOverPostSize()) {
-            throw new BcException(__d(
-                'baser',
+            throw new BcException(__d('baser_core',
                 '送信できるデータ量を超えています。合計で %s 以内のデータを送信してください。',
                 ini_get('post_max_size')
             ));
@@ -633,7 +612,7 @@ class PluginsService implements PluginsServiceInterface
         if (empty($_FILES['file']['tmp_name'])) {
             $message = '';
             if ($postData['file']->getError() === 1) {
-                $message = __d('baser', 'サーバに設定されているサイズ制限を超えています。');
+                $message = __d('baser_core', 'サーバに設定されているサイズ制限を超えています。');
             }
             throw new BcException($message);
         }
@@ -642,7 +621,7 @@ class PluginsService implements PluginsServiceInterface
         $srcName = basename($name, '.zip');
         $zip = new BcZip();
         if (!$zip->extract(TMP . $name, TMP)) {
-            throw new BcException(__d('baser', 'アップロードしたZIPファイルの展開に失敗しました。'));
+            throw new BcException(__d('baser_core', 'アップロードしたZIPファイルの展開に失敗しました。'));
         }
 
         $dstName = Inflector::camelize($srcName);
@@ -674,7 +653,7 @@ class PluginsService implements PluginsServiceInterface
      */
     public function getAvailableCoreVersionInfo()
     {
-        if (Configure::read('debug') > 0) Cache::delete('coreReleaseInfo', '_bc_update_');
+        if(!BcSiteConfig::get('use_update_notice')) return [];
 
         $coreReleaseInfo = Cache::read('coreReleaseInfo', '_bc_update_');
         if (!$coreReleaseInfo) {
@@ -697,7 +676,12 @@ class PluginsService implements PluginsServiceInterface
                         $version = $matches[1];
                         // 同じメジャーバージョンでない場合は無視
                         if (!preg_match('/^' . preg_quote($major) . '/', $version)) continue;
-                        if (!$latest) $latest = $version;
+                        if (!$latest) {
+                            $latest = $version;
+                            $currentVerPoint = BcUtil::verpoint($currentVersion);
+                            $latestVerPoint = BcUtil::verpoint($latest);
+                            if($currentVerPoint > $latestVerPoint) break;
+                        }
                         if ($currentVersion === $version) break;
                         $versions[] = $version;
                     }

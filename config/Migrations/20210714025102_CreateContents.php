@@ -1,22 +1,20 @@
 <?php
 declare(strict_types=1);
 
-use Migrations\AbstractMigration;
+use BaserCore\Database\Migration\BcMigration;
 
-class CreateContents extends AbstractMigration
+class CreateContents extends BcMigration
 {
     /**
-     * Change Method.
+     * Up Method.
      *
      * More information on this method is available here:
      * https://book.cakephp.org/phinx/0/en/migrations.html#the-change-method
      * @return void
      */
-    public function change()
+    public function up()
     {
-        $this->table('contents', ['id' => false])
-            ->addColumn('id', 'integer', ['null' => false, 'default' => null, 'limit' => 8, 'autoIncrement' => true])
-            ->addPrimaryKey(['id'])
+        $this->table('contents')
             ->addColumn('name', 'text', ['null' => true, 'default' => null, 'limit' => null])
             ->addColumn('plugin', 'string', ['null' => true, 'default' => null, 'limit' => null])
             ->addColumn('type', 'string', ['null' => true, 'default' => null, 'limit' => null])

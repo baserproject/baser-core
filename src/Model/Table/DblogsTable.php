@@ -11,13 +11,12 @@
 
 namespace BaserCore\Model\Table;
 
-use Cake\ORM\Table;
 use Cake\Validation\Validator;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
 
-class DblogsTable extends Table
+class DblogsTable extends AppTable
 {
     /**
      * Initialize
@@ -50,6 +49,6 @@ class DblogsTable extends Table
     {
         return $validator
             ->scalar('message')
-            ->maxLength('message', 1000, __d('baser', 'メッセージは1000文字以内で入力してください。'));
+            ->maxLength('message', 1000, __d('baser_core', 'メッセージは1000文字以内で入力してください。'));
     }
 }

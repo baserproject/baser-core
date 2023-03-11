@@ -27,6 +27,7 @@ use Cake\ORM\TableRegistry;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
+use Throwable;
 
 /**
  * UtilitiesService
@@ -48,7 +49,7 @@ class UtilitiesService implements UtilitiesServiceInterface
 
     /**
      * コンテンツツリーの構造をチェックする
-     * 
+     *
      * @return bool
      * @checked
      * @noTodo
@@ -70,7 +71,7 @@ class UtilitiesService implements UtilitiesServiceInterface
 
     /**
      * コンテンツツリーをリセットし全て同階層にする
-     * 
+     *
      * @checked
      * @noTodo
      * @unitTest
@@ -84,7 +85,7 @@ class UtilitiesService implements UtilitiesServiceInterface
     /**
      * ツリー構造が壊れていないか確認する
      * CakePHP2系の TreeBehavior より移植
-     * 
+     *
      * @param Table $table
      * @return array|false
      * @checked
@@ -200,7 +201,7 @@ class UtilitiesService implements UtilitiesServiceInterface
 
     /**
      * クレジットを取得する
-     * 
+     *
      * @return mixed|null
      * @checked
      * @noTodo
@@ -219,7 +220,7 @@ class UtilitiesService implements UtilitiesServiceInterface
             if (Configure::read('BcLinks.specialThanks')) {
                 $json = file_get_contents(Configure::read('BcLinks.specialThanks'), true);
             } else {
-                throw new BcException(__d('baser', 'スペシャルサンクスのデータが読み込めませんでした。'));
+                throw new BcException(__d('baser_core', 'スペシャルサンクスのデータが読み込めませんでした。'));
             }
             if ($json) {
                 Cache::write('specialThanks', $json, '_bc_env_');
@@ -233,7 +234,7 @@ class UtilitiesService implements UtilitiesServiceInterface
 
     /**
      * ログのZipファイルを作成する
-     * 
+     *
      * @return Simplezip|false
      * @checked
      * @noTodo
@@ -255,7 +256,7 @@ class UtilitiesService implements UtilitiesServiceInterface
 
     /**
      * ログを削除する
-     * 
+     *
      * @return bool
      * @checked
      * @noTodo
@@ -265,20 +266,20 @@ class UtilitiesService implements UtilitiesServiceInterface
     {
         if (file_exists($this->logPath)) {
             if (unlink($this->logPath)) {
-                $messages[] = __d('baser', 'エラーログを削除しました。');
+                $messages[] = __d('baser_core', 'エラーログを削除しました。');
                 return true;
             } else {
-                $messages[] = __d('baser', 'エラーログが削除できませんでした。');
+                $messages[] = __d('baser_core', 'エラーログが削除できませんでした。');
             }
         } else {
-            $messages[] = __d('baser', 'エラーログが存在しません。');
+            $messages[] = __d('baser_core', 'エラーログが存在しません。');
         }
         throw new BcException(implode("\n", $messages));
     }
 
     /**
      * DBバックアップを作成する
-     * 
+     *
      * @param $encoding
      * @return Simplezip|false
      * @checked
@@ -346,15 +347,19 @@ class UtilitiesService implements UtilitiesServiceInterface
         $dbService->clearAppTableList();
         $tableList = $dbService->getAppTableList();
 
+        $prefix = BcUtil::getCurrentDbConfig()['prefix'];
+
         foreach($tables as $table) {
-            if (!isset($tableList[$plugin]) || !in_array($table, $tableList[$plugin])) continue;
-            if (!$dbService->writeSchema($table, [
-                'path' => $path
+            $baredTable = preg_replace('/^' . $prefix . '/', '', $table);
+            if (!isset($tableList[$plugin]) || !in_array($baredTable, $tableList[$plugin])) continue;
+            if (!$dbService->writeSchema($baredTable, [
+                'path' => $path,
+                'prefix' => $prefix
             ])) {
                 return false;
             }
             if (!$dbService->writeCsv($table, [
-                'path' => $path . $table . '.csv',
+                'path' => $path . $baredTable . '.csv',
                 'encoding' => $encoding
             ])) {
                 return false;
@@ -365,7 +370,7 @@ class UtilitiesService implements UtilitiesServiceInterface
 
     /**
      * バックアップファイルよりレストアを行う
-     * 
+     *
      * @param array $postData
      * @return bool
      * @checked
@@ -381,8 +386,7 @@ class UtilitiesService implements UtilitiesServiceInterface
         ], $postData);
 
         if (BcUtil::isOverPostSize()) {
-            throw new BcException(__d(
-                'baser',
+            throw new BcException(__d('baser_core',
                 '送信できるデータ量を超えています。合計で %s 以内のデータを送信してください。',
                 ini_get('post_max_size')
             ));
@@ -390,9 +394,9 @@ class UtilitiesService implements UtilitiesServiceInterface
 
         if (empty($_FILES['backup']['tmp_name'])) {
             if (!empty($uploaded['backup']) && $uploaded['backup']->getError() === 1) {
-                $message = __d('baser', 'サーバに設定されているサイズ制限を超えています。');
+                $message = __d('baser_core', 'サーバに設定されているサイズ制限を超えています。');
             } else {
-                $message = __d('baser', 'バックアップファイルが送信されませんでした。');
+                $message = __d('baser_core', 'バックアップファイルが送信されませんでした。');
             }
             throw new BcException($message);
         }
@@ -402,22 +406,15 @@ class UtilitiesService implements UtilitiesServiceInterface
         $uploaded['backup']->moveTo($tmpPath . $name);
         $zip = new BcZip();
         if (!$zip->extract($tmpPath . $name, $tmpPath)) {
-            throw new BcException(__d('baser', 'アップロードしたZIPファイルの展開に失敗しました。'));
+            throw new BcException(__d('baser_core', 'アップロードしたZIPファイルの展開に失敗しました。'));
         }
         unlink($tmpPath . $name);
 
         $result = true;
-        $db = TableRegistry::getTableLocator()->get('BaserCore.App')->getConnection();
-        $db->begin();
         try {
             /* @var \BaserCore\Service\BcDatabaseService $dbService */
-            if ($this->_loadBackup($tmpPath, $postData['encoding'])) {
-                $db->commit();
-            } else {
-                $db->rollback();
-            }
-        } catch (BcException $e) {
-            $db->rollback();
+            $this->_loadBackup($tmpPath, $postData['encoding']);
+        } catch (\Throwable $e) {
             throw $e;
         }
 
@@ -431,7 +428,7 @@ class UtilitiesService implements UtilitiesServiceInterface
      *
      * @param string $path スキーマファイルのパス
      * @param $encoding
-     * @return boolean
+     * @return void
      * @checked
      * @noTodo
      * @unitTest
@@ -440,11 +437,15 @@ class UtilitiesService implements UtilitiesServiceInterface
     {
         $folder = new Folder($path);
         $files = $folder->read(true, true);
-        if (!is_array($files[1])) return false;
+        if (!is_array($files[1])) return;
 
         /* @var BcDatabaseService $dbService */
         $dbService = $this->getService(BcDatabaseServiceInterface::class);
 
+        $prefix = BcUtil::getCurrentDbConfig()['prefix'];
+
+        $db = BcUtil::getCurrentDb();
+        $db->begin();
         // テーブルを削除する
         foreach($files[1] as $file) {
             if (!preg_match("/\.php$/", $file)) continue;
@@ -452,29 +453,30 @@ class UtilitiesService implements UtilitiesServiceInterface
                 $dbService->loadSchema([
                     'type' => 'drop',
                     'path' => $path,
-                    'file' => $file
+                    'file' => $file,
+                    'prefix' => $prefix
                 ]);
-            } catch (BcException $e) {
-                $this->log($e->getMessage());
+            } catch (Throwable $e) {
+                $db->rollback();
+                throw $e;
             }
         }
 
         // テーブルを読み込む
-        $result = true;
         foreach($files[1] as $file) {
             if (!preg_match("/\.php$/", $file)) continue;
             try {
                 if (!$dbService->loadSchema([
                     'type' => 'create',
                     'path' => $path,
-                    'file' => $file
+                    'file' => $file,
+                    'prefix' => $prefix
                 ])) {
-                    $result = false;
                     continue;
                 }
-            } catch (BcException $e) {
-                $result = false;
-                $this->log($e->getMessage());
+            } catch (Throwable $e) {
+                $db->rollback();
+                throw $e;
             }
         }
 
@@ -486,21 +488,19 @@ class UtilitiesService implements UtilitiesServiceInterface
                     'path' => $path . $file,
                     'encoding' => $encoding
                 ])) {
-                    $result = false;
                     continue;
                 }
-            } catch (BcException $e) {
-                $result = false;
-                $this->log($e->getMessage());
+            } catch (Throwable $e) {
+                $db->rollback();
+                throw $e;
             }
         }
-
-        return $result;
+        $db->commit();
     }
 
     /**
      * データをリセットする
-     * 
+     *
      * @return bool
      * @checked
      * @noTodo
@@ -515,7 +515,7 @@ class UtilitiesService implements UtilitiesServiceInterface
                 BcUtil::getRootTheme(),
                 Configure::read('BcApp.defaultFrontTheme') . '.default'
             );
-        } catch (BcException $e) {
+        } catch (\Throwable $e) {
             throw $e;
         }
     }

@@ -11,6 +11,9 @@
 
 namespace BaserCore\Controller;
 
+use BaserCore\Event\BcShortCodeEventListener;
+use BaserCore\Service\SiteConfigsService;
+use BaserCore\Service\SiteConfigsServiceInterface;
 use BaserCore\Utility\BcContainerTrait;
 use BaserCore\Utility\BcSiteConfig;
 use Cake\Core\Exception\Exception;
@@ -163,20 +166,9 @@ class BcAppController extends AppController
     public function beforeRender(EventInterface $event): void
     {
         parent::beforeRender($event);
+
         // TODO ucmitz 未確認
         return;
-        if (BcUtil::isAdminSystem()) {
-            $this->__updateFirstAccess();
-        } else {
-            // テーマのヘルパーをセット
-            if (BcUtil::isInstalled()) {
-                $this->setThemeHelpers();
-                // ショートコード
-                App::uses('BcShortCodeEventListener', 'Event');
-                CakeEventManager::instance()->attach(new BcShortCodeEventListener());
-            }
-        }
-
         // テンプレートの拡張子
         // RSSの場合、RequestHandlerのstartupで強制的に拡張子を.ctpに切り替えられてしまう為、
         // beforeRenderでも再設定する仕様にした
@@ -195,21 +187,6 @@ class BcAppController extends AppController
         $this->set('isSSL', $this->request->is('ssl'));
         $this->set('safeModeOn', ini_get('safe_mode'));
         $this->set('baserVersion', BcUtil::getVersion());
-    }
-
-    /**
-     * 初回アクセスメッセージ用のフラグを更新する
-     *
-     * @return void
-     */
-    private function __updateFirstAccess()
-    {
-        // 初回アクセスメッセージ表示設定
-        if ($this->request->getParam('prefix') === "Admin" && !empty(BcSiteConfig::get('first_access'))) {
-            $data = ['SiteConfig' => ['first_access' => false]];
-            $SiteConfig = ClassRegistry::init('SiteConfig', 'Model');
-            $SiteConfig->saveKeyValue($data);
-        }
     }
 
     /**
@@ -448,7 +425,7 @@ class BcAppController extends AppController
                 $cakeEmail->addTo($to);
             }
         } catch (Exception $e) {
-            $this->BcMessage->setError($e->getMessage() . ' ' . __d('baser', '送信先のメールアドレスが不正です。'));
+            $this->BcMessage->setError($e->getMessage() . ' ' . __d('baser_core', '送信先のメールアドレスが不正です。'));
             return false;
         }
 
@@ -483,7 +460,7 @@ class BcAppController extends AppController
         try {
             $cakeEmail->from($from, $fromName);
         } catch (Exception $e) {
-            $this->setMessage($e->getMessage() . ' ' . __d('baser', '送信元のメールアドレスが不正です。'), true, false, true);
+            $this->setMessage($e->getMessage() . ' ' . __d('baser_core', '送信元のメールアドレスが不正です。'), true, false, true);
             return false;
         }
 
@@ -758,31 +735,6 @@ class BcAppController extends AppController
         $this->request->withParam('action', $_action);
         return $return;
         // <<<
-    }
-
-    /**
-     * テーマ用のヘルパーをセットする
-     * 管理画面では読み込まない
-     *
-     * @return void
-     */
-    protected function setThemeHelpers()
-    {
-        if ($this->request->getParam('prefix') === "Admin") {
-            return;
-        }
-
-        $themeHelpersPath = WWW_ROOT . 'theme' . DS . Configure::read('BcSite.theme') . DS . 'Helper';
-        $Folder = new Folder($themeHelpersPath);
-        $files = $Folder->read(true, true);
-        if (empty($files[1])) {
-            return;
-        }
-
-        foreach($files[1] as $file) {
-            $file = str_replace('-', '_', $file);
-            $this->helpers[] = Inflector::camelize(basename($file, 'Helper.php'));
-        }
     }
 
     /**

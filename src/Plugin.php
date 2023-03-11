@@ -16,6 +16,8 @@ use Authentication\AuthenticationServiceInterface;
 use Authentication\AuthenticationServiceProviderInterface;
 use Authentication\Middleware\AuthenticationMiddleware;
 use BaserCore\Command\ComposerCommand;
+use BaserCore\Command\CreateReleaseCommand;
+use BaserCore\Command\SetupInstallCommand;
 use BaserCore\Command\SetupTestCommand;
 use BaserCore\Command\UpdateCommand;
 use BaserCore\Event\BcContainerEventListener;
@@ -184,7 +186,10 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
         $sitesTable = TableRegistry::getTableLocator()->get('BaserCore.Sites');
         $sites = $sitesTable->find()->where(['Sites.status' => true]);
         foreach($sites as $site) {
-            if ($site->theme) $application->addPlugin($site->theme);
+            if ($site->theme) {
+                BcUtil::includePluginClass($site->theme);
+                $application->addPlugin($site->theme);
+            }
         }
     }
 
@@ -281,10 +286,10 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
     public function getAuthenticationService(ServerRequestInterface $request): AuthenticationServiceInterface
     {
         $service = new AuthenticationService();
-        $prefix = $request->getParam('prefix');
+        $prefix = BcUtil::getRequestPrefix($request);
         $authSetting = Configure::read('BcPrefixAuth.' . $prefix);
 
-        if (!$authSetting || !BcUtil::isInstalled()) {
+        if (!$this->isRequiredAuthentication($authSetting)) {
             $service->loadAuthenticator('Authentication.Form');
             if (!empty($authSetting['sessionKey'])) {
                 $service->loadAuthenticator('Authentication.Session', [
@@ -308,7 +313,7 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
                         ]);
                     }
                 } else {
-                    throw new ForbiddenException(__d('baser', 'Web APIは許可されていません。'));
+                    throw new ForbiddenException(__d('baser_core', 'Web APIは許可されていません。'));
                 }
                 break;
             default:
@@ -320,25 +325,31 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
     }
 
     /**
+     * 認証が必要か判定する
+     *
+     * @param array $authSetting
+     * @return bool
+     */
+    public function isRequiredAuthentication(array $authSetting)
+    {
+        if(!$authSetting) return false;
+        if(!empty($authSetting['disabled'])) return false;
+        if(!BcUtil::isInstalled()) return false;
+        return true;
+    }
+
+    /**
      * APIが利用できるか確認する
      *
      * @param string $prefix
      * @return bool
      */
-    public function isEnabledCoreApi(string $prefix): bool
+    public static function isEnabledCoreApi(string $prefix): bool
     {
         if (!filter_var(env('USE_CORE_API', false), FILTER_VALIDATE_BOOLEAN)) {
             if ($prefix === 'Api') {
                 if (BcUtil::loginUser()) {
-                    $siteDomain = BcUtil::getCurrentDomain();
-                    if (empty($_SERVER['HTTP_REFERER'])) {
-                        return false;
-                    }
-                    $refererDomain = BcUtil::getDomain($_SERVER['HTTP_REFERER']);
-                    if (!preg_match('/^' . preg_quote($siteDomain, '/') . '/', $refererDomain)) {
-                        return false;
-                    }
-                    return true;
+                    return BcUtil::isSameReferrerAsCurrent();
                 }
             }
         }
@@ -441,10 +452,6 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
      *
      * 次のルートを設定するが、未インストール時はインストーラーのみ設定し他はスキップする。
      *
-     * ### インストーラー
-     * /
-     * /install
-     *
      * ### コンテンツルーティング
      * /*
      *
@@ -491,6 +498,11 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
             $property->setAccessible(true);
             $property->setValue($collection, []);
         }
+
+        /**
+         * メンテナンス
+         */
+        $routes->connect('/maintenance', ['plugin' => 'BaserCore', 'controller' => 'Maintenance', 'action' => 'index']);
 
         /**
          * コンテンツルーティング
@@ -561,6 +573,8 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
         $commands->add('setup test', SetupTestCommand::class);
         $commands->add('composer', ComposerCommand::class);
         $commands->add('update', UpdateCommand::class);
+        $commands->add('create release', CreateReleaseCommand::class);
+        $commands->add('setup install', SetupInstallCommand::class);
         return $commands;
     }
 

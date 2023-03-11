@@ -10,6 +10,7 @@
  */
 namespace BaserCore\Controller;
 
+use BaserCore\Event\BcShortCodeEventListener;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\Configure;
 use Cake\Event\EventInterface;
@@ -27,6 +28,22 @@ class BcFrontAppController extends AppController
 {
 
     /**
+     * Initialize
+     * @checked
+     * @unitTest
+     */
+    public function initialize(): void
+    {
+        parent::initialize();
+        // フロント認証が有効、かつ、permissionType が 2（ブラックリスト）の場合以外に認証を設定
+        if(!Configure::read('BcPrefixAuth.Front.disabled') && (int) Configure::read('BcPrefixAuth.Front.permissionType') !== 2) {
+            $this->loadComponent('Authentication.Authentication', [
+                'logoutRedirect' => Router::url(Configure::read("BcPrefixAuth.Front.loginAction"), true),
+            ]);
+        }
+    }
+
+    /**
      * Before Filter
      * @param EventInterface $event
      * @return Response|void
@@ -36,7 +53,8 @@ class BcFrontAppController extends AppController
      */
     public function beforeFilter(EventInterface $event)
     {
-        parent::beforeFilter($event);
+        $response = parent::beforeFilter($event);
+        if($response) return $response;
         $response = $this->redirectIfIsNotSameSite();
         if ($response) return $response;
     }
@@ -57,6 +75,10 @@ class BcFrontAppController extends AppController
 //            $this->viewBuilder()->setLayoutPath($subDir);
 //            $this->viewBuilder()->setTemplatePath($this->getName() . DS . $subDir);
 //        }
+        if (BcUtil::isInstalled()) {
+            // ショートコード
+            $this->getEventManager()->on(new BcShortCodeEventListener());
+        }
         if (!isset($this->RequestHandler) || !$this->RequestHandler->prefers('json')) {
             $this->setupFrontView();
         }

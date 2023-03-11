@@ -17,6 +17,7 @@ use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
 use BaserCore\Annotation\Note;
+use Cake\ORM\Exception\PersistenceFailedException;
 
 /**
  * SiteConfigsController
@@ -45,17 +46,28 @@ class SiteConfigsController extends BcApiController
     public function edit(SiteConfigsServiceInterface $service)
     {
         $this->request->allowMethod(['post', 'put']);
-        $siteConfig = $service->update($this->request->getData());
-        if (!$siteConfig->getErrors()) {
-            $message = __d('baser', 'システム基本設定を更新しました。');
-        } else {
+        $siteConfig = $errors = null;
+        try {
+            $siteConfig = $service->update($this->request->getData());
+            if (!$siteConfig->getErrors()) {
+                $message = __d('baser_core', 'システム基本設定を更新しました。');
+            } else {
+                $this->setResponse($this->response->withStatus(400));
+                $message = __d('baser_core', '入力エラーです。内容を修正してください。');
+            }
+        } catch (PersistenceFailedException $e) {
+            $errors = $e->getEntity()->getErrors();
+            $message = __d('baser_core', "入力エラーです。内容を修正してください。");
             $this->setResponse($this->response->withStatus(400));
-            $message = __d('baser', '入力エラーです。内容を修正してください。');
+        } catch (\Throwable $e) {
+            $message = __d('baser_core', 'データベース処理中にエラーが発生しました。' . $e->getMessage());
+            $this->setResponse($this->response->withStatus(500));
         }
+
         $this->set([
             'message' => $message,
             'siteConfig' => $siteConfig,
-            'errors' => $siteConfig->getErrors(),
+            'errors' => $errors
         ]);
         $this->viewBuilder()->setOption('serialize', ['siteConfig', 'message', 'errors']);
     }
@@ -78,11 +90,11 @@ class SiteConfigsController extends BcApiController
         // TODO ucmitz 未実装ためコメントアウト
         /* >>>
         if (!$this->sendMail(
-            $siteConfigs['email'], __d('baser', 'メール送信テスト'),
+            $siteConfigs['email'], __d('baser_core', 'メール送信テスト'),
             sprintf('%s からのメール送信テストです。', $siteConfigs['formal_name']) . "\n" . $siteUrl
         )) {
             $this->setResponse($this->response->withStatus(401));
-            $message = __d('baser', 'ログを確認してください。');
+            $message = __d('baser_core', 'ログを確認してください。');
         }
         <<< */
         $this->set('message', $message);

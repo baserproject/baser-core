@@ -13,7 +13,6 @@ namespace BaserCore\Model\Table;
 
 use Cake\Datasource\EntityInterface;
 use Cake\Utility\Security;
-use Cake\ORM\Table;
 use Cake\ORM\Entity;
 use Cake\ORM\RulesChecker;
 use BaserCore\Annotation\NoTodo;
@@ -24,7 +23,7 @@ use BaserCore\Annotation\UnitTest;
  * Class LoginStoresTable
  * @package BaserCore\Model\Table
  */
-class LoginStoresTable extends Table
+class LoginStoresTable extends AppTable
 {
     /**
      * key name
@@ -67,7 +66,7 @@ class LoginStoresTable extends Table
      */
     public function buildRules(RulesChecker $rules): RulesChecker
     {
-        $rules->add($rules->isUnique(['store_key'], 'キーが重複しています。'));
+        $rules->add($rules->isUnique(['store_key'], __d('baser_core', 'キーが重複しています。')));
         return $rules;
     }
 
@@ -100,7 +99,7 @@ class LoginStoresTable extends Table
         while($this->save($loginStore) === false) {
             $loginStore->store_key = Security::randomString($this->keyLength);
             if ($i++ > 100) {
-                throw new \Exception(__d('baser', '不明なエラー'));
+                throw new \Exception(__d('baser_core', '不明なエラー'));
             }
         }
         return $loginStore;
@@ -169,7 +168,7 @@ class LoginStoresTable extends Table
             ])
             ->first();
         if ($loginStore === null) {
-            throw new \Exception(__d('baser', '更新データが見つかりませんでした'));
+            throw new \Exception(__d('baser_core', '更新データが見つかりませんでした'));
         }
         $this->delete($loginStore);
         return $this->addKey($prefix, $user_id);
