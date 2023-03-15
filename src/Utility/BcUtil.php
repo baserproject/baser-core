@@ -27,7 +27,6 @@ use Cake\Routing\Router;
 use Cake\Filesystem\File;
 use Cake\Filesystem\Folder;
 use Cake\ORM\TableRegistry;
-use Cake\Utility\Hash;
 use Cake\Utility\Inflector;
 use Cake\Database\Exception;
 use BaserCore\Annotation\Note;
@@ -746,8 +745,9 @@ class BcUtil
      */
     public static function getTemplatePath(string $plugin): string
     {
+
         if (Plugin::isLoaded($plugin)) {
-            return Plugin::path($plugin) . 'templates/';
+            return Plugin::templatePath($plugin);
         } else {
             return false;
         }
@@ -1790,7 +1790,7 @@ class BcUtil
     public static function retry($times, callable $callback, $interval = 0)
     {
         if ($times <= 0) {
-            throw new \InvalidArgumentException(__d('baser', 'リトライ回数は正の整数値で指定してください。'));
+            throw new \InvalidArgumentException(__d('baser_core', 'リトライ回数は正の整数値で指定してください。'));
         }
         $times--;
 
