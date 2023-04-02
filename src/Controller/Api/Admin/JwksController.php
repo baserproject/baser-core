@@ -9,15 +9,18 @@
  * @license       https://basercms.net/license/index.html MIT License
  */
 
-namespace BaserCore\Controller\Api;
+namespace BaserCore\Controller\Api\Admin;
 
 use Cake\Core\Configure;
 use Firebase\JWT\JWT;
+use BaserCore\Annotation\UnitTest;
+use BaserCore\Annotation\NoTodo;
+use BaserCore\Annotation\Checked;
 
 /**
  * Class JwksController
  */
-class JwksController extends BcApiController
+class JwksController extends BcAdminApiController
 {
 
     /**

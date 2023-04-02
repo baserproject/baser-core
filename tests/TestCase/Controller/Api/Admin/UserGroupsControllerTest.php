@@ -9,7 +9,7 @@
  * @license       https://basercms.net/license/index.html MIT License
  */
 
-namespace BaserCore\Test\TestCase\Controller\Api;
+namespace BaserCore\Test\TestCase\Controller\Api\Admin;
 
 use BaserCore\Service\UserGroupsService;
 use BaserCore\TestSuite\BcTestCase;
@@ -66,7 +66,7 @@ class UserGroupsControllerTest extends BcTestCase
      */
     public function testIndex()
     {
-        $this->get('/baser/api/baser-core/user_groups/index.json?token=' . $this->accessToken);
+        $this->get('/baser/api/admin/baser-core/user_groups/index.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('admins', $result->userGroups[0]->name);
@@ -86,7 +86,7 @@ class UserGroupsControllerTest extends BcTestCase
             'title' => 'ucmitzグループ',
             'use_move_contents' => '1',
         ];
-        $this->post('/baser/api/baser-core/user_groups/add.json?token=' . $this->accessToken, $data);
+        $this->post('/baser/api/admin/baser-core/user_groups/add.json?token=' . $this->accessToken, $data);
         $this->assertResponseSuccess();
         $UserGroups = $this->getTableLocator()->get('UserGroups');
         $query = $UserGroups->find()->where(['name' => $data['name']]);
@@ -105,7 +105,7 @@ class UserGroupsControllerTest extends BcTestCase
         $data = [
             'name' => 'Test_test_Man'
         ];
-        $this->post('/baser/api/baser-core/user_groups/edit/1.json?token=' . $this->accessToken, $data);
+        $this->post('/baser/api/admin/baser-core/user_groups/edit/1.json?token=' . $this->accessToken, $data);
         $this->assertResponseSuccess();
     }
 
@@ -127,7 +127,7 @@ class UserGroupsControllerTest extends BcTestCase
      */
     public function testView()
     {
-        $this->get('/baser/api/baser-core/user_groups/view/1.json?token=' . $this->accessToken);
+        $this->get('/baser/api/admin/baser-core/user_groups/view/1.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('admins', $result->userGroup->name);
@@ -138,7 +138,7 @@ class UserGroupsControllerTest extends BcTestCase
      */
     public function testList()
     {
-        $this->get('/baser/api/baser-core/user_groups/list/1.json?token=' . $this->accessToken);
+        $this->get('/baser/api/admin/baser-core/user_groups/list/1.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
 
@@ -156,16 +156,16 @@ class UserGroupsControllerTest extends BcTestCase
      */
     public function testCopy()
     {
-        $this->get('/baser/api/baser-core/user_groups/copy/1.json?token=' . $this->accessToken);
+        $this->get('/baser/api/admin/baser-core/user_groups/copy/1.json?token=' . $this->accessToken);
         $this->assertResponseCode(405);
 
-        $this->post('/baser/api/baser-core/user_groups/copy/1.json?token=' . $this->accessToken);
+        $this->post('/baser/api/admin/baser-core/user_groups/copy/1.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('ユーザーグループ「admins」をコピーしました。', $result->message);
         $this->assertEquals('admins_copy', $result->userGroup->name);
 
-        $this->post('/baser/api/baser-core/user_groups/copy/test.json?token=' . $this->accessToken);
+        $this->post('/baser/api/admin/baser-core/user_groups/copy/test.json?token=' . $this->accessToken);
         $this->assertResponseCode(404);
     }
 }

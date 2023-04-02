@@ -9,22 +9,21 @@
  * @license       https://basercms.net/license/index.html MIT License
  */
 
-namespace BaserCore\Controller\Api;
+namespace BaserCore\Controller\Api\Admin;
 
-use BaserCore\Error\BcException;
 use BaserCore\Service\PermissionsService;
 use BaserCore\Service\PermissionsServiceInterface;
-use BaserCore\Annotation\NoTodo;
-use BaserCore\Annotation\Checked;
-use BaserCore\Annotation\UnitTest;
 use Cake\Datasource\Exception\RecordNotFoundException;
 use Cake\ORM\Exception\PersistenceFailedException;
+use BaserCore\Annotation\UnitTest;
+use BaserCore\Annotation\NoTodo;
+use BaserCore\Annotation\Checked;
 
 /**
  * Class PermissionsController
  * @uses PermissionsController
  */
-class PermissionsController extends BcApiController
+class PermissionsController extends BcAdminApiController
 {
     /**
      * [API] 単一アクセスルール取得
@@ -66,8 +65,12 @@ class PermissionsController extends BcApiController
     {
         $this->request->allowMethod(['get']);
 
-        $this->request = $this->request->withQueryParams(['user_group_id' => $userGroupId]);
-        $this->set('permissions', $this->paginate($service->getIndex($this->request->getQueryParams())));
+        $queryParams = array_merge([
+            'user_group_id' => $userGroupId,
+            'contain' => null,
+        ], $this->getRequest()->getQueryParams());
+
+        $this->set('permissions', $this->paginate($service->getIndex($queryParams)));
         $this->viewBuilder()->setOption('serialize', ['permissions']);
     }
 
@@ -113,7 +116,7 @@ class PermissionsController extends BcApiController
      */
     public function delete(PermissionsServiceInterface $service, int $permissionId)
     {
-        $this->request->allowMethod(['post', 'put', 'patch']);
+        $this->request->allowMethod(['post', 'delete']);
         $permission = null;
         try {
             $permission = $service->get($permissionId);
@@ -270,18 +273,28 @@ class PermissionsController extends BcApiController
         $conditions = [
             'user_group_id' => $userGroupId,
         ];
-        $permission = $service->get($this->request->getData('id'));
-        if (!$service->changeSort($this->request->getData('id'), $this->request->getData('offset'), $conditions)) {
-            $this->setResponse($this->response->withStatus(400));
-            $message = __d('baser_core', '一度リロードしてから再実行してみてください。');
-        } else {
-            $message = sprintf(__d('baser_core', 'アクセスルール「%s」の並び替えを更新しました。'), $permission->name);
+        $permission = null;
+        try {
+            $permission = $service->get($this->request->getData('id'));
+            if (!$service->changeSort($this->request->getData('id'), $this->request->getData('offset'), $conditions)) {
+                $this->setResponse($this->response->withStatus(400));
+                $message = __d('baser_core', '一度リロードしてから再実行してみてください。');
+            } else {
+                $message = sprintf(__d('baser_core', 'アクセスルール「%s」の並び替えを更新しました。'), $permission->name);
+            }
+        } catch (RecordNotFoundException $e) {
+            $this->setResponse($this->response->withStatus(404));
+            $message = __d('baser_core', 'データが見つかりません。');
+        } catch (\Throwable $e) {
+            $message = __d('baser_core', 'データベース処理中にエラーが発生しました。' . $e->getMessage());
+            $this->setResponse($this->response->withStatus(500));
         }
+
         $this->set([
             'message' => $message,
             'permission' => $permission
         ]);
-        $this->viewBuilder()->setOption('serialize', ['plugin', 'message']);
+        $this->viewBuilder()->setOption('serialize', ['permission', 'message']);
     }
 
 }

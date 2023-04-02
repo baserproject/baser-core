@@ -9,7 +9,7 @@
  * @license       https://basercms.net/license/index.html MIT License
  */
 
-namespace BaserCore\Test\TestCase\Controller\Api;
+namespace BaserCore\Test\TestCase\Controller\Api\Admin;
 
 use BaserCore\Test\Scenario\InitAppScenario;
 use BaserCore\Test\Scenario\PermissionGroupsScenario;
@@ -92,7 +92,7 @@ class PermissionGroupsControllerTest extends BcTestCase
     public function test_index()
     {
         $this->loadFixtureScenario(PermissionGroupsScenario::class);
-        $this->get('/baser/api/baser-core/permission_groups/index.json?user_group_id=1&token=' . $this->accessToken);
+        $this->get('/baser/api/admin/baser-core/permission_groups/index.json?user_group_id=1&token=' . $this->accessToken);
         $this->assertResponseSuccess();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertCount(3, $result->permissionGroups);
@@ -104,7 +104,7 @@ class PermissionGroupsControllerTest extends BcTestCase
     public function test_list()
     {
         $this->loadFixtureScenario(PermissionGroupsScenario::class);
-        $this->get('/baser/api/baser-core/permission_groups/list.json?token=' . $this->accessToken);
+        $this->get('/baser/api/admin/baser-core/permission_groups/list.json?token=' . $this->accessToken);
         $this->assertResponseSuccess();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertNotNull($result->permissionGroups);
@@ -116,13 +116,13 @@ class PermissionGroupsControllerTest extends BcTestCase
     public function test_view()
     {
         $this->loadFixtureScenario(PermissionGroupsScenario::class);
-        $this->get('/baser/api/baser-core/permission_groups/view/1.json?token=' . $this->accessToken);
+        $this->get('/baser/api/admin/baser-core/permission_groups/view/1.json?token=' . $this->accessToken);
         $this->assertResponseSuccess();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertNotNull($result->permissionGroup->name);
 
         //存在しないIDを指定した場合、
-        $this->get('/baser/api/baser-core/permission_groups/view/11.json?token=' . $this->accessToken);
+        $this->get('/baser/api/admin/baser-core/permission_groups/view/11.json?token=' . $this->accessToken);
         //ステータスを確認
         $this->assertResponseCode(404);
         //戻る値を確認
@@ -143,7 +143,7 @@ class PermissionGroupsControllerTest extends BcTestCase
             'status' => 1
         ];
         //APIをコール
-        $this->post('/baser/api/baser-core/permission_groups/add.json?token=' . $this->accessToken, $data);
+        $this->post('/baser/api/admin/baser-core/permission_groups/add.json?token=' . $this->accessToken, $data);
         //ステータスを確認
         $this->assertResponseSuccess();
         //戻る値を確認
@@ -163,7 +163,7 @@ class PermissionGroupsControllerTest extends BcTestCase
             'name' => 'システム基本設定　Update',
         ];
         //APIをコール
-        $this->post('/baser/api/baser-core/permission_groups/edit/1.json?token=' . $this->accessToken, $data);
+        $this->post('/baser/api/admin/baser-core/permission_groups/edit/1.json?token=' . $this->accessToken, $data);
         //ステータスを確認
         $this->assertResponseSuccess();
         //戻る値を確認
@@ -173,7 +173,7 @@ class PermissionGroupsControllerTest extends BcTestCase
 
         //存在しないIDを指定した場合。
         //APIをコール
-        $this->post('/baser/api/baser-core/permission_groups/edit/11.json?token=' . $this->accessToken, $data);
+        $this->post('/baser/api/admin/baser-core/permission_groups/edit/11.json?token=' . $this->accessToken, $data);
         //ステータスを確認
         $this->assertResponseCode(404);
         //戻る値を確認
@@ -188,7 +188,7 @@ class PermissionGroupsControllerTest extends BcTestCase
     {
         $this->loadFixtureScenario(PermissionGroupsScenario::class);
         //APIをコール
-        $this->post('/baser/api/baser-core/permission_groups/delete/1.json?token=' . $this->accessToken);
+        $this->post('/baser/api/admin/baser-core/permission_groups/delete/1.json?token=' . $this->accessToken);
         //ステータスを確認
         $this->assertResponseSuccess();
         //戻る値を確認
@@ -198,7 +198,7 @@ class PermissionGroupsControllerTest extends BcTestCase
 
         //存在しないIDを指定した場合。
         //APIをコール
-        $this->post('/baser/api/baser-core/permission_groups/delete/1.json?token=' . $this->accessToken);
+        $this->post('/baser/api/admin/baser-core/permission_groups/delete/1.json?token=' . $this->accessToken);
         //ステータスを確認
         $this->assertResponseCode(404);
         //戻る値を確認
@@ -210,7 +210,7 @@ class PermissionGroupsControllerTest extends BcTestCase
     {
         $this->loadFixtureScenario(PermissionGroupsScenario::class);
         //APIをコール
-        $this->post('/baser/api/baser-core/permission_groups/rebuild_by_user_group/1.json?token=' . $this->accessToken);
+        $this->post('/baser/api/admin/baser-core/permission_groups/rebuild_by_user_group/1.json?token=' . $this->accessToken);
         //ステータスを確認
         $this->assertResponseSuccess();
         //戻る値を確認

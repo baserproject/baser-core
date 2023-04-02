@@ -9,9 +9,9 @@
  * @license       https://basercms.net/license/index.html MIT License
  */
 
-namespace BaserCore\Test\TestCase\Controller\Api;
+namespace BaserCore\Test\TestCase\Controller\Api\Admin;
 
-use BaserCore\Controller\Api\UsersController;
+use BaserCore\Controller\Api\Admin\UsersController;
 use BaserCore\TestSuite\BcTestCase;
 use Cake\TestSuite\IntegrationTestTrait;
 
@@ -74,7 +74,7 @@ class UsersControllerTest extends BcTestCase
      * @return void
      */
     public function testInitialize(){
-        $request = $this->getRequest('/baser/api/baser-core/users/');
+        $request = $this->getRequest('/baser/api/admin/baser-core/users/');
         $request = $this->loginAdmin($request);
         $usersController = new UsersController($request);
 
@@ -83,17 +83,17 @@ class UsersControllerTest extends BcTestCase
 
     public function testLoginAndRefreshToken()
     {
-        $this->get('/baser/api/baser-core/users/login.json');
+        $this->get('/baser/api/admin/baser-core/users/login.json');
         $this->assertResponseCode(401);
-        $this->post('/baser/api/baser-core/users/login.json');
+        $this->post('/baser/api/admin/baser-core/users/login.json');
         $this->assertResponseCode(401);
-        $this->post('/baser/api/baser-core/users/login.json', ['email' => 'testuser1@example.com', 'password' => 'password']);
+        $this->post('/baser/api/admin/baser-core/users/login.json', ['email' => 'testuser1@example.com', 'password' => 'password']);
         $this->assertResponseOk();
         $this->assertFlashMessage('ようこそ、ニックネーム1さん。');
         $body = json_decode($this->_getBodyAsString());
-        $this->get('/baser/api/baser-core/users/refresh_token.json?token=' . $body->refresh_token);
+        $this->get('/baser/api/admin/baser-core/users/refresh_token.json?token=' . $body->refresh_token);
         $this->assertResponseContains('access_token');
-        $this->post('https://localhost/baser/api/baser-core/users/login.json', [
+        $this->post('https://localhost/baser/api/admin/baser-core/users/login.json', [
             'email' => 'testuser1@example.com',
             'password' => 'password',
             'saved' => 1
@@ -109,7 +109,7 @@ class UsersControllerTest extends BcTestCase
      */
     public function testIndex()
     {
-        $this->get('/baser/api/baser-core/users/index.json?token=' . $this->accessToken);
+        $this->get('/baser/api/admin/baser-core/users/index.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('baser admin', $result->users[0]->name);
@@ -136,7 +136,7 @@ class UsersControllerTest extends BcTestCase
                 '_ids' => [1]
             ],
         ];
-        $this->post('/baser/api/baser-core/users/add.json?token=' . $this->accessToken, $data);
+        $this->post('/baser/api/admin/baser-core/users/add.json?token=' . $this->accessToken, $data);
         $this->assertResponseSuccess();
         $users = $this->getTableLocator()->get('Users');
         $query = $users->find()->where(['name' => $data['name']]);
@@ -155,7 +155,7 @@ class UsersControllerTest extends BcTestCase
         $data = [
             'name' => 'Test_test_Man'
         ];
-        $this->post('/baser/api/baser-core/users/edit/1.json?token=' . $this->accessToken, $data);
+        $this->post('/baser/api/admin/baser-core/users/edit/1.json?token=' . $this->accessToken, $data);
         $this->assertResponseSuccess();
     }
 
@@ -168,7 +168,7 @@ class UsersControllerTest extends BcTestCase
     {
         $this->enableSecurityToken();
         $this->enableCsrfToken();
-        $this->post('/baser/api/baser-core/users/delete/2.json?token=' . $this->accessToken);
+        $this->post('/baser/api/admin/baser-core/users/delete/2.json?token=' . $this->accessToken);
         $this->assertResponseSuccess();
     }
 
@@ -177,7 +177,7 @@ class UsersControllerTest extends BcTestCase
      */
     public function testView()
     {
-        $this->get('/baser/api/baser-core/users/view/1.json?token=' . $this->accessToken);
+        $this->get('/baser/api/admin/baser-core/users/view/1.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('baser admin', $result->user->name);
@@ -188,13 +188,13 @@ class UsersControllerTest extends BcTestCase
      * @return void
      */
     public function testRefreshToken(){
-        $this->get('/baser/api/baser-core/users/refresh_token.json');
+        $this->get('/baser/api/admin/baser-core/users/refresh_token.json');
         $this->assertResponseCode(401);
 
-        $this->post('/baser/api/baser-core/users/login.json', ['email' => 'testuser1@example.com', 'password' => 'password']);
+        $this->post('/baser/api/admin/baser-core/users/login.json', ['email' => 'testuser1@example.com', 'password' => 'password']);
 
         $body = json_decode($this->_getBodyAsString());
-        $this->get('/baser/api/baser-core/users/refresh_token.json?token=' . $body->refresh_token);
+        $this->get('/baser/api/admin/baser-core/users/refresh_token.json?token=' . $body->refresh_token);
         $this->assertResponseContains('access_token');
     }
     /**
@@ -203,13 +203,13 @@ class UsersControllerTest extends BcTestCase
      */
     public function testLogin()
     {
-        $this->get('/baser/api/baser-core/users/login.json');
+        $this->get('/baser/api/admin/baser-core/users/login.json');
         $this->assertResponseCode(401);
 
-        $this->post('/baser/api/baser-core/users/login.json');
+        $this->post('/baser/api/admin/baser-core/users/login.json');
         $this->assertResponseCode(401);
 
-        $this->post('/baser/api/baser-core/users/login.json', ['email' => 'testuser1@example.com', 'password' => 'password']);
+        $this->post('/baser/api/admin/baser-core/users/login.json', ['email' => 'testuser1@example.com', 'password' => 'password']);
         $this->assertResponseOk();
         $this->assertFlashMessage('ようこそ、ニックネーム1さん。');
     }

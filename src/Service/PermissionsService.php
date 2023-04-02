@@ -138,6 +138,10 @@ class PermissionsService implements PermissionsServiceInterface
      */
     public function getIndex(array $queryParams = []): Query
     {
+        $queryParams = array_merge([
+            'contain' => ['PermissionGroups']
+        ], $queryParams);
+
         $conditions = [];
         if (!empty($queryParams['user_group_id'])) {
             $conditions['Permissions.user_group_id'] = $queryParams['user_group_id'];
@@ -149,7 +153,7 @@ class PermissionsService implements PermissionsServiceInterface
             $conditions['PermissionGroups.type'] = $queryParams['permission_group_type'];
         }
         $query = $this->Permissions->find()
-            ->contain(['PermissionGroups'])
+            ->contain($queryParams['contain'])
             ->where($conditions)
             ->order('sort', 'ASC');
         return $query;
@@ -455,13 +459,16 @@ class PermissionsService implements PermissionsServiceInterface
         // 設定が無効の場合は無条件に true
         if($prefixAuthSetting['disabled']) return true;
 
+        // typeが存在しない場合は無条件に true
+        if(empty($prefixAuthSetting['type'])) return true;
+
         // フルアクセスの場合は true
         if($userGroup) {
             $type = (int)$userGroup->getAuthPrefixSetting($prefix, 'type');
             if ($type === 1) return true;
         }
 
-        if($prefix === 'Api') {
+        if($prefix === 'AdminApi') {
             // 管理画面からAPIのURLを参照した場合は無条件に true
             if (BcUtil::isAdminSystem()) return true;
             // 管理画面から呼び出された API は無条件に true
@@ -493,6 +500,9 @@ class PermissionsService implements PermissionsServiceInterface
      * URLを正規表現用の文字列に変換する
      * @param string $url
      * @return string
+     * @noTodo
+     * @unitTest
+     * @checked
      */
     public function convertRegexUrl(string $url)
     {

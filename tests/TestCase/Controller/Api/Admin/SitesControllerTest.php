@@ -9,11 +9,10 @@
  * @license       https://basercms.net/license/index.html MIT License
  */
 
-namespace BaserCore\Test\TestCase\Controller\Api;
+namespace BaserCore\Test\TestCase\Controller\Api\Admin;
 
-use Cake\Core\Configure;
-use Cake\TestSuite\IntegrationTestTrait;
 use ArrayObject;
+use Cake\TestSuite\IntegrationTestTrait;
 
 class SitesControllerTest extends \BaserCore\TestSuite\BcTestCase
 {
@@ -76,7 +75,7 @@ class SitesControllerTest extends \BaserCore\TestSuite\BcTestCase
      */
     public function testView(): void
     {
-        $this->get('/baser/api/baser-core/sites/view/2.json?token=' . $this->accessToken);
+        $this->get('/baser/api/admin/baser-core/sites/view/2.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('smartphone', $result->site->name);
@@ -89,7 +88,7 @@ class SitesControllerTest extends \BaserCore\TestSuite\BcTestCase
      */
     public function testIndex()
     {
-        $this->get('/baser/api/baser-core/sites/index.json?token=' . $this->accessToken);
+        $this->get('/baser/api/admin/baser-core/sites/index.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('', $result->sites[0]->name);
@@ -110,7 +109,7 @@ class SitesControllerTest extends \BaserCore\TestSuite\BcTestCase
             'title' => '中国語',
             'alias' => 'zh'
         ];
-        $this->post('/baser/api/baser-core/sites/add.json?token=' . $this->accessToken, $data);
+        $this->post('/baser/api/admin/baser-core/sites/add.json?token=' . $this->accessToken, $data);
         $this->assertResponseSuccess();
         $sites = $this->getTableLocator()->get('Sites');
         $query = $sites->find()->where(['name' => $data['name']]);
@@ -129,7 +128,7 @@ class SitesControllerTest extends \BaserCore\TestSuite\BcTestCase
         $data = [
             'name' => 'Test_test_Man'
         ];
-        $this->post('/baser/api/baser-core/sites/edit/1.json?token=' . $this->accessToken, $data);
+        $this->post('/baser/api/admin/baser-core/sites/edit/1.json?token=' . $this->accessToken, $data);
         $this->assertResponseSuccess();
         $sites = $this->getTableLocator()->get('Sites');
         $query = $sites->find()->where(['name' => $data['name']]);
@@ -145,7 +144,7 @@ class SitesControllerTest extends \BaserCore\TestSuite\BcTestCase
     {
         $this->enableSecurityToken();
         $this->enableCsrfToken();
-        $this->post('/baser/api/baser-core/sites/delete/2.json?token=' . $this->accessToken);
+        $this->post('/baser/api/admin/baser-core/sites/delete/2.json?token=' . $this->accessToken);
         $this->assertResponseSuccess();
         $sites = $this->getTableLocator()->get('Sites');
         $query = $sites->find()->where(['id' => 2]);
@@ -159,7 +158,7 @@ class SitesControllerTest extends \BaserCore\TestSuite\BcTestCase
      */
     public function testGet_selectable_devices_and_lang(): void
     {
-        $this->get('/baser/api/baser-core/sites/get_selectable_devices_and_lang/1/4.json?token=' . $this->accessToken);
+        $this->get('/baser/api/admin/baser-core/sites/get_selectable_devices_and_lang/1/4.json?token=' . $this->accessToken);
         $this->assertResponseSuccess();
 
         $devicesObj = new ArrayObject(json_decode($this->_response->getBody())->devices);
@@ -172,7 +171,7 @@ class SitesControllerTest extends \BaserCore\TestSuite\BcTestCase
         $sites->delete($sites->get(2));
         $sites->delete($sites->get(3));
 
-        $this->get('/baser/api/baser-core/sites/get_selectable_devices_and_lang/1/4.json?token=' . $this->accessToken);
+        $this->get('/baser/api/admin/baser-core/sites/get_selectable_devices_and_lang/1/4.json?token=' . $this->accessToken);
         $this->assertResponseSuccess();
 
         $devicesObj = new ArrayObject(json_decode($this->_response->getBody())->devices);

@@ -24,7 +24,6 @@ use BaserCore\Annotation\Note;
 
 /**
  * Class BcAuthHelper
- * @package BaserCore\View\Helper
  * @property BcBaserHelper $BcBaser
  * @uses BcAuthHelper
  */
@@ -54,6 +53,12 @@ class BcAuthHelper extends Helper
         $request = $this->_View->getRequest();
         if (!empty($request)) {
             $currentPrefix = BcUtil::getRequestPrefix($request);
+        }
+        $users = BcUtil::getLoggedInUsers();
+        if($users && empty($users[$currentPrefix])) {
+            foreach($users as $key => $user) {
+                return $key;
+            }
         }
         return $currentPrefix;
     }
@@ -124,7 +129,7 @@ class BcAuthHelper extends Helper
     public function getCurrentUserPrefixes(): array
     {
         $user = BcUtil::loginUser();
-        if(!$user) return [];
+        if(!$user || !$user->user_groups) return [];
 		$prefixes = [];
 		foreach($user->user_groups as $userGroup) {
 		    $prefix = explode(',', $userGroup->auth_prefix);
@@ -142,7 +147,8 @@ class BcAuthHelper extends Helper
      */
     public function isCurrentUserAdminAvailable(): bool
     {
-        return in_array('Admin', $this->getCurrentUserPrefixes());
+        return (in_array('Admin', $this->getCurrentUserPrefixes()) &&
+            BcUtil::loginUserFromSession());
     }
 
 

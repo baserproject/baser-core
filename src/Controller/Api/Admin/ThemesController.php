@@ -9,26 +9,23 @@
  * @license       https://basercms.net/license/index.html MIT License
  */
 
-namespace BaserCore\Controller\Api;
+namespace BaserCore\Controller\Api\Admin;
 
-use BaserCore\Error\BcException;
 use BaserCore\Service\SitesServiceInterface;
 use BaserCore\Service\ThemesServiceInterface;
+use BaserCore\Utility\BcUtil;
+use Cake\Datasource\Exception\RecordNotFoundException;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
-use Cake\Datasource\Exception\RecordNotFoundException;
-use Cake\Http\Exception\NotFoundException;
-use Cake\ORM\Exception\PersistenceFailedException;
 
 /**
  * Class ThemesController
  *
  * https://localhost/baser/api/baser-core/themes/action_name.json で呼び出す
  *
- * @package BaserCore\Controller\Api
  */
-class ThemesController extends BcApiController
+class ThemesController extends BcAdminApiController
 {
     /**
      * [API] 単一テーマ情報を取得する
@@ -164,15 +161,10 @@ class ThemesController extends BcApiController
     /**
      * [API] テーマの初期データを読み込むAPIを実装
      * @param ThemesServiceInterface $service
-     * @param SitesServiceInterface $sitesService
-     * @param int $siteId
      * @noTodo
      */
-    public function load_default_data(
-        ThemesServiceInterface $service,
-        SitesServiceInterface $sitesService,
-        int $siteId
-    ) {
+    public function load_default_data(ThemesServiceInterface $service)
+    {
         $this->request->allowMethod(['post']);
 
         if (empty($this->getRequest()->getData('default_data_pattern'))) {
@@ -180,7 +172,7 @@ class ThemesController extends BcApiController
             $message = __d('baser_core', '不正な操作です。');
         } else {
             try {
-                $result = $service->loadDefaultDataPattern($sitesService->get($siteId), $this->getRequest()->getData('default_data_pattern'));
+                $result = $service->loadDefaultDataPattern(BcUtil::getRootTheme(), $this->getRequest()->getData('default_data_pattern'));
                 if (!$result) {
                     $this->setResponse($this->response->withStatus(400));
                     $message = __d('baser_core', '初期データの読み込みが完了しましたが、いくつかの処理に失敗しています。ログを確認してください。');
@@ -199,6 +191,7 @@ class ThemesController extends BcApiController
 
         $this->viewBuilder()->setOption('serialize', ['message']);
     }
+
     /**
      * [API] テーマを適用するAPI
      * @param ThemesServiceInterface $service
@@ -224,7 +217,7 @@ class ThemesController extends BcApiController
         } catch (RecordNotFoundException $e) {
             $this->setResponse($this->response->withStatus(404));
             $message = __d('baser_core', 'データが見つかりません。');
-        } catch (Throwable $e) {
+        } catch (\Throwable $e) {
             $errors = $e->getMessage();
             $message = __d('baser_core', 'テーマの適用に失敗しました。', $e->getMessage());
         }

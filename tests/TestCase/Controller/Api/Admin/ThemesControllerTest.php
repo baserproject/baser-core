@@ -9,16 +9,15 @@
  * @license       https://basercms.net/license/index.html MIT License
  */
 
-namespace BaserCore\Test\TestCase\Controller\Api;
+namespace BaserCore\Test\TestCase\Controller\Api\Admin;
 
 use BaserCore\Service\ThemesService;
 use BaserCore\Test\Scenario\InitAppScenario;
 use BaserCore\TestSuite\BcTestCase;
-use Cake\Core\Configure;
 use Cake\Filesystem\Folder;
+use Cake\TestSuite\IntegrationTestTrait;
 use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 use Composer\Package\Archiver\ZipArchiver;
-use Cake\TestSuite\IntegrationTestTrait;
 
 class ThemesControllerTest extends BcTestCase
 {
@@ -78,7 +77,7 @@ class ThemesControllerTest extends BcTestCase
      */
     public function testView()
     {
-        $this->get('/baser/api/baser-core/themes/view/BcFront.json?token=' . $this->accessToken);
+        $this->get('/baser/api/admin/baser-core/themes/view/BcFront.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('BcFront', $result->theme->name);
@@ -88,7 +87,7 @@ class ThemesControllerTest extends BcTestCase
      */
     public function testIndex(): void
     {
-        $this->get('/baser/api/baser-core/themes/index.json?token=' . $this->accessToken);
+        $this->get('/baser/api/admin/baser-core/themes/index.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertCount(2, $result->themes);
@@ -101,7 +100,7 @@ class ThemesControllerTest extends BcTestCase
      */
     public function testAdd(): void
     {
-        $this->get('/baser/api/baser-core/themes/add.json?token=' . $this->accessToken);
+        $this->get('/baser/api/admin/baser-core/themes/add.json?token=' . $this->accessToken);
         $this->assertResponseCode(405);
 
         $path = ROOT . DS . 'plugins' . DS . 'BcSpaSample';
@@ -115,7 +114,7 @@ class ThemesControllerTest extends BcTestCase
         $zip->archive($zipSrcPath, $testFile, true);
 
         $this->setUploadFileToRequest('file', $testFile);
-        $this->post('/baser/api/baser-core/themes/add.json?token=' . $this->accessToken);
+        $this->post('/baser/api/admin/baser-core/themes/add.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals($theme, $result->theme);
@@ -131,17 +130,17 @@ class ThemesControllerTest extends BcTestCase
      */
     public function testDelete()
     {
-        $this->get('/baser/api/baser-core/themes/delete/BcSpaSampleTest.json?token=' . $this->accessToken);
+        $this->get('/baser/api/admin/baser-core/themes/delete/BcSpaSampleTest.json?token=' . $this->accessToken);
         $this->assertResponseCode(405);
 
         $themeService = new ThemesService();
         $themeService->copy('BcSpaSample');
-        $this->post('/baser/api/baser-core/themes/delete/BcSpaSampleCopy.json?token=' . $this->accessToken);
+        $this->post('/baser/api/admin/baser-core/themes/delete/BcSpaSampleCopy.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('テーマ「BcSpaSampleCopy」を削除しました。', $result->message);
 
-        $this->post('/baser/api/baser-core/themes/delete/BcSpaSampleCopy.json?token=' . $this->accessToken);
+        $this->post('/baser/api/admin/baser-core/themes/delete/BcSpaSampleCopy.json?token=' . $this->accessToken);
         $this->assertResponseCode(500);
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('データベース処理中にエラーが発生しました。 に書込み権限がありません。', $result->message);
@@ -153,15 +152,15 @@ class ThemesControllerTest extends BcTestCase
      */
     public function testCopy()
     {
-        $this->get('/baser/api/baser-core/themes/copy/BcSpaSample.json?token=' . $this->accessToken);
+        $this->get('/baser/api/admin/baser-core/themes/copy/BcSpaSample.json?token=' . $this->accessToken);
         $this->assertResponseCode(405);
 
-        $this->post('/baser/api/baser-core/themes/copy/BcSpaSample2.json?token=' . $this->accessToken);
+        $this->post('/baser/api/admin/baser-core/themes/copy/BcSpaSample2.json?token=' . $this->accessToken);
         $this->assertResponseCode(400);
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('テーマ「BcSpaSample2」のコピーに失敗しました。', $result->message);
 
-        $this->post('/baser/api/baser-core/themes/copy/BcSpaSample.json?token=' . $this->accessToken);
+        $this->post('/baser/api/admin/baser-core/themes/copy/BcSpaSample.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('テーマ「BcSpaSample」をコピーしました。', $result->message);
@@ -177,7 +176,7 @@ class ThemesControllerTest extends BcTestCase
         $this->enableSecurityToken();
         $this->enableCsrfToken();
         $theme = 'BcSpaSample';
-        $this->post('/baser/api/baser-core/themes/apply/1/'. $theme . '.json?token=' . $this->accessToken);
+        $this->post('/baser/api/admin/baser-core/themes/apply/1/'. $theme . '.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals($theme, $result->theme->name);
@@ -190,7 +189,7 @@ class ThemesControllerTest extends BcTestCase
      */
     public function test_get_market_themes()
     {
-        $this->post('/baser/api/baser-core/themes/get_market_themes.json?token=' . $this->accessToken);
+        $this->post('/baser/api/admin/baser-core/themes/get_market_themes.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals(true, count($result->baserThemes) > 0);

@@ -9,20 +9,20 @@
  * @license       https://basercms.net/license/index.html MIT License
  */
 
-namespace BaserCore\Controller\Api;
+namespace BaserCore\Controller\Api\Admin;
 
 use BaserCore\Service\PermissionGroupsServiceInterface;
-use BaserCore\Annotation\NoTodo;
-use BaserCore\Annotation\Checked;
-use BaserCore\Annotation\UnitTest;
 use Cake\Datasource\Exception\RecordNotFoundException;
 use Cake\Http\Exception\BadRequestException;
 use Cake\ORM\Exception\PersistenceFailedException;
+use BaserCore\Annotation\UnitTest;
+use BaserCore\Annotation\NoTodo;
+use BaserCore\Annotation\Checked;
 
 /**
  * Class PermissionGroupsController
  */
-class PermissionGroupsController extends BcApiController
+class PermissionGroupsController extends BcAdminApiController
 {
     /**
      * [API] 単一アクセスルールグループ取得

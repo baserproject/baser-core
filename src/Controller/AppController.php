@@ -155,7 +155,7 @@ class AppController extends BaseController
 
         if(!$this->checkPermission()) {
             $prefix = BcUtil::getRequestPrefix($this->getRequest());
-            if ($prefix === 'Api') {
+            if ($prefix === 'Api/Admin') {
                 throw new ForbiddenException(__d('baser_core', '指定されたAPIエンドポイントへのアクセスは許可されていません。'));
             } else {
                 $this->BcMessage->setError(__d('baser_core', '指定されたページへのアクセスは許可されていません。'));
@@ -178,7 +178,7 @@ class AppController extends BaseController
     private function checkPermission()
     {
         $user = BcUtil::loginUser();
-        if($user) {
+        if($user && $user->user_groups) {
             $userGroupsIds = Hash::extract($user->toArray()['user_groups'], '{n}.id');
         } else {
             $userGroupsIds = [];

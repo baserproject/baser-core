@@ -9,20 +9,18 @@
  * @license       https://basercms.net/license/index.html MIT License
  */
 
-namespace BaserCore\Controller\Api;
+namespace BaserCore\Controller\Api\Admin;
 
+use BaserCore\Service\UtilitiesServiceInterface;
+use BaserCore\Utility\BcUtil;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
-use BaserCore\Error\BcException;
-use BaserCore\Service\UtilitiesServiceInterface;
-use BaserCore\Utility\BcUtil;
-use Cake\ORM\Exception\PersistenceFailedException;
 
 /**
  * Class UtilitiesController
  */
-class UtilitiesController extends BcApiController
+class UtilitiesController extends BcAdminApiController
 {
 
     /**

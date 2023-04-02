@@ -26,7 +26,6 @@ use BaserCore\Annotation\UnitTest;
 /**
  * FormHelper 拡張クラス
  *
- * @package Baser.View.Helper
  * @property BcHtmlHelper $BcHtml
  * @property BcUploadHelper $BcUpload
  * @property BcCkeditorHelper $BcCkeditor
@@ -807,6 +806,7 @@ SCRIPT_END;
         // ---
         if ($multiple && is_array($value)) {
             $out = [];
+            $options['name'] = $options['name'] . '[]';
             foreach($value as $v) {
                 $options['val'] = $v;
                 $out[] = $this->widget('hidden', $options);;

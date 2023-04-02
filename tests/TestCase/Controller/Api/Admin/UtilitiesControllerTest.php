@@ -9,16 +9,15 @@
  * @license       https://basercms.net/license/index.html MIT License
  */
 
-namespace BaserCore\Test\TestCase\Controller\Api;
+namespace BaserCore\Test\TestCase\Controller\Api\Admin;
 
-use BaserCore\Test\Factory\ContentFactory;
 use BaserCore\Service\UtilitiesService;
+use BaserCore\Test\Factory\ContentFactory;
 use BaserCore\Test\Scenario\InitAppScenario;
 use BaserCore\TestSuite\BcTestCase;
-use Cake\Core\Configure;
 use Cake\Filesystem\File;
-use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 use Cake\TestSuite\IntegrationTestTrait;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 use Composer\Package\Archiver\ZipArchiver;
 
 class UtilitiesControllerTest extends BcTestCase
@@ -94,7 +93,7 @@ class UtilitiesControllerTest extends BcTestCase
         ContentFactory::make(['id' => 101, 'name' => 'BaserCore 1', 'type' => 'ContentFolder', 'lft' => 1, 'rght' => 2])->persist();
         ContentFactory::make(['id' => 102, 'name' => 'BaserCore 2', 'type' => 'ContentFolder', 'lft' => 3, 'rght' => 4])->persist();
 
-        $this->post('/baser/api/baser-core/utilities/verity_contents_tree.json?token=' . $this->accessToken);
+        $this->post('/baser/api/admin/baser-core/utilities/verity_contents_tree.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('コンテンツのツリー構造に問題はありません。', $result->message);
@@ -103,7 +102,7 @@ class UtilitiesControllerTest extends BcTestCase
         ContentFactory::make(['id' => 103, 'name' => 'BaserCore 3', 'type' => 'ContentFolder', 'lft' => 5, 'rght' => 6])->persist();
         ContentFactory::make(['id' => 104, 'name' => 'BaserCore 4', 'type' => 'ContentFolder', 'lft' => 7, 'rght' => 8, 'parent_id' => 103])->persist();
 
-        $this->post('/baser/api/baser-core/utilities/verity_contents_tree.json?token=' . $this->accessToken);
+        $this->post('/baser/api/admin/baser-core/utilities/verity_contents_tree.json?token=' . $this->accessToken);
         $this->assertResponseCode(400);
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('コンテンツのツリー構造に問題があります。ログを確認してください。', $result->message);
@@ -115,7 +114,7 @@ class UtilitiesControllerTest extends BcTestCase
      */
     public function test_clear_cache()
     {
-        $this->post('/baser/api/baser-core/utilities/clear_cache.json?token=' . $this->accessToken);
+        $this->post('/baser/api/admin/baser-core/utilities/clear_cache.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('サーバーキャッシュを削除しました。', $result->message);
@@ -131,7 +130,7 @@ class UtilitiesControllerTest extends BcTestCase
         ContentFactory::make(['name' => 'BaserCore 1', 'type' => 'ContentFolder', 'site_root' => 1, 'lft' => 11, 'rght' => 12])->persist();
         ContentFactory::make(['name' => 'BaserCore 2', 'type' => 'ContentFolder', 'site_root' => 1, 'lft' => 13, 'rght' => 14])->persist();
 
-        $this->post('/baser/api/baser-core/utilities/reset_contents_tree.json?token=' . $this->accessToken);
+        $this->post('/baser/api/admin/baser-core/utilities/reset_contents_tree.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('コンテンツのツリー構造をリセットしました。', $result->message);
@@ -143,7 +142,7 @@ class UtilitiesControllerTest extends BcTestCase
      */
     public function test_restore_db()
     {
-        $this->post('/baser/api/baser-core/utilities/restore_db.json?token=' . $this->accessToken, ['encoding' => 'utf8']);
+        $this->post('/baser/api/admin/baser-core/utilities/restore_db.json?token=' . $this->accessToken, ['encoding' => 'utf8']);
         $this->assertResponseCode(500);
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('データベース処理中にエラーが発生しました。バックアップファイルが送信されませんでした。', $result->message);
@@ -158,7 +157,7 @@ class UtilitiesControllerTest extends BcTestCase
 
         $this->setUploadFileToRequest('backup', $testFile);
 
-        $this->post('/baser/api/baser-core/utilities/restore_db.json?token=' . $this->accessToken, ['encoding' => 'utf8']);
+        $this->post('/baser/api/admin/baser-core/utilities/restore_db.json?token=' . $this->accessToken, ['encoding' => 'utf8']);
 
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
@@ -178,7 +177,7 @@ class UtilitiesControllerTest extends BcTestCase
         // plugins/bc-admin-third/templates/Admin/Users/index.php にて
         // 「Using $this when not in object context」というエラーが発生し、解決方法がわからず断念した
         // >>>
-//        $this->get('/baser/api/baser-core/utilities/download_backup.json?backup_encoding=utf8&token=' . $this->accessToken);
+//        $this->get('/baser/api/admin/baser-core/utilities/download_backup.json?backup_encoding=utf8&token=' . $this->accessToken);
 //        $this->assertResponseOk();
         // <<<
     }
@@ -194,10 +193,10 @@ class UtilitiesControllerTest extends BcTestCase
             new File($logPath, true);
         }
 
-        $this->post('/baser/api/baser-core/utilities/delete_log.json?token=' . $this->accessToken);
+        $this->post('/baser/api/admin/baser-core/utilities/delete_log.json?token=' . $this->accessToken);
         $this->assertResponseOk();
 
-        $this->post('/baser/api/baser-core/utilities/delete_log.json?token=' . $this->accessToken);
+        $this->post('/baser/api/admin/baser-core/utilities/delete_log.json?token=' . $this->accessToken);
         $this->assertResponseCode(500);
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals($result->message, "データベース処理中にエラーが発生しました。エラーログが存在しません。");
@@ -217,7 +216,7 @@ class UtilitiesControllerTest extends BcTestCase
         // plugins/bc-admin-third/templates/Admin/Users/index.php にて
         // 「Using $this when not in object context」というエラーが発生し、解決方法がわからず断念した
         // >>>
-//        $this->get('/baser/api/baser-core/utilities/download_log.json?token=' . $this->accessToken);
+//        $this->get('/baser/api/admin/baser-core/utilities/download_log.json?token=' . $this->accessToken);
 //        $this->assertResponseOk();
         // <<<
     }
@@ -227,7 +226,7 @@ class UtilitiesControllerTest extends BcTestCase
      */
     public function test_save_search_opened()
     {
-        $this->post('/baser/api/baser-core/utilities/save_search_opened/key1/open1.json?token=' . $this->accessToken);
+        $this->post('/baser/api/admin/baser-core/utilities/save_search_opened/key1/open1.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertTrue($result->result);

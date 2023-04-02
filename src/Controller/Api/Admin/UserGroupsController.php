@@ -9,21 +9,19 @@
  * @license       https://basercms.net/license/index.html MIT License
  */
 
-namespace BaserCore\Controller\Api;
+namespace BaserCore\Controller\Api\Admin;
 
 use BaserCore\Service\UserGroupsServiceInterface;
-use Cake\Core\Exception\Exception;
+use Cake\Datasource\Exception\RecordNotFoundException;
+use Cake\ORM\Exception\PersistenceFailedException;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
-use Cake\Datasource\Exception\RecordNotFoundException;
-use Cake\ORM\Exception\PersistenceFailedException;
-
 
 /**
  * Class UserGroupsController
  */
-class UserGroupsController extends BcApiController
+class UserGroupsController extends BcAdminApiController
 {
     /**
      * ユーザーグループ一覧取得

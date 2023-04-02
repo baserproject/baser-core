@@ -34,7 +34,6 @@ use Cake\Http\Response;
 
 /**
  * Class UsersService
- * @package BaserCore\Service
  * @property UsersTable $Users
  * @property LoginStoresTable $LoginStores
  */
@@ -99,7 +98,11 @@ class UsersService implements UsersServiceInterface
      */
     public function getIndex(array $queryParams = []): Query
     {
-        $query = $this->Users->find()->contain('UserGroups');
+        $queryParams = array_merge([
+            'contain' => ['UserGroups']
+        ], $queryParams);
+
+        $query = $this->Users->find()->contain($queryParams['contain']);
 
         if (!empty($queryParams['limit'])) {
             $query->limit($queryParams['limit']);

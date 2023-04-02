@@ -30,7 +30,6 @@ use BaserCore\Annotation\UnitTest;
 
 /**
  * Class ContentFoldersService
- * @package BaserCore\Service
  * @property ContentFoldersTable $ContentFolders
  */
 class ContentFoldersService implements ContentFoldersServiceInterface
@@ -111,7 +110,7 @@ class ContentFoldersService implements ContentFoldersServiceInterface
             'contain' => ['Contents' => ['Sites']]
         ], $queryParams);
         $conditions = [];
-        if($queryParams['status'] === 'published') {
+        if ($queryParams['status'] === 'publish') {
             $conditions = $this->ContentFolders->Contents->getConditionAllowPublish();
         }
         return $this->ContentFolders->get($id, [
@@ -153,16 +152,34 @@ class ContentFoldersService implements ContentFoldersServiceInterface
      */
     public function getIndex(array $queryParams=[]): Query
     {
-        $query = $this->ContentFolders->find('all')->contain('Contents');
-        if (!empty($queryParams['limit'])) {
-            $query->limit($queryParams['limit']);
+        $options = array_merge([
+            'contain' => ['Contents'],
+            'status' => '',
+            'limit' => null,
+            'folder_template' => null,
+            'page_template' => null
+        ], $queryParams);
+
+        if ($options['status'] === 'publish' && is_null($options['contain'])) {
+            $fields = $this->ContentFolders->getSchema()->columns();
+            $query = $this->ContentFolders->find()
+                ->contain(['Contents'])
+                ->select($fields)
+                ->where($this->ContentFolders->Contents->getConditionAllowPublish());
+        } else {
+            $query = $this->ContentFolders->find()->contain($options['contain']);
         }
-        if (!empty($queryParams['folder_template'])) {
-            $query->where(['folder_template LIKE' => '%' . $queryParams['folder_template'] . '%']);
+
+        if (!is_null($options['limit'])) {
+            $query->limit($options['limit']);
         }
-        if (!empty($queryParams['page_template'])) {
-            $query->where(['page_template LIKE' => '%' . $queryParams['page_template'] . '%']);
+        if (!is_null($options['folder_template'])) {
+            $query->where(['folder_template LIKE' => '%' . $options['folder_template'] . '%']);
         }
+        if (!is_null($options['page_template'])) {
+            $query->where(['page_template LIKE' => '%' . $options['page_template'] . '%']);
+        }
+
         return $query;
     }
 

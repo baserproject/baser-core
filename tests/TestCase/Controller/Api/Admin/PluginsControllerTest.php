@@ -9,13 +9,13 @@
  * @license       https://basercms.net/license/index.html MIT License
  */
 
-namespace BaserCore\Test\TestCase\Controller\Api;
+namespace BaserCore\Test\TestCase\Controller\Api\Admin;
 
 use BaserCore\TestSuite\BcTestCase;
-use Cake\Core\Configure;
-use Cake\Filesystem\Folder;
 use Cake\Core\App;
+use Cake\Core\Configure;
 use Cake\Core\Configure\Engine\PhpConfig;
+use Cake\Filesystem\Folder;
 use Cake\TestSuite\IntegrationTestTrait;
 use Composer\Package\Archiver\ZipArchiver;
 
@@ -82,7 +82,7 @@ class PluginsControllerTest extends BcTestCase
      */
     public function testView()
     {
-        $this->get('/baser/api/baser-core/plugins/view/1.json?token=' . $this->accessToken);
+        $this->get('/baser/api/admin/baser-core/plugins/view/1.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('BcBlog', $result->plugin->name);
@@ -100,7 +100,7 @@ class PluginsControllerTest extends BcTestCase
      */
     public function testIndex()
     {
-        $this->get('/baser/api/baser-core/plugins/index.json?token=' . $this->accessToken);
+        $this->get('/baser/api/admin/baser-core/plugins/index.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('BcBlog', $result->plugins[0]->name);
@@ -126,7 +126,7 @@ class PluginsControllerTest extends BcTestCase
         $pluginPath = App::path('plugins')[0] . DS . 'BcTest';
         $folder = new Folder($pluginPath);
         $folder->create($pluginPath, 0777);
-        $this->post('/baser/api/baser-core/plugins/install/' . $pluginName .'.json?token=' . $this->accessToken, $data);
+        $this->post('/baser/api/admin/baser-core/plugins/install/' . $pluginName .'.json?token=' . $this->accessToken, $data);
         $this->assertResponseCode($statusCode);
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals($message, $result->message);
@@ -146,7 +146,7 @@ class PluginsControllerTest extends BcTestCase
      */
     public function testDetach()
     {
-        $this->post('/baser/api/baser-core/plugins/detach/BcBlog.json?token=' . $this->accessToken);
+        $this->post('/baser/api/admin/baser-core/plugins/detach/BcBlog.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('プラグイン「BcBlog」を無効にしました。', $result->message);
@@ -157,13 +157,13 @@ class PluginsControllerTest extends BcTestCase
      */
     public function testAttach()
     {
-        $this->post('/baser/api/baser-core/plugins/attach/BcBlog.json?token=' . $this->accessToken);
+        $this->post('/baser/api/admin/baser-core/plugins/attach/BcBlog.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('プラグイン「BcBlog」を有効にしました。', $result->message);
         $this->assertTrue($result->plugin->status);
 
-        $this->post('/baser/api/baser-core/plugins/attach/test.json?token=' . $this->accessToken);
+        $this->post('/baser/api/admin/baser-core/plugins/attach/test.json?token=' . $this->accessToken);
         $this->assertResponseCode(400);
         $result = json_decode((string)$this->_response->getBody());
         $this->assertNull($result->plugin);
@@ -174,7 +174,7 @@ class PluginsControllerTest extends BcTestCase
      */
     public function testRestDb()
     {
-        $this->put('/baser/api/baser-core/plugins/reset_db/BcBlog.json?token=' . $this->accessToken, ['connection' => 'test']);
+        $this->put('/baser/api/admin/baser-core/plugins/reset_db/BcBlog.json?token=' . $this->accessToken, ['connection' => 'test']);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('ブログ プラグインのデータを初期化しました。', $result->message);
@@ -188,7 +188,7 @@ class PluginsControllerTest extends BcTestCase
             'version' => "1.0.0",
             'permission' => "1"
         ];
-        $this->post('/baser/api/baser-core/plugins/install/BcBlog.json?token=' . $this->accessToken, $data);
+        $this->post('/baser/api/admin/baser-core/plugins/install/BcBlog.json?token=' . $this->accessToken, $data);
     }
 
     /**
@@ -205,7 +205,7 @@ class PluginsControllerTest extends BcTestCase
      */
     public function test_add()
     {
-        $this->get('/baser/api/baser-core/themes/add.json?token=' . $this->accessToken);
+        $this->get('/baser/api/admin/baser-core/themes/add.json?token=' . $this->accessToken);
         $this->assertResponseCode(405);
 
         $path = BASER_PLUGINS . 'BcSpaSample';
@@ -219,7 +219,7 @@ class PluginsControllerTest extends BcTestCase
         $zip->archive($zipSrcPath, $testFile, true);
 
         $this->setUploadFileToRequest('file', $testFile);
-        $this->post('/baser/api/baser-core/plugins/add.json?token=' . $this->accessToken);
+        $this->post('/baser/api/admin/baser-core/plugins/add.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('新規プラグイン「' . $plugin . '」を追加しました。', $result->message);
@@ -234,7 +234,7 @@ class PluginsControllerTest extends BcTestCase
      */
     public function testUpdateSort()
     {
-        $this->post('/baser/api/baser-core/plugins/update_sort.json?token=' . $this->accessToken, [
+        $this->post('/baser/api/admin/baser-core/plugins/update_sort.json?token=' . $this->accessToken, [
             'id' => 1,
             'offset' => 1
         ]);
@@ -249,7 +249,7 @@ class PluginsControllerTest extends BcTestCase
     public function test_batch()
     {
         $batchList = [1, 2];
-        $this->post('/baser/api/baser-core/plugins/batch.json?token=' . $this->accessToken, [
+        $this->post('/baser/api/admin/baser-core/plugins/batch.json?token=' . $this->accessToken, [
             'batch' => 'detach',
             'batch_targets' => $batchList
         ]);

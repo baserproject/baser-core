@@ -9,12 +9,11 @@
  * @license       https://basercms.net/license/index.html MIT License
  */
 
-namespace BaserCore\Controller\Api;
+namespace BaserCore\Controller\Api\Admin;
 
 use BaserCore\Service\SitesServiceInterface;
 use Cake\Datasource\Exception\RecordNotFoundException;
 use Cake\ORM\Exception\PersistenceFailedException;
-use Exception;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
@@ -22,7 +21,7 @@ use BaserCore\Annotation\Checked;
 /**
  * Class SitesController
  */
-class SitesController extends BcApiController
+class SitesController extends BcAdminApiController
 {
 
     /**
@@ -172,7 +171,7 @@ class SitesController extends BcApiController
      * @noTodo
      * @unitTest
      */
-    public function get_selectable_devices_and_lang(SitesServiceInterface $service, $mainSiteId, $currentSiteId = null)
+    public function get_selectable_devices_and_lang(SitesServiceInterface $service, $mainSiteId = null, $currentSiteId = null)
     {
         $this->set([
             'devices' => $service->getSelectableDevices($mainSiteId, $currentSiteId),

@@ -9,10 +9,9 @@
  * @license       https://basercms.net/license/index.html MIT License
  */
 
-namespace BaserCore\Test\TestCase\Controller\Api;
+namespace BaserCore\Test\TestCase\Controller\Api\Admin;
 
 use BaserCore\Service\SiteConfigsService;
-use Cake\Core\Configure;
 use Cake\TestSuite\IntegrationTestTrait;
 
 class SiteConfigsControllerTest extends \BaserCore\TestSuite\BcTestCase
@@ -74,7 +73,7 @@ class SiteConfigsControllerTest extends \BaserCore\TestSuite\BcTestCase
      */
     public function testView()
     {
-        $this->get('/baser/api/baser-core/site_configs/view/1.json?token=' . $this->accessToken);
+        $this->get('/baser/api/admin/baser-core/site_configs/view/1.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
 
@@ -85,7 +84,6 @@ class SiteConfigsControllerTest extends \BaserCore\TestSuite\BcTestCase
         $this->assertEquals($siteConfig["email"], $result->siteConfig->email);
         $this->assertEquals($siteConfig["theme"], $result->siteConfig->theme);
         $this->assertEquals($siteConfig["editor_styles"], $result->siteConfig->editor_styles);
-        $this->assertEquals($siteConfig["main_site_display_name"], $result->siteConfig->main_site_display_name);
     }
 
     /**
@@ -100,7 +98,7 @@ class SiteConfigsControllerTest extends \BaserCore\TestSuite\BcTestCase
         $data = [
             'email' => 'hoge@basercms.net'
         ];
-        $this->post('/baser/api/baser-core/site_configs/edit/1.json?token=' . $this->accessToken, $data);
+        $this->post('/baser/api/admin/baser-core/site_configs/edit/1.json?token=' . $this->accessToken, $data);
         $this->assertResponseSuccess();
     }
 

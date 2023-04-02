@@ -28,7 +28,6 @@ use BaserCore\Annotation\NoTodo;
 
 /**
  * Class PagesService
- * @package BaserCore\Service
  * @property PagesTable $Pages
  */
 class PagesService implements PagesServiceInterface
@@ -149,10 +148,17 @@ class PagesService implements PagesServiceInterface
     public function getIndex(array $queryParams = []): Query
     {
         $options = array_merge([
-            'status' => ''
+            'status' => '',
+            'contain' => ['Contents']
         ], $queryParams);
 
-        $query = $this->Pages->find()->contain('Contents');
+        $fields = $this->Pages->getSchema()->columns();
+        if (is_null($options['contain'])) {
+            $query = $this->Pages->find()->contain('Contents')->select($fields);
+        } else {
+            $query = $this->Pages->find()->contain($options['contain']);
+        }
+
         if (!empty($options['limit'])) {
             $query->limit($options['limit']);
         }
@@ -281,11 +287,11 @@ class PagesService implements PagesServiceInterface
     public function copy($postData)
     {
         return $this->Pages->copy(
-            $postData['entity_id'],
-            $postData['parent_id'],
-            $postData['title'],
+            $postData['entity_id'] ?? null,
+            $postData['parent_id'] ?? null,
+            $postData['title'] ?? null,
             BcUtil::loginUser()->id,
-            $postData['site_id']
+            $postData['site_id'] ?? null
         );
     }
 

@@ -9,11 +9,10 @@
  * @license       https://basercms.net/license/index.html MIT License
  */
 
-namespace BaserCore\Test\TestCase\Controller\Api;
+namespace BaserCore\Test\TestCase\Controller\Api\Admin;
 
 use BaserCore\Service\DblogsService;
 use BaserCore\TestSuite\BcTestCase;
-use Cake\Http\ServerRequest;
 use Cake\TestSuite\IntegrationTestTrait;
 
 class DblogsControllerTest extends BcTestCase
@@ -76,7 +75,7 @@ class DblogsControllerTest extends BcTestCase
      */
     public function testIndex()
     {
-        $this->get('/baser/api/baser-core/dblogs/index/1.json?token=' . $this->accessToken);
+        $this->get('/baser/api/admin/baser-core/dblogs/index/1.json?token=' . $this->accessToken);
         $this->assertResponseSuccess();
         $result = json_decode((string)$this->_response->getBody());
 
@@ -84,7 +83,7 @@ class DblogsControllerTest extends BcTestCase
         $dblogs = $dblogService->getIndex();
         $this->assertEquals($dblogs->count(), count($result->Dblogs));
 
-        $this->get('/baser/api/baser-core/dblogs/index/1.json?user_id=2&token=' . $this->accessToken);
+        $this->get('/baser/api/admin/baser-core/dblogs/index/1.json?user_id=2&token=' . $this->accessToken);
         $this->assertResponseSuccess();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals(1, count($result->Dblogs));
@@ -97,7 +96,7 @@ class DblogsControllerTest extends BcTestCase
      */
     public function testAdd()
     {
-        $this->get('/baser/api/baser-core/dblogs/add.json?token=' . $this->accessToken);
+        $this->get('/baser/api/admin/baser-core/dblogs/add.json?token=' . $this->accessToken);
         $this->assertResponseCode(405);
 
         $data = [
@@ -105,7 +104,7 @@ class DblogsControllerTest extends BcTestCase
             'title' => 'ucmitzグループ',
             'use_move_contents' => '1',
         ];
-        $this->post('/baser/api/baser-core/dblogs/add.json?token=' . $this->accessToken, $data);
+        $this->post('/baser/api/admin/baser-core/dblogs/add.json?token=' . $this->accessToken, $data);
         $this->assertResponseCode(400);
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('入力エラーです。内容を修正してください。', $result->message);
@@ -116,7 +115,7 @@ class DblogsControllerTest extends BcTestCase
             'controller' => "controller test",
             'action' => "add test"
         ];
-        $this->post('/baser/api/baser-core/dblogs/add.json?token=' . $this->accessToken, $data);
+        $this->post('/baser/api/admin/baser-core/dblogs/add.json?token=' . $this->accessToken, $data);
         $this->assertResponseSuccess();
 
         $result = json_decode((string)$this->_response->getBody());
@@ -134,15 +133,15 @@ class DblogsControllerTest extends BcTestCase
      */
     public function testDelete_all()
     {
-        $this->get('/baser/api/baser-core/dblogs/delete_all/dblogs.json?token=' . $this->accessToken);
+        $this->get('/baser/api/admin/baser-core/dblogs/delete_all/dblogs.json?token=' . $this->accessToken);
         $this->assertResponseCode(405);
 
-        $this->post('/baser/api/baser-core/dblogs/delete_all/dblogs.json?token=' . $this->accessToken);
+        $this->post('/baser/api/admin/baser-core/dblogs/delete_all/dblogs.json?token=' . $this->accessToken);
         $this->assertResponseSuccess();
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('最近の動きのログを削除しました。', $result->message);
 
-        $this->post('/baser/api/baser-core/dblogs/delete_all/test.json?token=' . $this->accessToken);
+        $this->post('/baser/api/admin/baser-core/dblogs/delete_all/test.json?token=' . $this->accessToken);
         $this->assertResponseCode(400);
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('最近の動きのログ削除に失敗しました。', $result->message);

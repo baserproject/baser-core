@@ -9,16 +9,14 @@
  * @license       https://basercms.net/license/index.html MIT License
  */
 
-namespace BaserCore\Controller\Api;
+namespace BaserCore\Controller\Api\Admin;
 
-use BaserCore\Error\BcException;
 use BaserCore\Service\PluginsServiceInterface;
+use Cake\Datasource\Exception\RecordNotFoundException;
+use Cake\ORM\Exception\PersistenceFailedException;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
-use Cake\Datasource\Exception\RecordNotFoundException;
-use Cake\Http\Exception\NotFoundException;
-use Cake\ORM\Exception\PersistenceFailedException;
 
 /**
  * Class PluginsController
@@ -26,7 +24,7 @@ use Cake\ORM\Exception\PersistenceFailedException;
  * https://localhost/baser/api/baser-core/plugins/action_name.json で呼び出す
  *
  */
-class PluginsController extends BcApiController
+class PluginsController extends BcAdminApiController
 {
 
     /**
@@ -190,7 +188,7 @@ class PluginsController extends BcApiController
      */
     public function reset_db(PluginsServiceInterface $service, $name)
     {
-        $this->request->allowMethod(['put']);
+        $this->request->allowMethod(['post', 'put']);
         $plugin = null;
         try {
             $plugin = $service->getByName($name);

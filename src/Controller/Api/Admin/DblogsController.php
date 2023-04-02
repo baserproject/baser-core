@@ -9,19 +9,18 @@
  * @license       https://basercms.net/license/index.html MIT License
  */
 
-namespace BaserCore\Controller\Api;
+namespace BaserCore\Controller\Api\Admin;
 
 use BaserCore\Service\DblogsServiceInterface;
+use Cake\ORM\Exception\PersistenceFailedException;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
-use BaserCore\Annotation\Note;
-use Cake\ORM\Exception\PersistenceFailedException;
 
 /**
  * Class DblogsController
  */
-class DblogsController extends BcApiController
+class DblogsController extends BcAdminApiController
 {
 
     /**
@@ -35,8 +34,12 @@ class DblogsController extends BcApiController
     {
         $this->request->allowMethod(['get']);
 
+        $queryParams = array_merge([
+            'contain' => null
+        ], $this->getRequest()->getQueryParams());
+
         $this->set([
-            'Dblogs' => $this->paginate($service->getIndex($this->request->getQueryParams()))
+            'Dblogs' => $this->paginate($service->getIndex($queryParams))
         ]);
 
         $this->viewBuilder()->setOption('serialize', ['Dblogs']);
