@@ -14,7 +14,6 @@ namespace BaserCore;
 use Authentication\AuthenticationService;
 use Authentication\AuthenticationServiceInterface;
 use Authentication\AuthenticationServiceProviderInterface;
-use Authentication\Authenticator\JwtAuthenticator;
 use Authentication\Authenticator\SessionAuthenticator;
 use Authentication\Middleware\AuthenticationMiddleware;
 use BaserCore\Command\ComposerCommand;
@@ -32,6 +31,7 @@ use BaserCore\Middleware\BcRedirectSubSiteFilter;
 use BaserCore\Middleware\BcRequestFilterMiddleware;
 use BaserCore\ServiceProvider\BcServiceProvider;
 use BaserCore\Utility\BcEvent;
+use BaserCore\Utility\BcLang;
 use BaserCore\Utility\BcUtil;
 use Cake\Console\CommandCollection;
 use Cake\Core\Configure;
@@ -43,6 +43,7 @@ use Cake\Http\Exception\ForbiddenException;
 use Cake\Http\Middleware\CsrfProtectionMiddleware;
 use Cake\Http\MiddlewareQueue;
 use Cake\Http\ServerRequestFactory;
+use Cake\I18n\I18n;
 use Cake\Log\Log;
 use Cake\ORM\TableRegistry;
 use Cake\Routing\RouteBuilder;
@@ -50,6 +51,7 @@ use Cake\Routing\Router;
 use Cake\Utility\Inflector;
 use Cake\Utility\Security;
 use Psr\Http\Message\ServerRequestInterface;
+use Cake\Core\Plugin as CorePlugin;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
@@ -99,6 +101,14 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
         $_ENV['IS_CONSOLE'] = (substr(php_sapi_name(), 0, 3) === 'cli');
 
         /**
+         * 言語設定
+         * ブラウザよりベースとなる言語を設定
+         */
+        if(isset($_SERVER['HTTP_ACCEPT_LANGUAGE']) && !BcUtil::isTest()) {
+            I18n::setLocale(BcLang::parseLang($_SERVER['HTTP_ACCEPT_LANGUAGE']));
+        }
+
+        /**
          * インストール状態による初期化設定
          * インストールされている場合は、TMP フォルダの設定を行い、
          * されていない場合は、インストールプラグインをロードする。
@@ -143,7 +153,9 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
         if (BcUtil::isTest()) $application->addPlugin('CakephpFixtureFactories');
         $application->addPlugin('Authentication');
         $application->addPlugin('Migrations');
+
         $this->addTheme($application);
+
         if (!filter_var(env('USE_DEBUG_KIT', true), FILTER_VALIDATE_BOOLEAN)) {
             // 明示的に指定がない場合、DebugKitは重すぎるのでデバッグモードでも利用しない
             \Cake\Core\Plugin::getCollection()->remove('DebugKit');
@@ -175,22 +187,35 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
     /**
      * テーマを追加する
      *
+     * テーマ内のプラグインも追加する
+     *
      * @param PluginApplicationInterface $application
      * @noTodo
      * @checked
      */
     public function addTheme(PluginApplicationInterface $application)
     {
-        $application->addPlugin(Inflector::camelize(Configure::read('BcApp.defaultAdminTheme'), '-'));
-        $application->addPlugin(Inflector::camelize(Configure::read('BcApp.defaultFrontTheme'), '-'));
+        $application->addPlugin(Inflector::camelize(Configure::read('BcApp.coreAdminTheme'), '-'));
+        $application->addPlugin(Inflector::camelize(Configure::read('BcApp.coreFrontTheme'), '-'));
         if (!BcUtil::isInstalled()) return;
         $sitesTable = TableRegistry::getTableLocator()->get('BaserCore.Sites');
         $sites = $sitesTable->find()->where(['Sites.status' => true]);
+        $path = [];
         foreach($sites as $site) {
             if ($site->theme) {
                 BcUtil::includePluginClass($site->theme);
                 $application->addPlugin($site->theme);
+                $pluginPath = CorePlugin::path($site->theme) . 'plugins' . DS;
+                if(!is_dir($pluginPath)) continue;
+                $path[] = $pluginPath;
             }
+        }
+        // テーマプラグインを追加
+        if($path) {
+            Configure::write('App.paths.plugins', array_merge(
+                Configure::read('App.paths.plugins'),
+                $path
+            ));
         }
     }
 
@@ -202,15 +227,22 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
      */
     public function setupDefaultTemplatesPath()
     {
+        $admin = Configure::read('BcApp.coreAdminTheme');
+        $front = Configure::read('BcApp.coreFrontTheme');
         if (BcUtil::isAdminSystem() && empty($_REQUEST['preview'])) {
-            $template = Configure::read('BcApp.defaultAdminTheme');
+            Configure::write('App.paths.templates', array_merge([
+                ROOT . DS . 'plugins' . DS . $admin . DS . 'templates' . DS,
+                ROOT . DS . 'vendor' . DS . 'baserproject' . DS . $admin . DS . 'templates' . DS
+            ], Configure::read('App.paths.templates')));
         } else {
-            $template = Configure::read('BcApp.defaultFrontTheme');
+            Configure::write('App.paths.templates', array_merge([
+                ROOT . DS . 'plugins' . DS . $front . DS . 'templates' . DS,
+                ROOT . DS . 'vendor' . DS . 'baserproject' . DS . $front . DS . 'templates' . DS,
+                ROOT . DS . 'plugins' . DS . $admin . DS . 'templates' . DS,
+                ROOT . DS . 'vendor' . DS . 'baserproject' . DS . $admin . DS . 'templates' . DS
+            ], Configure::read('App.paths.templates')));
         }
-        Configure::write('App.paths.templates', array_merge([
-            ROOT . DS . 'plugins' . DS . $template . DS . 'templates' . DS,
-            ROOT . DS . 'vendor' . DS . 'baserproject' . DS . $template . DS . 'templates' . DS
-        ], Configure::read('App.paths.templates')));
+
     }
 
     /**
@@ -257,20 +289,53 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
         $ref = new ReflectionClass($middlewareQueue);
         $queue = $ref->getProperty('queue');
         $queue->setAccessible(true);
+
         foreach($queue->getValue($middlewareQueue) as $middleware) {
             if ($middleware instanceof CsrfProtectionMiddleware) {
+
                 $middleware->skipCheckCallback(function($request) {
-                    $authSetting = Configure::read('BcPrefixAuth.' . $request->getParam('prefix'));
-                    if (!empty($authSetting['isRestApi'])) {
-                        $authenticator = $request->getAttribute('authentication')->getAuthenticationProvider();
+                    $prefix = $request->getParam('prefix');
+                    $authSetting = Configure::read('BcPrefixAuth.' . $prefix);
+
+                    // 領域が REST API でない場合はスキップしない
+                    if (empty($authSetting['isRestApi'])) return false;
+
+                    // 設定ファイルでスキップの定義がされている場合はスキップ
+                    if(in_array($request->getPath(), $this->getSkipCsrfUrl())) return true;
+
+                    $authenticator = $request->getAttribute('authentication')->getAuthenticationProvider();
+                    if($authenticator) {
+                        // 認証済の際、セッション認証以外はスキップ
                         if(!$authenticator instanceof SessionAuthenticator) return true;
+                    } else {
+                        // 認証できていない場合、領域がJwt認証前提の場合はスキップ
+                        if($authSetting['type'] === 'Jwt') return true;
                     }
                     return false;
                 });
+
             }
         }
 
         return $middlewareQueue;
+    }
+
+    /**
+     * Web API のPOST送信において CSRF をスキップするURLについて、
+     * Router で変換した上で取得
+     *
+     * @return array
+     * @noTodo
+     * @checked
+     */
+    protected function getSkipCsrfUrl(): array
+    {
+        $skipUrl = [];
+        $skipUrlSrc = Configure::read('BcApp.skipCsrfUrlInPostApi');
+        foreach($skipUrlSrc as $url) {
+            $skipUrl[] = Router::url($url);
+        }
+        return $skipUrl;
     }
 
     /**
@@ -347,9 +412,7 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
     {
         if (!filter_var(env('USE_CORE_API', false), FILTER_VALIDATE_BOOLEAN)) {
             if ($prefix === 'Api/Admin') {
-                if (BcUtil::loginUser()) {
-                    return BcUtil::isSameReferrerAsCurrent();
-                }
+                return BcUtil::isSameReferrerAsCurrent();
             }
         } else {
             return true;
@@ -501,6 +564,14 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
         }
 
         /**
+         * フィード出力
+         * 拡張子rssの場合は、rssディレクトリ内のビューを利用する
+         */
+        if (!BcUtil::isAdminSystem()) {
+            $routes->setExtensions('rss');
+        }
+
+        /**
          * メンテナンス
          */
         $routes->connect('/maintenance', ['plugin' => 'BaserCore', 'controller' => 'Maintenance', 'action' => 'index']);
@@ -541,13 +612,6 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
             }
         );
 
-        /**
-         * フィード出力
-         * 拡張子rssの場合は、rssディレクトリ内のビューを利用する
-         */
-        if (!BcUtil::isAdminSystem()) {
-            $routes->setExtensions('rss');
-        }
         parent::routes($routes);
     }
 

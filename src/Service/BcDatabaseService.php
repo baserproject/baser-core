@@ -325,8 +325,8 @@ class BcDatabaseService implements BcDatabaseServiceInterface
         if (!$result) {
             $this->resetAllTables($excludes);
             // 指定したデータセットでの読み込みに失敗した場合、コアのデータ読み込みを試みる
-            if ($theme !== Configure::read('BcApp.defaultFrontTheme')) {
-                $theme = Configure::read('BcApp.defaultFrontTheme');
+            if ($theme !== Configure::read('BcApp.coreFrontTheme')) {
+                $theme = Configure::read('BcApp.coreFrontTheme');
                 foreach($plugins as $plugin) {
                     if (!$this->_loadDefaultDataPattern($pattern, $theme, $plugin, $excludes)) {
                         $result = false;
@@ -545,7 +545,7 @@ class BcDatabaseService implements BcDatabaseServiceInterface
             'theme' => null,
         ], $options);
 
-        $corePath = BcUtil::getPluginPath(Inflector::camelize(Configure::read('BcApp.defaultFrontTheme'), '-')) . 'config' . DS . 'data' . DS . 'default' . DS . 'BaserCore';
+        $corePath = BcUtil::getPluginPath(Inflector::camelize(Configure::read('BcApp.coreFrontTheme'), '-')) . 'config' . DS . 'data' . DS . 'default' . DS . 'BaserCore';
         $result = true;
 
         // user_groupsの初期データをチェック＆設定
@@ -629,13 +629,12 @@ class BcDatabaseService implements BcDatabaseServiceInterface
      */
     public function updateSequence()
     {
-        // TODO ucmitz 未実装
-        return;
-
         $db = ConnectionManager::get('default');
+        if($db->config()['driver'] !== Postgres::class) return true;
         $tables = $db->getSchemaCollection()->listTables();
         $result = true;
         foreach($tables as $table) {
+            if (preg_match('/_phinxlog$/', $table)) continue;
             $sql = 'select setval(\'' . $this->getSequence($table) . '\', (select max(id) from ' . $table . '));';
             if (!$db->execute($sql)) $result = false;
         }
@@ -647,17 +646,6 @@ class BcDatabaseService implements BcDatabaseServiceInterface
      */
     public function getSequence($table, $field = 'id')
     {
-        // TODO ucmitz 未実装
-        // CakePHP4系で存在しないので、CakePHP2系のPostgresクラスより持ってきた
-        if (is_object($table)) {
-            $table = $this->fullTableName($table, false, false);
-        }
-        if (!isset($this->_sequenceMap[$table])) {
-            $this->describe($table);
-        }
-        if (isset($this->_sequenceMap[$table][$field])) {
-            return $this->_sequenceMap[$table][$field];
-        }
         return "{$table}_{$field}_seq";
     }
 
@@ -1186,6 +1174,12 @@ class BcDatabaseService implements BcDatabaseServiceInterface
             'prefix' => $config['prefix'],
             'encoding' => $config['encoding']
         ]);
+        if($config['datasource'] === 'sqlite') {
+            if(!is_dir(ROOT . DS . 'db' . DS . 'sqlite')) {
+                $folder = new Folder(ROOT . DS . 'db' . DS . 'sqlite');
+                $folder->create(ROOT . DS . 'db' . DS . 'sqlite', 0777);
+            }
+        }
         $db = ConnectionManager::get($name);
         $db->connect();
         return $db;
@@ -1429,9 +1423,8 @@ class BcDatabaseService implements BcDatabaseServiceInterface
         $db = $this->getDataSource($dbConfigKeyName, $dbConfig);
         if (!$dbConfig) $dbConfig = ConnectionManager::getConfig($dbConfigKeyName);
         $datasource = strtolower(str_replace('Cake\\Database\\Driver\\', '', $dbConfig['driver']));
-        if ($datasource == 'sqlite') {
+        if ($datasource === 'sqlite') {
             $db->connect();
-            chmod($dbConfig['database'], 0666);
         } elseif (!$db->isConnected()) {
             return false;
         }

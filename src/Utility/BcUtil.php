@@ -14,8 +14,10 @@ namespace BaserCore\Utility;
 use BaserCore\Middleware\BcAdminMiddleware;
 use BaserCore\Middleware\BcFrontMiddleware;
 use BaserCore\Middleware\BcRequestFilterMiddleware;
+use BaserCore\Model\Entity\Site;
 use BaserCore\Service\PluginsServiceInterface;
 use BaserCore\Service\SitesService;
+use BaserCore\Service\SitesServiceInterface;
 use Cake\Core\App;
 use Cake\Cache\Cache;
 use Cake\Core\Plugin;
@@ -500,6 +502,8 @@ class BcUtil
         Cache::clear('_cake_core_');
         self::clearModelCache();
         Cache::clear('_bc_env_');
+        Cache::clear('_bc_update_');
+        Cache::clear('_bc_gmaps_');
         //TODO ucmitz : viewキャッシュ削除
         // clearCache();
         //TODO ucmitz : dataキャッシュ削除
@@ -633,7 +637,7 @@ class BcUtil
      */
     public static function getThemesPlugins($theme)
     {
-        $path = BcUtil::getPluginPath($theme) . 'Plugin';
+        $path = BcUtil::getPluginPath($theme) . 'plugins';
         if (!file_exists($path)) return [];
         $Folder = new Folder($path);
         $files = $Folder->read(true, true, false);
@@ -656,7 +660,7 @@ class BcUtil
      */
     public static function getDefaultDataPath($theme = null, $pattern = null)
     {
-        if (!$theme) $theme = Configure::read('BcApp.defaultFrontTheme');
+        if (!$theme) $theme = Configure::read('BcApp.coreFrontTheme');
         if (!$pattern) $pattern = 'default';
         $base = Plugin::path($theme);
         $paths = [
@@ -696,7 +700,10 @@ class BcUtil
         $value = @unserialize(base64_decode($value));
         // 下位互換のため、しばらくの間、失敗した場合の再変換を行う v.3.0.2
         if ($value === false) {
-            $value = unserialize($_value);
+			$value = @unserialize($_value);
+			if($value === false) {
+				return '';
+			}
         }
         return $value;
     }
@@ -763,22 +770,26 @@ class BcUtil
         if (!$plugins) return [];
         if (!is_array($plugins)) $plugins = [$plugins];
 
-        $_templates = [];
+        $templates = [];
         foreach($plugins as $plugin) {
             if (is_null($plugin)) continue;
-            $templatePath = self::getTemplatePath($plugin);
-            $folder = new Folder($templatePath . $path . DS);
-            $files = $folder->read(true, true)[1];
-            if ($files) {
-                $_templates = array_merge($_templates, $files);
+            $templatePaths = [
+                self::getTemplatePath($plugin),
+                self::getTemplatePath(Inflector::camelize(Configure::read('BcApp.coreAdminTheme'), '-')) . 'plugin' . DS . $plugin . DS
+            ];
+            foreach($templatePaths as $templatePath) {
+                $folder = new Folder($templatePath . $path . DS);
+                $files = $folder->read(true, true)[1];
+                if ($files) {
+                    $templates = array_merge($templates, $files);
+                }
             }
         }
-        $templates = [];
-        foreach($_templates as $template) {
-            if ($template != 'installations.php') {
-                $template = basename($template, '.php');
-                $templates[$template] = $template;
-            }
+        foreach($templates as $key => $template) {
+            if ($template === 'installations.php') continue;
+            $template = basename($template, '.php');
+            unset($templates[$key]);
+            $templates[$template] = $template;
         }
         return $templates;
     }
@@ -817,7 +828,7 @@ class BcUtil
         $themes = [$site->theme];
         $rootTheme = BcUtil::getRootTheme();
         if ($rootTheme !== $themes[0]) $themes[] = $rootTheme;
-        $defaultTheme = Configure::read('BcApp.defaultFrontTheme');
+        $defaultTheme = Configure::read('BcApp.coreFrontTheme');
         if (!in_array($defaultTheme, $themes)) $themes[] = $defaultTheme;
 
         $templatesPaths = [];
@@ -1167,12 +1178,19 @@ class BcUtil
      */
     public static function getCurrentTheme()
     {
-        $theme = Inflector::camelize(Inflector::underscore(Configure::read('BcApp.defaultFrontTheme')));
+        $theme = Inflector::camelize(Inflector::underscore(Configure::read('BcApp.coreFrontTheme')));
         if (!BcUtil::isInstalled()) return $theme;
         $request = Router::getRequest();
+        /** @var Site $site */
         $site = $request->getAttribute('currentSite');
         if ($site) {
-            return $site->theme;
+            if($site->theme) {
+                return $site->theme;
+            } else {
+                $sitesService = BcContainer::get()->get(SitesServiceInterface::class);
+                $site = $sitesService->get($site->main_site_id);
+                return $site->theme;
+            }
         } elseif (self::getRootTheme()) {
             return self::getRootTheme();
         } else {
@@ -1201,7 +1219,7 @@ class BcUtil
      */
     public static function getCurrentAdminTheme()
     {
-        $adminTheme = Inflector::camelize(Inflector::underscore(Configure::read('BcApp.defaultAdminTheme')));
+        $adminTheme = Inflector::camelize(Inflector::underscore(Configure::read('BcApp.coreAdminTheme')));
         if (BcUtil::isInstalled() && !empty(BcSiteConfig::get('admin_theme'))) {
             $adminTheme = BcSiteConfig::get('admin_theme');
         }
@@ -1906,6 +1924,16 @@ class BcUtil
         $prefix = $request->getParam('prefix');
         if (!$prefix) $prefix = 'Front';
         return $prefix;
+    }
+
+    /**
+     * デバッグモードかどうか
+     *
+     * @return bool
+     */
+    public static function isDebug(): bool
+    {
+        return Configure::read('debug');
     }
 
 }

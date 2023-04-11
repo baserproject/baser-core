@@ -12,8 +12,16 @@
 namespace BaserCore\View\Helper;
 
 use BaserCore\Utility\BcSiteConfig;
+use BcBlog\Model\Entity\BlogPost;
+use BcCustomContent\Model\Entity\CustomContent;
+use BcCustomContent\Model\Entity\CustomEntry;
+use BcCustomContent\Model\Entity\CustomLink;
+use BcMail\Model\Entity\MailField;
+use BcMail\View\Helper\MailformHelper;
 use Cake\Core\Plugin;
 use Cake\Datasource\EntityInterface;
+use Cake\ORM\ResultSet;
+use Cake\Routing\Router;
 use Cake\Utility\Hash;
 use Cake\Utility\Inflector;
 use Cake\View\Helper\BreadcrumbsHelper;
@@ -35,6 +43,7 @@ use BaserCore\Annotation\Doc;
 
 /**
  * Class BcBaserHelper
+ *
  * @property BcHtmlHelper $BcHtml
  * @property UrlHelper $Url
  * @property FlashHelper $Flash
@@ -42,6 +51,99 @@ use BaserCore\Annotation\Doc;
  * @property BreadcrumbsHelper $Breadcrumbs
  * @property BcContentsHelper $BcContents
  * @property BcGoogleMapsHelper $BcGoogleMaps
+ *
+ * ### BcContentsHelper
+ * @method EntityInterface getParentContent(int $id = null, bool $direct = true)
+ *
+ * ### BcThemeConfigHelper
+ * @method void mainImage(array $options = [])
+ * @method void logo(array $options = [])
+ *
+ * ### BcWidgetAreaHelper
+ * @method void widgetArea(int $no = null, array $options = [])
+ * @method string getWidgetArea(int $no = null, array $options = [])
+ * @method bool isMail() MailHelper
+ *
+ * ### BlogHelper
+ * @method void blogPosts(string $contentsName = [], int $num = 5, array $options = [])
+ * @method string getBlogPosts(string $contentsName = [], int $num = 5, array $options = [])
+ * @method bool isBlogCategory()
+ * @method bool isBlogTag()
+ * @method bool isBlogDate()
+ * @method bool isBlogMonth()
+ * @method bool isBlogYear()
+ * @method bool isBlogSingle()
+ * @method bool isBlogHome()
+ * @method array getBlogs(string $name = '', array $options = [])
+ * @method bool isBlog()
+ * @method array getBlogCategories(array $options = [])
+ * @method bool hasChildBlogCategory(int $id)
+ * @method array getBlogTagList(string $name, array $options = [])
+ * @method void blogTagList(string $name, array $options = [])
+ * @method string getBlogContentsUrl(int $blogContentId, $base = true)
+ * @method int getBlogPostCount()
+ * @method string getBlogTitle()
+ * @method string getBlogPostLinkUrl(BlogPost $post, bool $base = true, bool $full = true)
+ * @method void blogPostEyeCatch(BlogPost $post, array $options = [])
+ * @method void blogPostDate(BlogPost $post, string $format = 'Y/m/d')
+ * @method void blogPostTitle(BlogPost $post, bool $link = true, array $options = [])
+ * @method void blogPostCategory(BlogPost $post, array $options = [])
+ * @method void blogPostContent(BlogPost $post, bool $moreText = true, bool $moreLink = false, bool $cut = false, bool $lastText = false)
+ * @method void blogDescription()
+ * @method bool blogDescriptionExists()
+ * @method string getBlogPostContent(BlogPost $post, bool $moreText = true, bool $moreLink = false, bool $cut = false, bool $lastText = false)
+ * @method void blogPostPrevLink(BlogPost $post, string $title = '', array $htmlAttributes = [])
+ * @method void blogPostNextLink(BlogPost $post, string $title = '', array $htmlAttributes = [])
+ *
+ * ### MailHelper
+ * @method bool mailFormDescriptionExists()
+ * @method void mailFormDescription()
+ *
+ * ### MailformHelper
+ * @method void freezeMailForm()
+ * @method string createMailForm($context = null, $options = [])
+ * @method string mailFormHidden($fieldName, $options = [])
+ * @method void mailFormAuthCaptcha(string $fieldName, array $options = [])
+ * @method string mailFormSubmit(string $caption = null, array $options = [])
+ * @method string endMailForm(array $secureAttributes = [])
+ * @method MailformHelper unlockMailFormField(string $name)
+ * @method mixed getMailFormSourceValue(string $fieldname, array $options = [])
+ * @method string mailFormError(string $field, $text = null, array $options = [])
+ * @method string mailFormControl(string $fieldName, array $options = [])
+ * @method array getMailFormGroupValidErrors(array $mailFields, string $groupValid, array $options = [], bool $distinct = true)
+ * @method bool isMailFormGroupLastField(ResultSet $mailFields, MailField $currentMailField)
+ * @method string mailFormLabel(string $fieldName, ?string $text = null, array $options = [])
+ *
+ * ### BcUploadHelper
+ * @method void setTableToUpload(string $tableName)
+ *
+ * ### BcFormHelper
+ * @method string createForm($context = null, array $options = [])
+ * @method string formControl(string $fieldName, array $options = [])
+ * @method string formHidden(string $fieldName, array $options = [])
+ * @method string formSubmit(?string $caption = null, array $options = [])
+ * @method string formError(string $field, $text = null, array $options = [])
+ * @method string endForm(array $secureAttributes = [])
+ * @method string formLabel(string $fieldName, ?string $text = null, array $options = [])
+ *
+ * ### HtmlHelper
+ * @method scriptStart(array $options = [])
+ * @method string scriptEnd()
+ * @method string meta($type, $content = null, array $options = [])
+ *
+ * ### CustomContentHelper
+ * @method bool isDisplayCustomEntrySearch(CustomLink $customLink, string $type = 'front')
+ * @method string customSearchControl(CustomLink $customLink, array $options = [])
+ * @method void customContentDescription(CustomContent $content)
+ * @method void customEntryTitle(CustomEntry $entry, array $options = [])
+ * @method string customEntryPublished(CustomEntry $entry)
+ * @method ResultSet getCustomLinks(int $tableId, bool $isThreaded = true)
+ * @method bool isDisplayCustomField(CustomEntry $entry, string $fieldName)
+ * @method string getCustomFieldTitle(mixed $entry, string $fieldName)
+ * @method string|array getCustomFieldValue(mixed $entry, string $fieldName, array $options = [])
+ *
+ * ### TextHelper
+ * @method string truncateText(string $text, int $length = 100, array $options = [])
  */
 class BcBaserHelper extends Helper
 {
@@ -82,25 +184,6 @@ class BcBaserHelper extends Helper
     ];
     // <<<
 
-
-    /**
-     * ページモデル
-     *
-     * 一度初期化した後に再利用し、処理速度を向上する為にコンストラクタでセットする。
-     *
-     * @var Page
-     */
-    protected $_Page = null;
-
-    /**
-     * アクセスルールモデル
-     *
-     * 一度初期化した後に再利用し、処理速度を向上する為にコンストラクタでセットする。
-     *
-     * @var Permission
-     */
-    protected $_Permission = null;
-
     /**
      * カテゴリタイトル設定
      *
@@ -138,21 +221,6 @@ class BcBaserHelper extends Helper
     public function __construct(View $View, $settings = [])
     {
         parent::__construct($View, $settings);
-
-        // モデルクラスをセット
-        // 一度初期化した後に再利用し、処理速度を向上する為にコンストラクタでセットしておく
-        // TODO 未実装のためコメントアウト
-        /* >>>
-        if ($this->_View && BcUtil::isInstalled() && !Configure::read('BcRequest.isUpdater') && !Configure::read('BcRequest.isMaintenance')) {
-            // DBに接続できない場合、CakePHPのエラーメッセージが表示されてしまう為、 try を利用
-            try {
-                $this->_Permission = ClassRegistry::init('Permission');
-                $this->_Page = ClassRegistry::init('Page');
-            } catch (Exception $ex) {
-
-            }
-        }
-        <<< */
 
         // サイト基本設定データをセット
         // TODO 未実装
@@ -564,13 +632,10 @@ class BcBaserHelper extends Helper
         $session = $this->_View->getRequest()->getSession();
         $sessionMessageList = $session->read('Flash');
         if ($sessionMessageList) {
-            echo '<div id="MessageBox" class="message-box">';
-            foreach($sessionMessageList as $messageKey => $sessionMessage) {
-                if ($key === $messageKey && $session->check('Flash.' . $messageKey)) {
-                    echo $this->Flash->render($messageKey, ['escape' => false]);
-                }
-            }
-            echo '</div>';
+            $this->element('wrap_flash', [
+                'key' => $key,
+                'sessionMessageList' => $sessionMessageList
+            ]);
         }
     }
 
@@ -1290,7 +1355,9 @@ class BcBaserHelper extends Helper
             $this->css('/files/theme_configs/config');
         }
 
-        $scripts = $this->_View->fetch('meta') . $this->_View->fetch('css') . $this->_View->fetch('script');
+        $scripts = $this->_View->fetch('meta') . "\n" .
+            $this->_View->fetch('css') . "\n" .
+            $this->_View->fetch('script');
 
         if (Configure::read('BcApp.outputMetaGenerator')) {
             $scripts = "\n<meta name=\"generator\" content=\"basercms\"/>" . $scripts;
@@ -1327,7 +1394,7 @@ class BcBaserHelper extends Helper
         if (empty($this->_View->get('preview')) && $toolbar) {
             if ($this->_View->getRequest()->getQuery('toolbar') !== false && $this->_View->getRequest()->getQuery('toolbar') !== 'false') {
                 if ($currentPrefix !== 'Admin' && BcUtil::loginUser()) {
-                    $adminTheme = Inflector::camelize(Configure::read('BcApp.defaultAdminTheme'), '-');
+                    $adminTheme = Inflector::camelize(Configure::read('BcApp.coreAdminTheme'), '-');
                     $this->element($adminTheme . '.toolbar');
                 }
             }
@@ -1566,23 +1633,10 @@ class BcBaserHelper extends Helper
             }
             $out = implode($separator, $out);
         } else {
-            $counter = 1;
-            foreach($crumbs as $crumb) {
-                $options = ['itemprop' => 'item', 'escape' => false];
-                if (!empty($crumb['options'])) {
-                    $options = array_merge($options, $crumb['options']);
-                }
-                if (!empty($crumb['url'])) {
-                    $crumb = $this->getLink('<span itemprop="name">' . $crumb['title'] . '</span>', $crumb['url'], $options) . '<span class="separator">' . $separator . '</span>';
-                } else {
-                    $crumb = '<span itemprop="name">' . $crumb['title'] . '</span>';
-                }
-                $out[] = <<< EOD
-<li itemprop="itemListElement" itemscope itemtype="http://schema.org/ListItem">{$crumb}<meta itemprop="position" content="{$counter}" /></li>
-EOD;
-                $counter++;
-            }
-            $out = implode("\n", $out);
+            $out = $this->getElement('schema_crumbs', [
+                'crumbs' => $crumbs,
+                'separator' => $separator
+            ]);
         }
         echo $out;
     }
@@ -1683,8 +1737,8 @@ EOD;
      * {プラグイン名}BaserHelper
      *
      * 《利用例》
-     * - Feedプラグインに FeedBaserHelper::feed() が定義されている場合
-     *        $this->BcBaser->feed(1);
+     * - BcBlogプラグインに BcBlogBaserHelper::blogPosts() が定義されている場合
+     *        $this->BcBaser->blogPosts('news');
      *
      * @return void
      */
@@ -1696,10 +1750,11 @@ EOD;
         foreach($plugins as $plugin) {
             $pluginName = Inflector::camelize($plugin);
             $className = $pluginName . '\\View\\Helper\\' . $pluginName . 'BaserHelper';
-            if (class_exists($className)) {
+            if (class_exists($className) && is_a($className, BcPluginBaserHelperInterface::class, true)) {
                 $this->_pluginBasers[$pluginName] = new $className($this->getView());
             }
         }
+        $this->_pluginBasers['BaserCore'] = new BaserCoreBaserHelper($this->getView());
     }
 
     /**
@@ -1710,16 +1765,22 @@ EOD;
      *
      * @param string $method メソッド名
      * @param array $params 引数
-     * @return mixed PluginBaserHelper の戻り値
+     * @return mixed|void PluginBaserHelper の戻り値
      */
     public function __call($method, $params)
     {
         foreach($this->_pluginBasers as $pluginBaser) {
-            if (method_exists($pluginBaser, $method)) {
-                return call_user_func_array([$pluginBaser, $method], $params);
+            $methods = $pluginBaser->methods();
+            if(!empty($methods[$method])) {
+                if(!isset($methods[$method][0])) continue;
+                if(!isset($methods[$method][1])) continue;
+                $helper = $methods[$method][0];
+                $target = $methods[$method][1];
+                if(method_exists($pluginBaser->{$helper}, $target)) {
+                    return call_user_func_array([$pluginBaser->{$helper}, $target], $params);
+                }
             }
         }
-        return null;
     }
 
     /**
@@ -2776,7 +2837,7 @@ END_FLASH;
     /**
      * IDがコンテンツ自身の親のIDかを判定する
      *
-     * @param int $id コンテンツ自身のID
+     * @param int|null $id コンテンツ自身のID
      * @param int $parentId 親として判定するID
      * @return bool
      */
@@ -2825,6 +2886,31 @@ END_FLASH;
     public function isPluginLoaded(string $plugin): bool
     {
         return Plugin::isLoaded($plugin);
+    }
+
+    /**
+     * デバッグモードかどうか
+     *
+     * @return bool
+     * @checked
+     * @noTodo
+     */
+    public function isDebug(): bool
+    {
+        return BcUtil::isDebug();
+    }
+
+    /**
+     * フルURLに変換する
+     *
+     * @param string $url
+     * @return string
+     * @checked
+     * @noTodo
+     */
+    public function getFullUrl(string $url): string
+    {
+        return BcUtil::fullUrl($url);
     }
 
 }

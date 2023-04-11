@@ -12,6 +12,9 @@
 namespace BaserCore\View\Helper;
 
 use BaserCore\Model\Entity\Content;
+use BaserCore\Model\Table\SitesTable;
+use BaserCore\Service\SitesService;
+use BaserCore\Service\SitesServiceInterface;
 use Cake\Datasource\EntityInterface;
 use Cake\Utility\Hash;
 use Exception;
@@ -124,7 +127,7 @@ class BcContentsHelper extends Helper
                 }
             } else {
                 // 後方互換のため判定を入れる（v4.2.0）
-                if (Configure::read('BcSite.admin_theme') === Configure::read('BcApp.defaultAdminTheme')) {
+                if (Configure::read('BcSite.admin_theme') === Configure::read('BcApp.coreAdminTheme')) {
                     $item['icon'] = $item['icon'] = 'bca-icon--file';
                 } else {
                     $item['url']['icon'] = $this->_getIconUrl($item['plugin'], $item['type'], null);
@@ -673,8 +676,17 @@ class BcContentsHelper extends Helper
      */
     public function getFolderLinkedUrl(EntityInterface $content)
     {
-        $urlArray = explode('/', preg_replace('/(^\/|\/$)/', '', $content->url));
-        unset($urlArray[count($urlArray) - 1]);
+		if($content->url) {
+			$urlArray = explode('/', preg_replace('/(^\/|\/$)/', '', $content->url));
+			unset($urlArray[count($urlArray) - 1]);
+		} elseif($content->parent_id) {
+			$parent = $this->ContentsService->get($content->parent_id);
+			$urlArray = explode('/', preg_replace('/(^\/|\/$)/', '', $parent->url));
+		}
+		if(count($urlArray) === 1 && !$urlArray[0]) {
+			$urlArray = [];
+		}
+
         if ($content->site->same_main_url) {
             $sites = TableRegistry::getTableLocator()->get('BaserCore.Sites');
             $site = $sites->findById($content->site->main_site_id)->first();
@@ -886,4 +898,17 @@ class BcContentsHelper extends Helper
         ];
         return $this->ContentsService->getNeighbors($options);
     }
+
+    /**
+     * 公開状態のサイトを全て取得する
+     *
+     * @return \Cake\Datasource\ResultSetInterface
+     */
+    public function getPublishedSites()
+    {
+        /** @var SitesTable $sites */
+        $sites = TableRegistry::getTableLocator()->get('BaserCore.Sites');
+        return $sites->getPublishedAll();
+    }
+
 }

@@ -11,12 +11,15 @@
 
 namespace BaserCore\Test\TestCase\Service;
 
+use BaserCore\Model\Entity\UserGroup;
 use BaserCore\Service\PermissionGroupsService;
 use BaserCore\Service\PermissionsService;
 use BaserCore\Service\PermissionGroupsServiceInterface;
 use BaserCore\Service\PermissionsServiceInterface;
-use BaserCore\Test\Factory\UserGroupFactory;
+use BaserCore\Service\UserGroupsServiceInterface;
 use BaserCore\Test\Scenario\InitAppScenario;
+use BaserCore\Service\UserGroupsService;
+use BaserCore\Test\Factory\UserGroupFactory;
 use BaserCore\Test\Scenario\PermissionGroupsScenario;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Utility\BcContainerTrait;
@@ -25,6 +28,7 @@ use BaserCore\Test\Factory\PermissionFactory;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\Configure;
 use Cake\Datasource\Exception\RecordNotFoundException;
+use Cake\Utility\Hash;
 use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
@@ -32,6 +36,7 @@ use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
  *
  * @property PermissionGroupsService $PermissionGroups
  * @property PermissionsService $Permissions
+ * @property UserGroupsService $UserGroupsService
  */
 class PermissionGroupsServiceTest extends BcTestCase
 {
@@ -52,6 +57,7 @@ class PermissionGroupsServiceTest extends BcTestCase
         'plugin.BaserCore.Factory/PermissionGroups',
         'plugin.BaserCore.Factory/UserGroups',
         'plugin.BaserCore.Factory/Users',
+        'plugin.BaserCore.Factory/Sites',
         'plugin.BaserCore.Factory/UsersUserGroups',
     ];
 
@@ -64,6 +70,7 @@ class PermissionGroupsServiceTest extends BcTestCase
         parent::setUp();
         $this->PermissionGroups = $this->getService(PermissionGroupsServiceInterface::class);
         $this->Permissions = $this->getService(PermissionsServiceInterface::class);
+        $this->UserGroupsService = $this->getService(UserGroupsServiceInterface::class);
     }
 
     /**
@@ -91,6 +98,27 @@ class PermissionGroupsServiceTest extends BcTestCase
     {
         $this->markTestIncomplete('このテストは未実装です。');
     }
+
+    /**
+     * test BuildByUserGroup
+     */
+    public function testBuildByUserGroup()
+    {
+        $this->loadFixtureScenario(PermissionGroupsScenario::class);
+        $this->loadFixtureScenario(InitAppScenario::class);
+        $plugins = array_merge([0 => 'BaserCore'], Hash::extract(BcUtil::getEnablePlugins(true), '{n}.name'));
+        $count = 0;
+        foreach ($plugins as $plugin) {
+            Configure::load($plugin . '.permission', 'baser');
+            $settings = Configure::read('permission');
+            $count += count($settings);
+            Configure::delete('permission');
+        }
+        $this->PermissionGroups->buildByUserGroup(1);
+        $Pg = $this->PermissionGroups->getIndex(1, [])->all()->toArray();
+        $this->assertCount($count, $Pg);
+    }
+
 
     /**
      * Test getList
@@ -141,6 +169,29 @@ class PermissionGroupsServiceTest extends BcTestCase
     }
 
     /**
+     * Test buildAllowAllMethodByPlugin
+     *
+     * @return void
+     */
+    public function testBuildAllowAllMethodByPlugin(): void
+    {
+        $this->loadFixtureScenario(PermissionGroupsScenario::class);
+        $this->loadFixtureScenario(InitAppScenario::class);
+        $userGroupId = 1;
+        $plugin = 'BaserCore';
+        $type = 'Nghiem';
+        $typeName = 'Nghiem';
+        $this->PermissionGroups->buildAllowAllMethodByPlugin($userGroupId, $plugin, $type, $typeName);
+        $pg = $this->PermissionGroups->getIndex(1, [])
+            ->where(['type' => $type, 'name like' => '%' . $typeName . '%'])
+            ->all()->toArray();
+        $this->assertCount(1, $pg);
+        $permissionsService = $this->getService(PermissionsServiceInterface::class);
+        $ps = $permissionsService->getIndex(['permission_group_id' => $pg[0]->id])->all();
+        $this->assertCount(1, $ps);
+    }
+
+    /**
      * Test get
      *
      * @return void
@@ -154,6 +205,33 @@ class PermissionGroupsServiceTest extends BcTestCase
         $this->assertNotEmpty($data2);
         $this->expectException(RecordNotFoundException::class);
         $this->PermissionGroups->get(-1);
+    }
+
+    /**
+     * Test buildAll
+     *
+     * @return void
+     */
+    public function testBuildAll(): void
+    {
+        $this->loadFixtureScenario(InitAppScenario::class);
+        $userGroupsService = $this->getService(UserGroupsServiceInterface::class);
+        $userGroups = $userGroupsService->getIndex(['exclude_admin' => true])->all()->toArray();
+        $count = 0;
+        foreach ($userGroups as $userGroup) {
+            $plugins = array_merge([0 => 'BaserCore'], Hash::extract(BcUtil::getEnablePlugins(true), '{n}.name'));
+            foreach ($plugins as $plugin) {
+                Configure::load($plugin . '.permission', 'baser');
+                $settings = Configure::read('permission');
+                $count = +count($settings);
+                Configure::delete('permission');
+            }
+        }
+        $settings = Configure::read('BcPrefixAuth');
+        $count = +count($settings);
+        $this->PermissionGroups->buildAll();
+        $permissionGroups = $this->PermissionGroups->getList();
+        $this->assertCount($count, $permissionGroups);
     }
 
 
@@ -298,5 +376,55 @@ class PermissionGroupsServiceTest extends BcTestCase
         $this->assertEquals(1, $data1->where(['PermissionGroups.id' => 2])->first()->amount);
         $data1 = $this->PermissionGroups->getIndex(1, $param);
         $this->assertEquals(1, $data1->where(['PermissionGroups.id' => 3])->first()->amount);
+    }
+
+    /**
+     * Test rebuildByUserGroup
+     *
+     * @return void
+     */
+    public function testRebuildByUserGroup(): void
+    {
+        $this->loadFixtureScenario(PermissionGroupsScenario::class);
+        $pgs = $this->PermissionGroups->getIndex(1, [])->all();
+        $this->assertTrue(count($pgs) > 0);
+        foreach ($pgs as $pg){
+            $this->PermissionGroups->delete($pg->id);
+        }
+        $pgs = $this->PermissionGroups->getIndex(1, [])->all();
+        $this->assertCount(0, $pgs);
+
+        $this->PermissionGroups->rebuildByUserGroup(1);
+        $pgs = $this->PermissionGroups->getIndex(1, [])->all();
+        $this->assertTrue(count($pgs) > 0);
+    }
+
+    /**
+     * Test deleteByPlugin
+     *
+     * @return void
+     */
+    public function testDeleteByPlugin(): void
+    {
+        $this->loadFixtureScenario(PermissionGroupsScenario::class);
+        $result = $this->PermissionGroups->getList();
+        $this->assertCount(3, $result);
+        PermissionGroupFactory::make([
+            'name' => 'group 1',
+            'type' => 'Supper',
+            'plugin' => 'Nghiem',
+            'status' => 1
+        ])->persist();
+        PermissionGroupFactory::make([
+            'name' => 'group 2',
+            'type' => 'Supper',
+            'plugin' => 'Nghiem',
+            'status' => 1
+        ])->persist();
+        $result = $this->PermissionGroups->getList();
+        $this->assertCount(5, $result);
+        $this->PermissionGroups->deleteByPlugin('Nghiem');
+        $result = $this->PermissionGroups->getList();
+        $this->assertCount(3, $result);
     }
 }

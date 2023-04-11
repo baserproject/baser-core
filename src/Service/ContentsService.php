@@ -236,7 +236,13 @@ class ContentsService implements ContentsServiceInterface
         // type
         if(!empty($params['id'])) $conditions['Contents.id'] = $params['id'];
         // type
-        if(!empty($params['type'])) $conditions['Contents.type'] = $params['type'];
+        if(!empty($params['type'])) {
+            if($params['type'] === 'ContentAlias') {
+                $conditions['Contents.alias_id IS NOT'] = null;
+            } else {
+                $conditions['Contents.type'] = $params['type'];
+            }
+        }
         if(!empty($params['type!'])) $conditions['Contents.type IS NOT'] = $params['type!'];
         // author_id
         if(!empty($params['parent_id'])) $conditions['Contents.parent_id'] = $params['parent_id'];
@@ -713,24 +719,22 @@ class ContentsService implements ContentsServiceInterface
     /**
      * 直属の親フォルダのレイアウトテンプレートを取得する
      *
-     * @param $id
+     * @param int $id
+     * @param int|null $parentId
      * @return string $parentTemplate|false
      * @checked
      * @noTodo
      * @unitTest
      */
-    public function getParentLayoutTemplate($id)
+    public function getParentLayoutTemplate(?int $id, int $parentId = null)
     {
         if (!$id) {
-            return false;
+            if($parentId) {
+                $id = $parentId;
+            } else {
+                return false;
+            }
         }
-        // ===========================================================================================
-        // 2016/09/22 ryuring
-        // PHP 7.0.8 環境にて、コンテンツ一覧追加時、検索インデックス作成のため、BcContentsComponent が
-        // 呼び出されるが、その際、モデルのマジックメソッドの戻り値を返すタイミングで処理がストップしてしまう。
-        // そのため、ビヘイビアのメソッドを直接実行して対処した。
-        // CakePHPも、PHP自体のエラーも発生せず、ただ止まる。PHP7のバグ？PHP側のメモリーを256Mにしても変わらず。
-        // ===========================================================================================
         $contents = $this->Contents->find('path', ['for' => $id])->all()->toArray();
         $contents = array_reverse($contents);
         unset($contents[0]);
@@ -1530,6 +1534,132 @@ class ContentsService implements ContentsServiceInterface
         $content = $this->Contents->findByType($type, $entityId);
         if (!$content) return false;
         return $request->withAttribute('currentContent', $content);
+    }
+
+    /**
+     * 前のコンテンツを取得する
+     *
+     * @param int $id
+     * @return EntityInterface
+     * @checked
+     * @noTodo
+     */
+    public function getPrev(int $id)
+    {
+        $current = $this->get($id);
+        $query = $this->Contents->find()->order(['Contents.lft DESC']);
+        $query->where([
+            'Contents.lft <' => $current->lft,
+            'Contents.site_id' => $current->site_id,
+            $this->Contents->getConditionAllowPublish()
+        ]);
+        if($current->level) {
+            $query->where(['Contents.level' => $current->level]);
+        } else {
+            $query->where(['Contents.level IS' => null]);
+        }
+        return $query->first();
+    }
+
+    /**
+     * 次のコンテンツを取得する
+     *
+     * @param int $id
+     * @return array|EntityInterface|null
+     * @checked
+     * @noTodo
+     */
+    public function getNext(int $id)
+    {
+        $current = $this->get($id);
+        $query = $this->Contents->find()->order(['Contents.lft']);
+        $query->where([
+            'Contents.lft >' => $current->lft,
+            'Contents.site_id' => $current->site_id,
+            $this->Contents->getConditionAllowPublish()
+        ]);
+        if($current->level) {
+            $query->where(['Contents.level' => $current->level]);
+        } else {
+            $query->where(['Contents.level IS' => null]);
+        }
+        return $query->first();
+    }
+
+    /**
+     * グローバルナビ用のコンテンツ一覧を取得する
+     *
+     * @param int $id
+     * @return \Cake\Datasource\ResultSetInterface|false
+     * @checked
+     * @noTodo
+     */
+    public function getGlobalNavi(int $id)
+    {
+        $current = $this->get($id);
+        $root = $this->Contents->find()->where([
+            'Contents.site_id' => $current->site_id,
+            'Contents.site_root' => true,
+            $this->Contents->getConditionAllowPublish()
+        ])->first();
+        if(!$root) return false;
+        $query = $this->Contents->find('children', ['for' => $root->id, 'direct' => true]);
+        return $query->where([
+            'Contents.exclude_menu' => false,
+            $this->Contents->getConditionAllowPublish()
+        ])->all();
+    }
+
+    /**
+     * パンくず用のコンテンツ一覧を取得する
+     *
+     * @param int $id
+     * @return \Cake\Datasource\ResultSetInterface
+     * @checked
+     * @noTodo
+     */
+    public function getCrumbs(int $id)
+    {
+        $query = $this->Contents->find('path', ['for' => $id]);
+        return $query->where([
+            'Contents.exclude_menu' => false,
+            $this->Contents->getConditionAllowPublish()
+        ])->all();
+    }
+
+    /**
+     * ローカルナビ用のコンテンツ一覧を取得する
+     *
+     * @param int $id
+     * @return \Cake\Datasource\ResultSetInterface
+     * @checked
+     * @noTodo
+     */
+    public function getLocalNavi(int $id)
+    {
+        $parent = $this->getParent($id);
+        $query = $this->Contents->find('children', ['for' => $parent->id, 'direct' => true]);
+        return $query->where([
+            'Contents.exclude_menu' => false,
+            $this->Contents->getConditionAllowPublish()
+        ])->all();
+    }
+
+    /**
+     * 親コンテンツを取得する
+     *
+     * @param int $id
+     * @return EntityInterface|false
+     * @checked
+     * @noTodo
+     */
+    public function getParent(int $id)
+    {
+        $current = $this->get($id, ['status' => 'publish']);
+        if(!$current->parent_id) {
+            return false;
+        }
+        return $this->get($current->parent_id);
     }
 
 }
