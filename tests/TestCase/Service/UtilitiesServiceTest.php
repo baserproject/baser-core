@@ -23,6 +23,7 @@ use BaserCore\Test\Scenario\InitAppScenario;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Utility\BcContainerTrait;
 use BaserCore\Utility\BcUtil;
+use BaserCore\Utility\BcZip;
 use Cake\Cache\Cache;
 use Cake\Core\Configure;
 use Cake\Filesystem\File;
@@ -95,6 +96,13 @@ class UtilitiesServiceTest extends BcTestCase
         $this->truncateTable('blog_posts');
         $this->truncateTable('blog_tags');
         $this->truncateTable('blog_posts_blog_tags');
+
+        if (!file_exists(LOGS)) {
+            mkdir(LOGS, 0777);
+        }
+        if (!file_exists(LOGS . '.gitkeep')) {
+            touch(LOGS . '.gitkeep');
+        }
     }
 
     /**
@@ -103,17 +111,20 @@ class UtilitiesServiceTest extends BcTestCase
      */
     public function testDeleteLog()
     {
+        if (!file_exists(LOGS)) {
+            mkdir(LOGS, 0777);
+        }
         if (!file_exists($this->logPath)) {
-            new File($this->logPath, true);
+            file_put_contents($this->logPath, 'log txt.');
         }
 
         $this->UtilitiesService->deleteLog();
         $this->assertFalse(file_exists($this->logPath));
 
-        $this->expectExceptionMessage('エラーログが存在しません。');
+        rmdir(LOGS);
+        $this->expectExceptionMessage('ログフォルダが存在しません。');
         $this->expectException(BcException::class);
         $this->UtilitiesService->deleteLog();
-
     }
 
     /**
@@ -168,6 +179,9 @@ class UtilitiesServiceTest extends BcTestCase
     public function test_verityContentsTree($dbSample, $expect, $logDataExpect)
     {
         $logPath = LOGS . 'cli-error.log';
+        if (!file_exists(LOGS)) {
+            mkdir(LOGS, 0777);
+        }
         if (file_exists($logPath)) {
             unlink($logPath);
         }
@@ -324,7 +338,7 @@ class UtilitiesServiceTest extends BcTestCase
     public function test_createLogZip()
     {
         $rs = $this->UtilitiesService->createLogZip();
-        $this->assertTrue(is_array($rs->centralDirectory));
+        $this->assertTrue(file_exists($rs));
     }
 
     /**
@@ -334,7 +348,7 @@ class UtilitiesServiceTest extends BcTestCase
     public function test_backupDb()
     {
         $rs = $this->UtilitiesService->backupDb('utf8');
-        $this->assertTrue(is_array($rs->centralDirectory));
+        $this->assertTrue(file_exists($rs));
     }
 
     /**
@@ -408,13 +422,18 @@ class UtilitiesServiceTest extends BcTestCase
         // データを作成
         $this->loadFixtureScenario(InitAppScenario::class);
         // バックアップを作成し、展開
-        $this->UtilitiesService->backupDb('utf8');
+        $zipPath = $this->UtilitiesService->backupDb('utf8');
+        $tmpDir = TMP . 'schema' . DS;
+        $bcZip = new BcZip();
+        $bcZip->extract($zipPath, $tmpDir);
+
         // データを削除
         $this->truncateTable('users');
         $this->truncateTable('sites');
         // 実行
-        $this->execPrivateMethod($this->UtilitiesService, '_loadBackup', [TMP . 'schema' . DS, 'utf8']);
+        $this->execPrivateMethod($this->UtilitiesService, '_loadBackup', [$tmpDir, 'utf8']);
         $this->UtilitiesService->resetTmpSchemaFolder();
+
         // データが復元されているか確認
         $this->assertEquals(1, UserFactory::count());
         $this->assertEquals(1, SiteFactory::count());
@@ -426,8 +445,8 @@ class UtilitiesServiceTest extends BcTestCase
      */
     public function test_resetData()
     {
-        SiteFactory::make(['id' => 100, 'title' => 'test title', 'display_name' => 'test display_name', 'theme' => 'BcSpaSample'])->persist();
-        SiteFactory::make(['id' => 101, 'title' => 'test title　101', 'display_name' => 'test display_name　101', 'theme' => 'BcSpaSample101'])->persist();
+        SiteFactory::make(['id' => 100, 'title' => 'test title', 'display_name' => 'test display_name', 'theme' => 'BcPluginSample'])->persist();
+        SiteFactory::make(['id' => 101, 'title' => 'test title　101', 'display_name' => 'test display_name　101', 'theme' => 'BcPluginSample101'])->persist();
         $this->getRequest();
 
         $rs = $this->UtilitiesService->resetData();
@@ -436,7 +455,7 @@ class UtilitiesServiceTest extends BcTestCase
         $siteService = new SitesService();
         $site = $siteService->getIndex([])->toArray();
         $this->assertCount(1, $site);
-        $this->assertEquals('BcSpaSample', $site[0]->theme);
+        $this->assertEquals('BcPluginSample', $site[0]->theme);
         $this->assertEquals('メインサイト', $site[0]->title);
         $this->assertEquals('メインサイト', $site[0]->display_name);
     }

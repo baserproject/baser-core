@@ -12,11 +12,9 @@
 namespace BaserCore\Service;
 
 use BaserCore\Error\BcException;
-use BaserCore\Model\Table\AppTable;
 use BaserCore\Utility\BcContainerTrait;
 use BaserCore\Utility\BcUtil;
 use BaserCore\Utility\BcZip;
-use BaserCore\Vendor\Simplezip;
 use Cake\Cache\Cache;
 use Cake\Core\Configure;
 use Cake\Core\Plugin;
@@ -235,12 +233,12 @@ class UtilitiesService implements UtilitiesServiceInterface
     /**
      * ログのZipファイルを作成する
      *
-     * @return Simplezip|false
+     * @return string|false
      * @checked
      * @noTodo
      * @unitTest
      */
-    public function createLogZip()
+    public function createLogZip(): ?string
     {
         set_time_limit(0);
         $Folder = new Folder(LOGS);
@@ -249,9 +247,11 @@ class UtilitiesService implements UtilitiesServiceInterface
             return false;
         }
         // ZIP圧縮して出力
-        $simplezip = new Simplezip();
-        $simplezip->addFolder(LOGS);
-        return $simplezip;
+        $distPath = TMP . 'basercms_logs_' . date('Ymd_His') . '.zip';
+		$bcZip = new BcZip();
+		$bcZip->create(LOGS, $distPath);
+
+        return $distPath;
     }
 
     /**
@@ -264,15 +264,26 @@ class UtilitiesService implements UtilitiesServiceInterface
      */
     public function deleteLog()
     {
-        if (file_exists($this->logPath)) {
-            if (unlink($this->logPath)) {
-                $messages[] = __d('baser_core', 'エラーログを削除しました。');
+        if (file_exists(LOGS)) {
+            $files = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator(LOGS,
+                        \FilesystemIterator::CURRENT_AS_FILEINFO |
+                        \FilesystemIterator::KEY_AS_PATHNAME |
+                        \FilesystemIterator::SKIP_DOTS
+                )
+            );
+            $messages = [];
+            foreach($files as $file) {
+                if (unlink($file->getRealPath())) {
+                } else {
+                    $messages[] = __d('baser_core', 'ファイルが削除できませんでした。') . $file->getRealPath();
+                }
+            }
+            if (count($messages) === 0) {
                 return true;
-            } else {
-                $messages[] = __d('baser_core', 'エラーログが削除できませんでした。');
             }
         } else {
-            $messages[] = __d('baser_core', 'エラーログが存在しません。');
+            $messages[] = __d('baser_core', 'ログフォルダが存在しません。');
         }
         throw new BcException(implode("\n", $messages));
     }
@@ -281,16 +292,17 @@ class UtilitiesService implements UtilitiesServiceInterface
      * DBバックアップを作成する
      *
      * @param $encoding
-     * @return Simplezip|false
+     * @return string|false
      * @checked
      * @noTodo
      * @unitTest
      */
-    public function backupDb($encoding): ?Simplezip
+    public function backupDb($encoding): ?string
     {
         set_time_limit(0);
-        $tmpDir = TMP . 'schema' . DS;
         $this->resetTmpSchemaFolder();
+        $tmpDir = TMP . 'schema' . DS;
+		$distPath = TMP . 'baserbackup_' . BcUtil::getVersion() . '_' . date('Ymd_His') . '.zip';
         BcUtil::clearAllCache();
         $plugins = Plugin::loaded();
         $result = true;
@@ -303,9 +315,11 @@ class UtilitiesService implements UtilitiesServiceInterface
         }
         if(!$result) return null;
         // ZIP圧縮して出力
-        $Simplezip = new Simplezip();
-        $Simplezip->addFolder($tmpDir);
-        return $Simplezip;
+        $bcZip = new BcZip();
+		$bcZip->create($tmpDir, $distPath);
+        $this->resetTmpSchemaFolder();
+
+        return $distPath;
     }
 
     /**
@@ -404,8 +418,8 @@ class UtilitiesService implements UtilitiesServiceInterface
         $tmpPath = TMP . 'schema' . DS;
         $name = $uploaded['backup']->getClientFileName();
         $uploaded['backup']->moveTo($tmpPath . $name);
-        $zip = new BcZip();
-        if (!$zip->extract($tmpPath . $name, $tmpPath)) {
+        $bcZip = new BcZip();
+        if (!$bcZip->extract($tmpPath . $name, $tmpPath)) {
             throw new BcException(__d('baser_core', 'アップロードしたZIPファイルの展開に失敗しました。'));
         }
         unlink($tmpPath . $name);
@@ -417,6 +431,9 @@ class UtilitiesService implements UtilitiesServiceInterface
         } catch (\Throwable $e) {
             throw $e;
         }
+
+        $dbService = $this->getService(BcDatabaseServiceInterface::class);
+        $dbService->updateSequence();
 
         $this->resetTmpSchemaFolder();
         BcUtil::clearAllCache();

@@ -77,8 +77,7 @@ class PreviewController extends BcAdminAppController
                 }
             }
         } catch (\Cake\Http\Exception\NotFoundException $e) {
-            $this->BcMessage->setError(__d('baser_core', $e->getMessage()));
-            return $this->redirect($this->referer());
+            throw $e;
         }
     }
 
@@ -158,7 +157,9 @@ class PreviewController extends BcAdminAppController
         $parseUrl = parse_url($url);
         $encoded = $parseUrl['scheme'] . '://' . $parseUrl['host'] . '/';
         $lastSlash = preg_match('/\/$/', $parseUrl['path']);
-        $pathArray = explode('/', preg_replace('/^\//', '', $parseUrl['path']));
+        $path = preg_replace('/^\//', '', $parseUrl['path']);
+        $path = preg_replace('/\/$/', '', $path);
+        $pathArray = explode('/', $path);
         foreach($pathArray as $key => $path) {
             $pathArray[$key] = urlencode($path);
         }

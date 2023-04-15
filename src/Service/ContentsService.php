@@ -11,6 +11,7 @@
 
 namespace BaserCore\Service;
 
+use BaserCore\Model\Entity\Site;
 use Cake\Core\Plugin;
 use Cake\Datasource\QueryInterface;
 use Exception;
@@ -787,6 +788,7 @@ class ContentsService implements ContentsServiceInterface
      */
     public function getUrl($url, $full = false, $useSubDomain = false, $base = false)
     {
+        if(preg_match('/^http/', $url)) $full = false;
         if ($useSubDomain && !is_array($url)) {
             $subDomain = '';
             $site = $this->Sites->findByUrl($url);
@@ -1631,13 +1633,14 @@ class ContentsService implements ContentsServiceInterface
      * ローカルナビ用のコンテンツ一覧を取得する
      *
      * @param int $id
-     * @return \Cake\Datasource\ResultSetInterface
+     * @return \Cake\Datasource\ResultSetInterface|void
      * @checked
      * @noTodo
      */
     public function getLocalNavi(int $id)
     {
         $parent = $this->getParent($id);
+        if (!$parent) return;
         $query = $this->Contents->find('children', ['for' => $parent->id, 'direct' => true]);
         return $query->where([
             'Contents.exclude_menu' => false,

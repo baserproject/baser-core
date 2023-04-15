@@ -267,22 +267,30 @@ class BcValidation extends Validation
      * @noTodo
      * @unitTest
      */
-    public static function fileExt($value, $exts)
-    {
-        $file = $value;
-        if (!empty($file['name'])) {
-            if (!is_array($exts)) {
-                $exts = explode(',', $exts);
-            }
-            $ext = BcUtil::decodeContent($file['type'], $file['name']);
-            if (in_array($ext, $exts)) {
-                return true;
-            } else {
-                return false;
-            }
-        }
-        return true;
-    }
+	public static function fileExt($check, $exts)
+	{
+		$file = $check[key($check)];
+		if (!is_array($exts)) {
+			$exts = explode(',', $exts);
+		}
+
+		// FILES形式のチェック
+		if (!empty($file['name'])) {
+			$ext = BcUtil::decodeContent($file['type'], $file['name']);
+			if (!in_array($ext, $exts)) {
+				return false;
+			}
+		}
+
+		// 更新時の文字列チェック
+		if (!empty($file) && is_string($file)) {
+			$ext = pathinfo($file, PATHINFO_EXTENSION);
+			if (!in_array($ext, $exts)) {
+				return false;
+			}
+		}
+		return true;
+	}
 
     /**
      * ファイルが送信されたかチェックするバリデーション
@@ -487,19 +495,19 @@ class BcValidation extends Validation
     public static function containsScript($value)
     {
         if(!$value) return true;
-        $events = ['onclick', 'ondblclick', 'onmousedown', 'onmouseup', 'onmouseover', 'onmousemove',
-            'onmouseout', 'onkeypress', 'onkeydown', 'onkeyup', 'onload', 'onunload',
-            'onfocus', 'onblur', 'onsubmit', 'onreset', 'onselect', 'onchange'];
+		$events = ['onclick', 'ondblclick', 'onmousedown', 'onmouseup', 'onmouseover', 'onmousemove',
+			'onmouseout', 'onkeypress', 'onkeydown', 'onkeyup', 'onload', 'onunload',
+			'onfocus', 'onblur', 'onsubmit', 'onreset', 'onselect', 'onchange'];
         if (BcUtil::isAdminUser() || Configure::read('BcApp.allowedPhpOtherThanAdmins')) {
             return true;
         }
         if (preg_match('/(<\?=|<\?php|<script)/i', $value)) {
             return false;
         }
-        if (preg_match('/<[^>]+?(' . implode('|', $events) . ')=("|\')[^>]*?>/i', $value)) {
+		if (preg_match('/<[^>]+?(' . implode('|', $events) . ')\s*=[^<>]*?>/i', $value)) {
             return false;
         }
-        if (preg_match('/href=\s*?("|\')[^"\']*?javascript\s*?:/i', $value)) {
+		if (preg_match('/href\s*=\s*[^>]*?javascript\s*?:/i', $value)) {
             return false;
         }
         return true;
