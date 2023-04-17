@@ -11,7 +11,6 @@
 
 namespace BaserCore\Service;
 
-use BaserCore\Model\Entity\Site;
 use Cake\Core\Plugin;
 use Cake\Datasource\QueryInterface;
 use Exception;
@@ -664,7 +663,6 @@ class ContentsService implements ContentsServiceInterface
 
     /**
      * ツリー構造より論理削除する
-     * TODO: キャッシュビヘイビアー実装後復活させる
      *
      * @param $id
      * @return bool
@@ -674,7 +672,7 @@ class ContentsService implements ContentsServiceInterface
      */
     public function softDeleteFromTree($id)
     {
-        // TODO: キャッシュ系が有効化されてからsoftDeleteFromTreeを使用する
+        // TODO ucmitz キャッシュ系が有効化されてからsoftDeleteFromTreeを使用する
         $this->softDelete(true);
         $this->Behaviors->unload('BcCache');
         $this->Behaviors->unload('BcUpload');

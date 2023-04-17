@@ -348,7 +348,6 @@ class BcFreezeHelperTest extends BcTestCase
 
     /**
      * ファイルコントロール（画像）を表示する
-     * TODO 確認画面には未チェック
      *
      * @param boolean $freezed フォームを凍結させる
      * @param string $name $this->request->data[$model][$field]['name']に格納する値
@@ -358,6 +357,7 @@ class BcFreezeHelperTest extends BcTestCase
      * @param array $imageAttributes 画像属性
      * @param string $expexted 期待値
      * @dataProvider imageDataProvider
+     * @TODO 確認画面には未チェック
      */
     public function testImage($freezed, $name, $exist, $fieldName, $attributes, $imageAttributes, $expected)
     {
@@ -390,51 +390,6 @@ class BcFreezeHelperTest extends BcTestCase
             [true, null, 'testexist', 'test.image', [], ['dir' => 'testdir'], 'dir="testdir"'],
         ];
     }
-
-    /**
-     * JsonList
-     * TODO 確認画面用の実装は全くしてない
-     *
-     * @param boolean $freezed フォームを凍結させる
-     * @param array $data 凍結させたjsonのデータ
-     * @param string $fieldName フィールド文字列
-     * @param array $attributes html属性
-     * @param string $expexted 期待値
-     * @dataProvider jsonListDataProvider
-     */
-    public function testJsonList($freezed, $data, $fieldName, $attributes, $expected)
-    {
-
-        // 凍結させる
-        if ($freezed) {
-            $this->BcFreeze->freeze();
-            $this->BcFreeze->request->data[$fieldName] = $data;
-        }
-
-        // indexを作る
-        $attributes_default = [
-            'imgSrc' => null,
-            'ajaxAddAction' => null,
-            'ajaxDelAction' => null,
-        ];
-        $attributes = $attributes + $attributes_default;
-
-        $result = $this->BcFreeze->jsonList($fieldName, $attributes);
-        $this->assertMatchesRegularExpression('/' . $expected . '/s', $result);
-    }
-
-    public function jsonListDataProvider()
-    {
-        return [
-            [false, null, 'baser', [], 'id="JsonBaserDb".*jQuery\(function\(\)'],
-            [false, [], 'baser', ['ajaxAddAction' => 'test'], '"ajaxAddAction":"test"'],
-            [false, [], 'baser', ['ajaxDelAction' => 'test'], '"ajaxDelAction":"test"'],
-            [true, [['name' => 'test']], 'baser', [], '<li>test'],
-            [true, [['name' => 'test1'], ['name' => 'test2']], 'baser', [], '<li>test1.*<li>test2'],
-            [true, null, 'baser', [], '^$'],
-        ];
-    }
-
 
     /**
      * カレンダーコントロール付きのテキストフィールド

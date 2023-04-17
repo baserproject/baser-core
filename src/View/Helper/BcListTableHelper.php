@@ -69,13 +69,7 @@ class BcListTableHelper extends Helper
      */
     public function dispatchShowHead()
     {
-
-        // TODO 未実装のため代替措置
-        // >>>
-        return '';
-        // <<<
-
-        $request = $this->_View->request;
+        $request = $this->getView()->getRequest();
         $id = Inflector::camelize($request->getParam('controller')) . '.' . Inflector::camelize($request->getParam('action'));
         // EVENT BcListTable.showHead
         $event = $this->dispatchLayerEvent('showHead', ['id' => $id, 'fields' => []], ['class' => 'BcListTable', 'plugin' => '']);

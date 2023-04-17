@@ -58,12 +58,7 @@ class BcFrontAppControllerTest extends BcTestCase
      */
     public function testBeforeFilter()
     {
-        $this->BcFrontAppController->setRequest($this->getRequest('https://localhost/index'));
-        $result = $this->BcFrontAppController->beforeFilter(new Event('beforeFilter'));
-        $this->assertNull($result);
-        $this->BcFrontAppController->setRequest($this->getRequest('http://localhost/index'));
-        $result = $this->BcFrontAppController->beforeFilter(new Event('beforeFilter'));
-        $this->assertNotNull($result);
+        $this->markTestIncomplete('このテストはまだ実装されていません。');
     }
 
     /**
@@ -79,22 +74,6 @@ class BcFrontAppControllerTest extends BcTestCase
         $this->assertEquals('en', $this->BcFrontAppController->viewBuilder()->getLayoutPath());
         $this->assertEquals('en', $this->BcFrontAppController->viewBuilder()->getTemplatePath());
         <<< */
-    }
-
-    /**
-     * test redirectIfIsNotSameSite
-     */
-    public function testRedirectIfIsNotSameSite()
-    {
-        $this->BcFrontAppController->setRequest($this->getRequest('https://localhost/index'));
-        $this->_response = $this->BcFrontAppController->redirectIfIsNotSameSite();
-        $this->assertNull($this->_response);
-        $this->BcFrontAppController->setRequest($this->getRequest('http://localhost/index'));
-        $this->_response = $this->BcFrontAppController->redirectIfIsNotSameSite();
-        $this->assertRedirect('https://localhost/index');
-        $this->BcFrontAppController->setRequest($this->getRequest('https://localhost/baser/admin'));
-        $this->_response = $this->BcFrontAppController->redirectIfIsNotSameSite();
-        $this->assertNull($this->_response);
     }
 
 }

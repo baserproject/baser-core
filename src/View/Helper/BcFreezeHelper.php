@@ -406,7 +406,6 @@ class BcFreezeHelper extends BcFormHelper
 
     /**
      * ファイルコントロール（画像）を表示する
-     * TODO 確認画面には未チェック
      *
      * @param string $fieldName フィールド文字列
      * @param array $attributes html属性
@@ -527,34 +526,6 @@ class BcFreezeHelper extends BcFormHelper
             return parent::hidden($fieldName, $attributes) . h($value);
         } else {
             return parent::password($fieldName, $attributes);
-        }
-    }
-
-    /**
-     * JsonList
-     * TODO 確認画面用の実装は全くしてない
-     *
-     * @param string $fieldName フィールド文字列
-     * @param array $attributes html属性
-     * @return string    htmlタグ
-     */
-    public function jsonList($fieldName, $attributes)
-    {
-
-        if ($this->freezed) {
-
-            $out = '';
-            if (!empty($this->request->data[$fieldName])) {
-                $out = '<div id="JsonTagView"><ul class="freezed">';
-                foreach($this->request->data[$fieldName] as $tag) {
-                    $out .= '<li>' . $tag['name'] . '</li>';
-                }
-                $out .= '</ul></div>';
-            }
-
-            return $out;
-        } else {
-            return parent::jsonList($fieldName, $attributes);
         }
     }
 
