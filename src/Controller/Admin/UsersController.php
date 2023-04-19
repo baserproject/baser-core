@@ -214,6 +214,16 @@ class UsersController extends BcAdminAppController
     public function add(UsersAdminServiceInterface $service)
     {
         if ($this->request->is('post')) {
+
+            // EVENT Users.beforeAdd
+            $event = $this->dispatchLayerEvent('beforeAdd', [
+                'data' => $this->getRequest()->getData()
+            ]);
+            if ($event !== false) {
+                $data = ($event->getResult() === null || $event->getResult() === true) ? $event->getData('data') : $event->getResult();
+                $this->setRequest($this->getRequest()->withParsedBody($data));
+            }
+
             try {
                 $user = $service->create($this->request->getData());
                 // EVENT Users.afterAdd
@@ -253,13 +263,20 @@ class UsersController extends BcAdminAppController
         }
         $user = $service->get($id);
         if ($this->request->is(['patch', 'post', 'put'])) {
+            $event = $this->dispatchLayerEvent('beforeEdit', [
+                'data' => $this->getRequest()->getData()
+            ]);
+            if ($event !== false) {
+                $data = ($event->getResult() === null || $event->getResult() === true) ? $event->getData('data') : $event->getResult();
+                $this->setRequest($this->getRequest()->withParsedBody($data));
+            }
             try {
                 $user = $service->update($user, $this->request->getData());
                 // EVENT Users.afterEdit
                 $this->dispatchLayerEvent('afterEdit', [
                     'user' => $user
                 ]);
-                if($service->isSelf($id)) {
+                if ($service->isSelf($id)) {
                     $service->reLogin($this->request, $this->response);
                 }
                 $this->BcMessage->setSuccess(__d('baser_core', 'ユーザー「{0}」を更新しました。', $user->getDisplayName()));
