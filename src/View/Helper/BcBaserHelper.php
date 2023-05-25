@@ -11,6 +11,7 @@
 
 namespace BaserCore\View\Helper;
 
+use BaserCore\Model\Entity\Site;
 use BaserCore\Utility\BcSiteConfig;
 use BcBlog\Model\Entity\BlogPost;
 use BcCustomContent\Model\Entity\CustomContent;
@@ -499,7 +500,8 @@ class BcBaserHelper extends Helper
 
         // 現在SSLのURLの場合、プロトコル指定(フルパス)で取得以外
         // //(スラッシュスラッシュ)から始まるSSL、非SSL共有URLも除外する
-        if (($this->isSSL() || $ssl)
+        if (BcUtil::isInstalled()
+            && ($this->isSSL() || $ssl)
             && !(preg_match('/^(javascript|https?|ftp|tel):/', $_url))
             && !(strpos($_url, '//') === 0)
             && !preg_match('/^#/', $_url)) {
@@ -2426,16 +2428,10 @@ END_FLASH;
      */
     public function getSiteName()
     {
-        $siteConfig = $this->_View->get('siteConfig');
-        if (!empty($siteConfig['formal_name'])) {
-            return $siteConfig['formal_name'];
-        }
-
-        if (!empty($this->siteConfig['formal_name'])) {
-            return $this->siteConfig['formal_name'];
-        }
-
-        return '';
+        /** @var Site $site */
+        $site = $this->getView()->getRequest()->getAttribute('currentSite');
+        if(!$site) return '';
+        return $site->display_name;
     }
 
     /**
