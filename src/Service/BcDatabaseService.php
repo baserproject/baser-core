@@ -81,6 +81,7 @@ class BcDatabaseService implements BcDatabaseServiceInterface
      *
      * @checked
      * @noTodo
+     * @unitTest
      */
     protected function initAdapter()
     {
@@ -191,6 +192,9 @@ class BcDatabaseService implements BcDatabaseServiceInterface
      * @param string $columnName
      * @param string $newColumnName
      * @return bool
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function renameColumn(
         string $tableName,
@@ -1305,6 +1309,10 @@ class BcDatabaseService implements BcDatabaseServiceInterface
      *  - `password`: 接続パスワード テキストDBの場合は不要
      * @throws PDOException
      * @throws BcException
+     *
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function checkDbConnection($config)
     {
@@ -1314,7 +1322,7 @@ class BcDatabaseService implements BcDatabaseServiceInterface
         $port = Hash::get($config, 'port');
         $login = Hash::get($config, 'username');
         $password = Hash::get($config, 'password');
-        $datasource = strtolower($datasource);
+        $datasource = strtolower($datasource ?? '');
 
         try {
             switch($datasource) {
@@ -1356,6 +1364,9 @@ class BcDatabaseService implements BcDatabaseServiceInterface
      * データベース接続テスト
      *
      * @param array $config
+     *
+     * @checked
+     * @unitTest
      */
     public function testConnectDb($config)
     {
@@ -1430,6 +1441,10 @@ class BcDatabaseService implements BcDatabaseServiceInterface
      * @param string $dbConfigKeyName
      * @param array $dbConfig
      * @return boolean
+     *
+     * @noTodo
+     * @checked
+     * @unitTest
      */
     public function constructionTable(string $plugin, string $dbConfigKeyName = 'default', array $dbConfig = [])
     {
@@ -1450,6 +1465,10 @@ class BcDatabaseService implements BcDatabaseServiceInterface
      * @param string $plugin
      * @param string $connection
      * @return bool
+     *
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function migrate(string $plugin, string $connection = 'default')
     {

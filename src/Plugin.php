@@ -297,19 +297,16 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
                     $prefix = $request->getParam('prefix');
                     $authSetting = Configure::read('BcPrefixAuth.' . $prefix);
 
-                    // 領域が REST API でない場合はスキップしない
-                    if (empty($authSetting['isRestApi'])) return false;
-
                     // 設定ファイルでスキップの定義がされている場合はスキップ
                     if(in_array($request->getPath(), $this->getSkipCsrfUrl())) return true;
+
+                    // 領域が REST API でない場合はスキップしない
+                    if (empty($authSetting['isRestApi'])) return false;
 
                     $authenticator = $request->getAttribute('authentication')->getAuthenticationProvider();
                     if($authenticator) {
                         // 認証済の際、セッション認証以外はスキップ
                         if(!$authenticator instanceof SessionAuthenticator) return true;
-                    } else {
-                        // 認証できていない場合、領域がJwt認証前提の場合はスキップ
-                        if($authSetting['type'] === 'Jwt') return true;
                     }
                     return false;
                 });
@@ -331,7 +328,7 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
     protected function getSkipCsrfUrl(): array
     {
         $skipUrl = [];
-        $skipUrlSrc = Configure::read('BcApp.skipCsrfUrlInPostApi');
+        $skipUrlSrc = Configure::read('BcApp.skipCsrfUrl');
         foreach($skipUrlSrc as $url) {
             $skipUrl[] = Router::url($url);
         }
@@ -371,16 +368,12 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
                 $this->setupSessionAuth($service, $authSetting);
                 break;
             case 'Jwt':
-                if ($this->isEnabledCoreApi($prefix)) {
-                    $this->setupJwtAuth($service, $authSetting);
-                    if($prefix === 'Api/Admin') {
-                        // セッションを持っている場合もログイン状態とみなす
-                        $service->loadAuthenticator('Authentication.Session', [
-                            'sessionKey' => $authSetting['sessionKey'],
-                        ]);
-                    }
-                } else {
-                    throw new ForbiddenException(__d('baser_core', 'Web APIは許可されていません。'));
+                $this->setupJwtAuth($service, $authSetting, $prefix);
+                if($prefix === 'Api/Admin' && BcUtil::isSameReferrerAsCurrent()) {
+                    // セッションを持っている場合もログイン状態とみなす
+                    $service->loadAuthenticator('Authentication.Session', [
+                        'sessionKey' => $authSetting['sessionKey'],
+                    ]);
                 }
                 break;
         }
@@ -400,24 +393,6 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
         if(!empty($authSetting['disabled'])) return false;
         if(!BcUtil::isInstalled()) return false;
         return true;
-    }
-
-    /**
-     * APIが利用できるか確認する
-     *
-     * @param string $prefix
-     * @return bool
-     */
-    public static function isEnabledCoreApi(string $prefix): bool
-    {
-        if (!filter_var(env('USE_CORE_API', false), FILTER_VALIDATE_BOOLEAN)) {
-            if ($prefix === 'Api/Admin') {
-                return BcUtil::isSameReferrerAsCurrent();
-            }
-        } else {
-            return true;
-        }
-        return false;
     }
 
     /**
@@ -464,7 +439,7 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
      * @param array $authSetting
      * @return AuthenticationService
      */
-    public function setupJwtAuth(AuthenticationService $service, array $authSetting)
+    public function setupJwtAuth(AuthenticationService $service, array $authSetting, string $prefix)
     {
         if (Configure::read('Jwt.algorithm') === 'HS256') {
             $secretKey = Security::getSalt();
@@ -487,7 +462,8 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
             'resolver' => [
                 'className' => 'BaserCore.PrefixOrm',
                 'userModel' => $authSetting['userModel'],
-                'finder' => $authSetting['finder']?? 'available'
+                'finder' => $authSetting['finder']?? 'available',
+                'prefix' => $prefix,
             ],
         ]);
         $service->loadAuthenticator('Authentication.Form', [
