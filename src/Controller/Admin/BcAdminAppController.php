@@ -12,7 +12,7 @@
 namespace BaserCore\Controller\Admin;
 
 use Authentication\Controller\Component\AuthenticationComponent;
-use BaserCore\Controller\BcAppController;
+use BaserCore\Controller\AppController;
 use BaserCore\Service\Admin\BcAdminAppServiceInterface;
 use BaserCore\Service\SiteConfigsService;
 use BaserCore\Service\SiteConfigsServiceInterface;
@@ -34,7 +34,7 @@ use BaserCore\Annotation\Note;
  * Class BcAdminAppController
  * @property AuthenticationComponent $Authentication
  */
-class BcAdminAppController extends BcAppController
+class BcAdminAppController extends AppController
 {
 
     /**
@@ -62,6 +62,8 @@ class BcAdminAppController extends BcAppController
      * Before Filter
      * @param EventInterface $event
      * @return Response|void|null
+     * @checked
+     * @noTodo
      */
     public function beforeFilter(EventInterface $event)
     {
@@ -109,6 +111,8 @@ class BcAdminAppController extends BcAppController
      * 初回アクセスメッセージ用のフラグを更新する
      *
      * @return void
+     * @checked
+     * @noTodo
      */
     private function __updateFirstAccess()
     {
