@@ -25,7 +25,10 @@ use Cake\Filesystem\File;
 use Cake\Filesystem\Folder;
 use BaserCore\Utility\BcUtil;
 use BaserCore\TestSuite\BcTestCase;
+use Cake\Http\ServerRequestFactory;
 use Cake\Http\Session;
+use Cake\Routing\Router;
+use Cake\Utility\Inflector;
 
 /**
  * Class BcUtilTest
@@ -414,20 +417,15 @@ class BcUtilTest extends BcTestCase
      */
     public function testLoginUserName()
     {
-        // TODO ucmitz移行時に未実装のため代替措置
-        // >>>
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        // <<<
 
         // ログインしていない場合
         $result = BcUtil::loginUserName();
-        $this->assertEmpty($result, 'ログインユーザーのデータを正しく取得できません');
+        $this->assertEmpty($result);
 
         // ログインしている場合
-        $Session = new CakeSession();
-        $Session->write('Auth.' . BcUtil::authSessionKey() . '.name', 'hoge');
+        $this->loginAdmin($this->getRequest());
         $result = BcUtil::loginUserName();
-        $this->assertEquals('hoge', $result, 'ログインユーザーのデータを正しく取得できません');
+        $this->assertEquals('baser admin', $result);
     }
 
     /**
@@ -548,6 +546,22 @@ class BcUtilTest extends BcTestCase
     }
 
     /**
+     * test getExistsTemplateDir
+     */
+    public function test_getExistsTemplateDir()
+    {
+        //正常系実行
+        $result = BcUtil::getExistsTemplateDir('BcThemeSample', 'BaserCore', '');
+        $this->assertEquals('/var/www/html/plugins/BcThemeSample/templates/', $result);
+        $result = BcUtil::getExistsTemplateDir('BcThemeSample', 'BaserCore', 'layout');
+        $this->assertEquals('/var/www/html/plugins/BcThemeSample/templates/layout', $result);
+        //異常系実行
+        $this->expectException('Cake\Core\Exception\MissingPluginException');
+        BcUtil::getExistsTemplateDir('BcThemeSample', 'abc', '');
+    }
+
+
+    /**
      * シリアライズ / アンシリアライズ
      */
     public function testSerialize()
@@ -630,6 +644,27 @@ class BcUtilTest extends BcTestCase
         $result = BcUtil::getTemplatePath($plugin);
         $this->assertEquals($expected, $result);
     }
+
+    /**
+     * test getExistsWebrootDir
+     */
+    public function test_getExistsWebrootDir()
+    {
+        // theme = ''
+        $result = BcUtil::getExistsWebrootDir('', 'BaserCore', '', 'front');
+        $this->assertEquals('/var/www/html/plugins/bc-front/webroot/', $result);
+        // theme != ''
+        $result = BcUtil::getExistsWebrootDir('BcThemeSample', 'BaserCore', '', 'front');
+        $this->assertEquals('/var/www/html/plugins/BcThemeSample/webroot/', $result);
+        // type = 'admin'
+        $result = BcUtil::getExistsWebrootDir('', 'BaserCore', '', 'admin');
+        $this->assertEquals('/var/www/html/plugins/bc-admin-third/webroot/', $result);
+        // set plugin
+        $result = BcUtil::getExistsWebrootDir('', 'BcPluginSample', '', 'front');
+        $this->assertEquals('/var/www/html/plugins/BcPluginSample/webroot/', $result);
+
+    }
+
 
     /**
      * 全てのテーマリストを取得する
@@ -789,6 +824,25 @@ class BcUtilTest extends BcTestCase
             ['localhost', '', '', '引数を指定してサブドメイン名が取得できません。'],
         ];
     }
+
+    /**
+     * test getViewPath
+     */
+    public function test_getViewPath()
+    {
+        //ウェブ
+        $theme = Inflector::dasherize(BcUtil::getCurrentTheme());
+        $result = BcUtil::getViewPath();
+        $this->assertEquals('/var/www/html/plugins/'.$theme.DS, $result);
+        //管理側
+        $request = $this->getRequest('/baser/admin');
+        Router::setRequest($request);
+        $result = BcUtil::getViewPath();
+        $theme = Inflector::dasherize(BcUtil::getCurrentAdminTheme());
+        $this->assertEquals('/var/www/html/plugins/'.$theme.DS, $result);
+
+    }
+
 
     /**
      * testGetPluginPath
@@ -1291,14 +1345,13 @@ class BcUtilTest extends BcTestCase
      */
     public function testMbBasename()
     {
-        $this->markTestIncomplete('このテストは未確認です。basics.phpより移行');
-        $result = mbBasename('/hoge/あいうえお.php');
+        $result = BcUtil::mbBasename('/hoge/あいうえお.php');
         $this->assertEquals('あいうえお.php', $result);
 
-        $result = mbBasename('/hoge/あいうえお.phptest', 'test');
-        $this->assertEquals('あいうえお.php', $result, 'suffixを取り除けません');
+        $result = BcUtil::mbBasename('/hoge/あいうえお.phptest', 'test');
+        $this->assertEquals('あいうえお.php', $result);
 
-        $result = mbBasename('/hoge/あいうえおtest.php', 'test');
+        $result = BcUtil::mbBasename('/hoge/あいうえおtest.php', 'test');
         $this->assertEquals('あいうえおtest.php', $result);
     }
 
@@ -1324,6 +1377,19 @@ class BcUtilTest extends BcTestCase
     }
 
     /**
+     * test getFrontTemplatePaths
+     */
+    public function test_getFrontTemplatePaths()
+    {
+        $result = BcUtil::getFrontTemplatePaths(1, 'BcBlog');
+        $this->assertCount(5, $result);
+        $this->assertEquals('/var/www/html/plugins/bc-front/templates/', $result[0]);
+        $this->assertEquals('/var/www/html/plugins/bc-front/templates/plugin/BcBlog/', $result[1]);
+        $this->assertEquals('/var/www/html/plugins/bc-blog/templates/', $result[4]);
+    }
+
+
+    /**
      * 後方互換のための非推奨メッセージを生成する
      */
     public function testGetDeprecatedMessage()
@@ -1335,5 +1401,16 @@ class BcUtilTest extends BcTestCase
         $expect = 'target は、バージョン since より非推奨となりました。バージョン remove で削除される予定です。note';
         $this->assertEquals($expect, BcUtil::getDeprecatedMessage('target', 'since', 'remove', 'note'));
     }
+
+    /**
+     * test getLoggedInUsers
+     */
+    public function test_getLoggedInUsers()
+    {
+        $this->loginAdmin($this->getRequest('/baser/admin'));
+        $result = BcUtil::getLoggedInUsers();
+        $this->assertEquals('baser admin', $result['Api/Admin']->name);
+    }
+
 
 }
