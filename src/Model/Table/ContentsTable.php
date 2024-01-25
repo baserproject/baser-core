@@ -151,7 +151,9 @@ class ContentsTable extends AppTable
         $validator
             ->integer('parent_id')
             ->requirePresence('parent_id', 'create', __d('baser_core', 'content[parent_id] フィールドが存在しません。'))
-            ->notEmptyString('parent_id', __d('baser_core', '親フォルダを入力してください。'));
+            ->allowEmptyString('parent_id', __d('baser_core', '親フォルダを入力してください。'), function(array $context){
+                return (isset($context['data']['id']) && $context['data']['id'] === 1);
+            });
 
         $validator
             ->scalar('name')
@@ -191,28 +193,31 @@ class ContentsTable extends AppTable
                     'provider' => 'bc',
                     'message' => __d('baser_core', 'ファイルのアップロードに失敗しました。')
                 ]
-            ]);
-        $validator
-            ->dateTime('self_publish_begin')
-            ->allowEmptyDateTime('self_publish_begin')
-            ->add('self_publish_begin', [
-                'checkDate' => [
-                    'rule' => ['checkDate'],
+            ])
+            ->add('eyecatch', [
+                'fileExt' => [
+                    'rule' => ['fileExt', ['gif', 'jpg', 'jpeg', 'jpe', 'jfif', 'png']],
                     'provider' => 'bc',
-                    'message' => __d('baser_core', '公開開始日に不正な文字列が入っています。')
+                    'message' => __d('baser_core', '許可されていないファイルです。')
                 ]
             ]);
+        $validator
+            ->add('self_publish_begin', [
+                'dateTime' => [
+                    'rule' => ['dateTime'],
+                    'message' => __d('baser_core', '公開開始日に不正な文字列が入っています。')
+                ]
+            ])
+            ->allowEmptyDateTime('self_publish_begin');
 
         $validator
-            ->dateTime('self_publish_end')
-            ->allowEmptyDateTime('self_publish_end')
             ->add('self_publish_end', [
-                'checkDate' => [
-                    'rule' => ['checkDate'],
-                    'provider' => 'bc',
+                'dateTime' => [
+                    'rule' => ['dateTime'],
                     'message' => __d('baser_core', '公開終了日に不正な文字列が入っています。')
                 ]
             ])
+            ->allowEmptyDateTime('self_publish_end')
             ->add('self_publish_end', [
                 'checkDateAfterThan' => [
                     'rule' => ['checkDateAfterThan', 'self_publish_begin'],
@@ -221,26 +226,22 @@ class ContentsTable extends AppTable
                 ]
             ]);
         $validator
-            ->dateTime('created_date')
-            ->requirePresence('created_date', 'create', __d('baser_core', '作成日がありません。'))
-            ->notEmptyDateTime('created_date', __d('baser_core', '作成日が空になってます。'))
             ->add('created_date', [
-                'checkDate' => [
-                    'rule' => ['checkDate'],
-                    'provider' => 'bc',
+                'dateTime' => [
+                    'rule' => ['dateTime'],
                     'message' => __d('baser_core', '作成日が正しくありません。')
                 ]
-            ]);
+            ])
+            ->requirePresence('created_date', 'create', __d('baser_core', '作成日がありません。'))
+            ->notEmptyDateTime('created_date', __d('baser_core', '作成日が空になってます。'));
         $validator
-            ->datetime('modified_date')
-            ->notEmptyDateTime('modified_date', __d('baser_core', '更新日が空になってます。'), 'update')
             ->add('modified_date', [
-                'checkDate' => [
-                    'rule' => ['checkDate'],
-                    'provider' => 'bc',
+                'dateTime' => [
+                    'rule' => ['dateTime'],
                     'message' => __d('baser_core', '更新日が正しくありません。')
                 ]
-            ]);
+            ])
+            ->notEmptyDateTime('modified_date', __d('baser_core', '更新日が空になってます。'), 'update');
         return $validator;
     }
 
@@ -342,19 +343,8 @@ class ContentsTable extends AppTable
             if (isset($content['name'])) {
                 $content['name'] = BcUtil::urlencode(mb_substr($content['name'], 0, 230, 'UTF-8'));
             }
-            if (!empty($content['self_publish_begin'])) {
-                $content['self_publish_begin'] = new FrozenTime($content['self_publish_begin']);
-            }
-            if (!empty($content['self_publish_end'])) {
-                $content['self_publish_end'] = new FrozenTime($content['self_publish_end']);
-            }
             if (empty($content['modified_date'])) {
                 $content['modified_date'] = FrozenTime::now();
-            } else {
-                $content['modified_date'] = new FrozenTime($content['modified_date']);
-            }
-            if (!empty($content['created_date'])) {
-                $content['created_date'] = new FrozenTime($content['created_date']);
             }
         }
         // name の 重複チェック＆リネーム
