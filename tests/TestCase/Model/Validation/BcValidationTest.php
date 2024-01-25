@@ -80,28 +80,21 @@ class BcValidationTest extends BcTestCase
 
     public function alphaNumericPlusDataProvider()
     {
-        return [
-            ['あいうえお', [], false],
-            ['あいうえお', ['あ'], false],
-            ['あいうえお', ['あいうえお'], true],
-            ['あいうえお_', ['あいうえお'], true],
-        ];
-    }
-
-    /**
-     * Test alphaNumericDashUnderscore
-     *
-     * @return void
-     */
-    public function testAlphaNumericDashUnderscore()
-    {
         $alpha = implode('', array_merge(range('a', 'z'), range('A', 'Z')));
         $numeric = implode('', range(0, 9));
         $mark = '-_';
         $allowedChars = $alpha . $numeric . $mark;
 
-        $this->assertEquals(true, $this->BcValidation->alphaNumericDashUnderscore($allowedChars));
-        $this->assertEquals(false, $this->BcValidation->alphaNumericDashUnderscore($allowedChars . '!'));
+        return [
+            ['test', [], true],
+            ['test!', [], false],
+            [$allowedChars, [], true],
+            [$allowedChars . '!', [], false],
+            ['あいうえお', [], false],
+            ['あいうえお', ['あ'], false],
+            ['あいうえお', ['あいうえお'], true],
+            ['あいうえお_', ['あいうえお'], true],
+        ];
     }
 
     /**
@@ -421,30 +414,6 @@ class BcValidationTest extends BcTestCase
     }
 
     /**
-     * Test CheckDate
-     *
-     * @param string $value
-     * @param boolean $expect
-     * @return void
-     * @dataProvider checkDateDataProvider
-     */
-    public function testCheckDate($value, $expect)
-    {
-        $result = $this->BcValidation->checkDate($value);
-        $this->assertEquals($expect, $result);
-    }
-
-    public function checkDateDataProvider()
-    {
-        return [
-            [FrozenTime::now(), true],
-            [new FrozenTime('2015-01-01'), true],
-            ['', false],
-            ['2015-01-01 00:00:00', false],
-        ];
-    }
-
-    /**
      * Test checkDateRange
      *
      * @return void
@@ -623,6 +592,30 @@ class BcValidationTest extends BcTestCase
             ["あいう", 4, 3, false],
             [["あいう", "あいうえお"], 2, 4, true],
         ];
+    }
+
+
+    /**
+     * test notBlankOnlyString
+     */
+    public function test_notBlankOnlyString()
+    {
+        //戻り＝falseケース：半角スペース
+        $str = " ";
+        $result = $this->BcValidation->notBlankOnlyString($str);
+        $this->assertFalse($result);
+        //戻り＝falseケース：全角スペース
+        $str = "　";
+        $result = $this->BcValidation->notBlankOnlyString($str);
+        $this->assertFalse($result);
+        //戻り＝falseケース：半角・全角
+        $str = "　 ";
+        $result = $this->BcValidation->notBlankOnlyString($str);
+        $this->assertFalse($result);
+        //戻り＝trueケース
+        $str = "あa　";
+        $result = $this->BcValidation->notBlankOnlyString($str);
+        $this->assertTrue($result);
     }
 
 }

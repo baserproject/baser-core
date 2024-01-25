@@ -62,20 +62,6 @@ class BcValidation extends Validation
     }
 
     /**
-     * 半角英数字+アンダーバー＋ハイフンのチェック
-     *
-     * @param string $value 確認する値を含む配列。先頭の要素のみチェックされる
-     * @return boolean
-     * @checked
-     * @noTodo
-     * @unitTest
-     */
-    public static function alphaNumericDashUnderscore($value)
-    {
-        return (bool)preg_match('|^[0-9a-zA-Z_-]*$|', $value);
-    }
-
-    /**
      * 削除文字チェック
      *
      * BcUtile::urlencode で、削除される文字のみで構成されているかチェック(結果ブランクになるためnotBlankになる確認)
@@ -423,21 +409,6 @@ class BcValidation extends Validation
     }
 
     /**
-     * 日付の正当性チェック
-     *
-     * @param string $value 確認する値
-     * @return boolean
-     * @checked
-     * @noTodo
-     * @unitTest
-     */
-    public static function checkDate($value)
-    {
-        if (!$value instanceof FrozenTime) return false;
-        return true;
-    }
-
-    /**
      * 日時チェック
      * - 開始日時が終了日時より過去の場合、true を返す
      *
@@ -613,6 +584,20 @@ class BcValidation extends Validation
     {
         $length = mb_strlen($value, Configure::read('App.encoding'));
         return ($length >= $min && $length <= $max);
+    }
+
+    /**
+     * スペースしかない文字列
+     *
+     * @param $string
+     * @return bool
+     * @checked
+     * @notodo
+     * @unitTest
+     */
+    public static function notBlankOnlyString($string): bool
+    {
+        return (preg_replace("/( |　)/", '', $string) !== '');
     }
 
 }

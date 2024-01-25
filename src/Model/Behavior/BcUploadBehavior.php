@@ -16,6 +16,7 @@ use BaserCore\Utility\BcFileUploader;
 use Cake\ORM\Behavior;
 use Cake\Event\EventInterface;
 use Cake\Datasource\EntityInterface;
+use Cake\Validation\Validator;
 use BaserCore\Annotation\Note;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
@@ -116,19 +117,23 @@ class BcUploadBehavior extends Behavior
     }
 
     /**
-     * アップロード用のリクエストデータを変換する
+     * Before Marshal
      *
      * @param EventInterface $event
      * @param ArrayObject $data
+     * @param ArrayObject $options
      * @checked
      * @noTodo
      * @unitTest
      */
-    public function beforeMarshal(EventInterface $event, ArrayObject $data)
+    public function beforeMarshal(EventInterface $event, ArrayObject $data, ArrayObject $options)
     {
+        // アップロード用のリクエストデータを変換する
         $this->BcFileUploader[$this->table()->getAlias()]->setupRequestData($data);
         $this->BcFileUploader[$this->table()->getAlias()]->setupTmpData($data);
         $this->oldEntity[$this->table()->getAlias()][$data['_bc_upload_id']] = (!empty($data['id']))? $this->getOldEntity($data['id']) : null;
+        // ファイルアップロード用のフィールドのエンティティ変換を許可する
+        $options['accessibleFields']['_bc_upload_id'] = true;
     }
 
     /**
@@ -146,6 +151,26 @@ class BcUploadBehavior extends Behavior
     {
         if ($entity->getErrors()) {
             $this->BcFileUploader[$this->table()->getAlias()]->rollbackFile($entity);
+        }
+    }
+
+    /**
+     * Build Validator
+     *
+     * @param EventInterface $event
+     * @param Validator $validator
+     * @param string $name
+     */
+    public function buildValidator(EventInterface $event, Validator $validator, $name)
+    {
+        $settings = $this->getSettings();
+        foreach ($settings['fields'] as $field => $fieldSettings) {
+            $validator->add($field, 'checkFilePath', [
+                'rule' => function ($value) {
+                    return (!is_string($value) || !str_contains($value, '../'));
+                },
+                'message' => __d('baser_core', '許可されていないファイルです。')
+            ]);
         }
     }
 
