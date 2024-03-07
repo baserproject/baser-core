@@ -951,7 +951,7 @@ class ContentsTable extends AppTable
             }
         }
         if ($content->site_id) {
-            $site = $this->Sites->find()->where(['Sites.id' => $content->site_id])->first();
+            $site = $this->Sites->find()->where(['id' => $content->site_id])->first();
         }
         // URLを更新
         $content->url = $this->createUrl($content->id);
@@ -961,10 +961,7 @@ class ContentsTable extends AppTable
         }
         $content = $this->updatePublishDate($content);
         if (!empty($content->parent_id)) {
-            $parent = $this->find()
-                ->select(['Contents.name', 'Contents.status', 'Contents.publish_begin', 'Contents.publish_end'])
-                ->where(['Contents.id' => $content->parent_id])
-                ->first();
+            $parent = $this->find()->select(['name', 'status', 'publish_begin', 'publish_end'])->where(['id' => $content->parent_id])->first();
             // 親フォルダが非公開の場合は自身も非公開
             if (!$parent->status) {
                 $content->status = $parent->status;
@@ -991,10 +988,7 @@ class ContentsTable extends AppTable
             }
             // main_site_content_id を更新
             if (!$content->isNew() && $site->main_site_id) {
-                $mainSiteContent = $this->find()
-                    ->select(['Contents.id'])
-                    ->where(['Contents.site_id' => $site->main_site_id, 'Contents.url' => $url])
-                    ->first();
+                $mainSiteContent = $this->find()->select(['id'])->where(['site_id' => $site->main_site_id, 'url' => $url])->first();
                 $content->main_site_content_id = $mainSiteContent->id ?? null;
             } else {
                 $content->main_site_content_id = null;
@@ -1058,7 +1052,7 @@ class ContentsTable extends AppTable
      */
     public function updateChildren($id)
     {
-        $children = $this->find('children', ['for' => $id])->order('Contents.lft');
+        $children = $this->find('children', ['for' => $id])->order('lft');
         $result = true;
         if (!$children->all()->isEmpty()) {
             foreach($children as $child) {
@@ -1111,16 +1105,16 @@ class ContentsTable extends AppTable
             $plugin = 'BaserCore';
         }
         $conditions = [
-            'Contents.plugin' => $plugin,
-            'Contents.type' => $type,
-            'Contents.alias_id' => null
+            'plugin' => $plugin,
+            'type' => $type,
+            'alias_id' => null
         ];
         if ($entityId) {
             $conditions['Content.entity_id'] = $entityId;
         }
         $softDelete = $this->softDelete(null);
         $this->softDelete(false);
-        $id = $this->field('Contents.id', $conditions);
+        $id = $this->field('id', $conditions);
         $result = $this->removeFromTree($id, true);
         $this->softDelete($softDelete);
         return $result;
@@ -1313,9 +1307,10 @@ class ContentsTable extends AppTable
         $this->removeBehavior('Tree');
         $this->updatingRelated = false;
 
-        $eventManager = $this->getEventManager();
-        $beforeSaveListeners = BcUtil::offEvent($eventManager, 'Model.beforeSave');
-        $afterSaveListeners = BcUtil::offEvent($eventManager, 'Model.afterSave');
+        $beforeSaveListeners = $this->getEventManager()->listeners('Model.beforeSave');
+        $this->getEventManager()->off('Model.beforeSave', $beforeSaveListeners);
+        $afterSaveListeners = $this->getEventManager()->listeners('Model.afterSave');
+        $this->getEventManager()->off('Model.afterSave', $afterSaveListeners);
 
         $this->getConnection()->begin();
         $result = true;
@@ -1342,7 +1337,7 @@ class ContentsTable extends AppTable
                     $content->rght = $count;
                     $content->level = $siteRoot->level + 1;
                     $content->parent_id = $siteRoot->id;
-                    if (!$this->save($content)) $result = false;
+                    if (!$this->save($content, false)) $result = false;
                 }
             }
             if ($siteRoot->id == 1) {
@@ -1361,14 +1356,15 @@ class ContentsTable extends AppTable
         $this->addBehavior('Tree');
         $this->updatingRelated = true;
 
-        BcUtil::onEvent($eventManager, 'Model.beforeSave', $beforeSaveListeners);
-        BcUtil::onEvent($eventManager, 'Model.afterSave', $afterSaveListeners);
+        $this->getEventManager()->on('Model.beforeSave', $beforeSaveListeners);
+        $this->getEventManager()->on('Model.afterSave', $afterSaveListeners);
 
         $contents = $this->find()->order(['lft'])->all();
         if ($contents) {
             foreach($contents as $content) {
-                // setDirty を利用して同名コンテンツを強制的にリネームする
-                $content->setDirty('name', true);
+                // バリデーションをオンにする事で同名コンテンツを強制的にリネームする
+                // beforeValidate でリネーム処理を入れている為
+                // （第二引数を false に設定しない）
                 if (!$this->save($content)) $result = false;
             }
         }

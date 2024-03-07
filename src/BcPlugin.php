@@ -18,7 +18,6 @@ use BaserCore\Service\BcDatabaseServiceInterface;
 use BaserCore\Service\PermissionGroupsService;
 use BaserCore\Service\PermissionGroupsServiceInterface;
 use BaserCore\Utility\BcContainerTrait;
-use BaserCore\Utility\BcPluginUtil;
 use BaserCore\Utility\BcUpdateLog;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\BasePlugin;
@@ -482,7 +481,7 @@ class BcPlugin extends BasePlugin
      */
     public function frontPageRouting(RouteBuilder $routes, string $plugin)
     {
-        if(!BcPluginUtil::isPlugin($plugin)) return $routes;
+
         $routes->plugin(
             $plugin,
             ['path' => '/' . Inflector::dasherize($plugin)],
@@ -558,7 +557,6 @@ class BcPlugin extends BasePlugin
      */
     public function siteRouting(RouteBuilder $routes, string $plugin)
     {
-        if(!BcPluginUtil::isPlugin($plugin)) return $routes;
         $request = Router::getRequest();
         if (!$request) {
             $request = ServerRequestFactory::fromGlobals();
