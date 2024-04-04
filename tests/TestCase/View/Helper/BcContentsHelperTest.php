@@ -11,8 +11,6 @@
 
 namespace BaserCore\Test\TestCase\View\Helper;
 
-use BaserCore\Model\Entity\Content;
-use BaserCore\Model\Entity\Site;
 use BaserCore\Test\Factory\ContentFactory;
 use Cake\Routing\Router;
 use BaserCore\View\BcAdminAppView;
@@ -179,11 +177,11 @@ class BcContentsHelperTest extends BcTestCase
     public function isSiteRelatedDataProvider()
     {
         return [
-            [true, new Content(['main_site_content_id' => 1, 'alias_id' => 1, 'type' => 'BlogContent', 'site' => new Site(['relate_main_site' => true])])],
-            [false, new Content(['main_site_content_id' => 1, 'alias_id' => 1, 'type' => 'BlogContent', 'site' => new Site(['relate_main_site' => false])])],
-            [false, new Content(['main_site_content_id' => null, 'alias_id' => 1, 'type' => 'BlogContent', 'site' => new Site(['relate_main_site' => true])])],
-            [false, new Content(['main_site_content_id' => 1, 'alias_id' => null, 'type' => 'BlogContent', 'site' => new Site(['relate_main_site' => true])])],
-            [true,new Content(['main_site_content_id' => 1, 'alias_id' => null, 'type' => 'ContentFolder', 'site' => new Site(['relate_main_site' => true])])]
+            [true, ['Site' => ['relate_main_site' => true], 'Content' => ['main_site_content_id' => 1, 'alias_id' => 1, 'type' => 'BlogContent']]],
+            [false, ['Site' => ['relate_main_site' => false], 'Content' => ['main_site_content_id' => 1, 'alias_id' => 1, 'type' => 'BlogContent']]],
+            [false, ['Site' => ['relate_main_site' => true], 'Content' => ['main_site_content_id' => null, 'alias_id' => 1, 'type' => 'BlogContent']]],
+            [false, ['Site' => ['relate_main_site' => true], 'Content' => ['main_site_content_id' => 1, 'alias_id' => null, 'type' => 'BlogContent']]],
+            [true, ['Site' => ['relate_main_site' => true], 'Content' => ['main_site_content_id' => 1, 'alias_id' => null, 'type' => 'ContentFolder']]]
         ];
     }
 

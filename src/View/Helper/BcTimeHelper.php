@@ -12,7 +12,6 @@
 namespace BaserCore\View\Helper;
 
 use BaserCore\Event\BcEventDispatcherTrait;
-use Cake\Core\Configure;
 use Cake\View\Helper\TimeHelper;
 use BaserCore\Annotation\Checked;
 use BaserCore\Annotation\NoTodo;
@@ -303,17 +302,7 @@ class BcTimeHelper extends TimeHelper
         if ($date !== "00:00:00" && (!$date || $date == '0000-00-00 00:00:00')) {
             return "";
         }
-        try {
-            return parent::format($date, $format, $invalid, $timezone);
-        } catch (\Throwable $e) {
-            $message = $e->getMessage();
-            $this->getView()->log($message);
-            if(Configure::read('debug')) {
-                return $message;
-            } else {
-                return '';
-            }
-        }
+        return parent::format($date, $format, $invalid, $timezone);
     }
 
     /**

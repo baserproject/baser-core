@@ -22,7 +22,6 @@ use BaserCore\Utility\BcUtil;
 use Cake\Core\Configure;
 use Cake\Datasource\EntityInterface;
 use Cake\ORM\Query;
-use Cake\ORM\Table;
 use Cake\ORM\TableRegistry;
 use Cake\Utility\Hash;
 use Cake\Utility\Inflector;
@@ -43,18 +42,6 @@ class PermissionGroupsService implements PermissionGroupsServiceInterface
      * Trait
      */
     use BcContainerTrait;
-
-    /**
-     * PermissionGroups Table
-     * @var PermissionGroupsTable|Table
-     */
-    public PermissionGroupsTable|Table $PermissionGroups;
-
-    /**
-     * UserGroups Table
-     * @var UserGroupsTable|Table
-     */
-    public UserGroupsTable|Table $UserGroups;
 
     /**
      * Constructor

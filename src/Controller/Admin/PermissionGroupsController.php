@@ -49,23 +49,11 @@ class PermissionGroupsController extends BcAdminAppController
             }
         }
 
-        $authPrefixes = $service->getControlSource('auth_prefix', [
-          'user_group_id' => $userGroupId,
-        ]);
-        $authPrefixes = array_keys($authPrefixes);
-
         $request = $this->getRequest();
-        $listType = $request->getQuery('list_type');
-        if (!in_array($listType, $authPrefixes)) {
-            $listType = $authPrefixes[0];
-        }
-
         $this->setRequest($request->withParsedBody([
-            'list_type' => $listType,
+            'list_type' => $request->getQuery('list_type'),
             'filter_user_group_id' => $userGroupId
         ]));
-        $request = $this->getRequest();
-
         $this->set($service->getViewVarsForIndex($userGroupId, $request));
     }
 

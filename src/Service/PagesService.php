@@ -12,11 +12,8 @@
 namespace BaserCore\Service;
 
 use BaserCore\Error\BcException;
-use BaserCore\Model\Table\ContentsTable;
-use BaserCore\Model\Table\UsersTable;
 use Cake\Http\ServerRequest;
 use Cake\ORM\Query;
-use Cake\ORM\Table;
 use Cake\ORM\TableRegistry;
 use BaserCore\Utility\BcUtil;
 use BaserCore\Model\Entity\Page;
@@ -45,19 +42,7 @@ class PagesService implements PagesServiceInterface
      * Pages Table
      * @var PagesTable
      */
-    public PagesTable|Table $Pages;
-
-    /**
-     * Contents Table
-     * @var ContentsTable|Table
-     */
-    public ContentsTable|Table $Contents;
-
-    /**
-     * Users Table
-     * @var UsersTable|Table
-     */
-    public UsersTable|Table $Users;
+    public $Pages;
 
     /**
      * Pageservice constructor.
@@ -103,7 +88,6 @@ class PagesService implements PagesServiceInterface
 				'content' => [
                     'name' => $name,
                     'title' => $title,
-                    'url' => '',
                     'type' => 'Page',
                     'plugin' => 'BaserCore',
                     'alias_id' => null,
@@ -148,7 +132,7 @@ class PagesService implements PagesServiceInterface
         $options = array_merge([
             'status' => '',
             'contain' => ['Contents' => ['Sites']],
-            'draft' => null
+            'draft' => false
         ], $options);
         $conditions = [];
         if ($options['status'] === 'publish') {

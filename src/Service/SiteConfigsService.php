@@ -19,7 +19,6 @@ use Cake\Core\Configure;
 use Cake\Datasource\Exception\MissingDatasourceConfigException;
 use Cake\Filesystem\File;
 use Cake\Mailer\MailerAwareTrait;
-use Cake\ORM\Table;
 use Cake\ORM\TableRegistry;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
@@ -41,7 +40,7 @@ class SiteConfigsService implements SiteConfigsServiceInterface
      * SiteConfigs Table
      * @var SiteConfigsTable
      */
-    public SiteConfigsTable|Table $SiteConfigs;
+    public $SiteConfigs;
 
     /**
      * キャッシュ用 Entity

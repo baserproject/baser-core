@@ -49,6 +49,7 @@ class BcEventDispatcher
     public static function dispatch($name, $subject, $data = [], $options = [])
     {
         $options = array_merge([
+            'modParams' => 0,
             'layer' => '',
             'plugin' => method_exists($subject, 'getPlugin')? $subject->getPlugin() : '',
             'class' => method_exists($subject, 'getName')? $subject->getName() : ''
@@ -72,6 +73,7 @@ class BcEventDispatcher
         }
 
         $event = new Event($eventName, $subject, $data);
+        $event->modParams = $options['modParams'];
         return $eventManager->dispatch($event);
     }
 

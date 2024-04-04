@@ -14,6 +14,7 @@ namespace BaserCore\View\Helper;
 use BaserCore\Model\Entity\Content;
 use BaserCore\Model\Entity\Site;
 use BaserCore\Model\Table\SitesTable;
+use BaserCore\Service\PagesService;
 use BaserCore\Service\PagesServiceInterface;
 use BaserCore\Utility\BcSiteConfig;
 use BcBlog\Model\Entity\BlogPost;
@@ -33,7 +34,6 @@ use Cake\ORM\TableRegistry;
 use Cake\Routing\Router;
 use Cake\Utility\Hash;
 use Cake\Utility\Inflector;
-use Cake\View\Exception\MissingElementException;
 use Cake\View\Helper\BreadcrumbsHelper;
 use Cake\View\View;
 use Cake\View\Helper;
@@ -323,13 +323,7 @@ class BcBaserHelper extends Helper
             $options = ($event->getResult() === null || $event->getResult() === true)? $event->getData('options') : $event->getResult();
         }
 
-        $out = '';
-        try {
-            $out = $this->_View->element($name, $data, $options);
-        } catch (MissingElementException $e) {
-            echo __d('baser_core', 'エレメントテンプレート「{0}」が見つかりませんでした。', $name);
-            $this->log($e->getMessage());
-        }
+        $out = $this->_View->element($name, $data, $options);
 
         // EVENT afterElement
         $event = $this->dispatchLayerEvent('afterElement', [
@@ -422,7 +416,6 @@ class BcBaserHelper extends Helper
      *    - `prefix` : URLにプレフィックスをつけるかどうか（初期値 : false）
      *    - `forceTitle` : 許可されていないURLの際にタイトルを強制的に出力するかどうか（初期値 : false）
      *    - `ssl` : SSL用のURLをして出力するかどうか（初期値 : false）
-     *    - `enabled` : リンクが有効かどうか（初期値 : true）
      *     ※ その他のパラメータについては、HtmlHelper::image() を参照。
      * @param bool $confirmMessage 確認メッセージ（初期値 : false）
      *    リンクをクリックした際に確認メッセージが表示され、はいをクリックした場合のみ遷移する
@@ -434,14 +427,19 @@ class BcBaserHelper extends Helper
      */
     public function getLink($title, $url = null, $options = [], $confirmMessage = false)
     {
-        if ($confirmMessage) $options['confirm'] = $confirmMessage;
-        if (!is_array($options)) $options = [$options];
+        if ($confirmMessage) {
+            $options['confirm'] = $confirmMessage;
+        }
+
+        if (!is_array($options)) {
+            $options = [$options];
+        }
+
         $options = array_merge([
             'escape' => true,
             'prefix' => false,
             'forceTitle' => false,
-            'ssl' => $this->isSSL(),
-            'enabled' => true
+            'ssl' => $this->isSSL()
         ], $options);
 
         // EVENT Html.beforeGetLink
@@ -455,21 +453,37 @@ class BcBaserHelper extends Helper
             $options = ($event->getResult() === null || $event->getResult() === true)? $event->getData('options') : $event->getResult();
         }
 
-        $request = $this->getView()->getRequest();
-        $prefix = $options['prefix'];
+        if ($options['prefix']) {
+            if (!empty($this->_View->getRequest()->getParam('prefix')) && is_array($url)) {
+                $url[$this->_View->getRequest()->getParam('prefix')] = true;
+            }
+        }
         $forceTitle = $options['forceTitle'];
         $ssl = $options['ssl'];
-        $enabled = $options['enabled'];
-        unset($options['prefix'], $options['forceTitle'], $options['ssl'], $options['enabled']);
 
-        if ($prefix && is_array($url) && !empty($request->getParam('prefix'))) {
-            $url[$request->getParam('prefix')] = true;
+        unset($options['prefix']);
+        unset($options['forceTitle']);
+        unset($options['ssl']);
+
+        $_url = $this->getUrl($url);
+        $_url = preg_replace('/^' . preg_quote($this->_View->getRequest()->getAttribute('base'), '/') . '\//', '/', $_url);
+        $enabled = true;
+
+        if ($options == false) {
+            $enabled = false;
         }
 
-        $srcUrl = $this->getUrl($url, false, ['escape' => false]);
-        $srcUrl = preg_replace('/^' . preg_quote($request->getAttribute('base'), '/') . '\//', '/', $srcUrl);
+        // 認証チェック
+        $user = Bcutil::loginUser();
+        if (BcUtil::isInstalled()) {
+            $userGroups = [];
+            if($user && $user->user_groups) $userGroups = array_column($user->user_groups, 'id');
+            if (!$this->PermissionsService->check($_url, $userGroups)) {
+                $enabled = false;
+            }
+        }
 
-        if (!$enabled || !$this->isLinkEnabled($srcUrl)) {
+        if (!$enabled) {
             if ($forceTitle) {
                 return "<span>$title</span>";
             } else {
@@ -477,31 +491,44 @@ class BcBaserHelper extends Helper
             }
         }
 
-        // 現在SSLの場合、特定の条件でフルパスとする
-        // - //(スラッシュスラッシュ)から始まるURL
-        // - http / https 以外のプロトコル
-        // - ハッシュタグから始まるURL
-        $full = false;
+        // 現在SSLのURLの場合、プロトコル指定(フルパス)で取得以外
+        // //(スラッシュスラッシュ)から始まるSSL、非SSL共有URLも除外する
         if (BcUtil::isInstalled()
             && ($this->isSSL() || $ssl)
-            && !(preg_match('/^(javascript|https?|ftp|tel|mailto):/', $srcUrl))
-            && !(strpos($srcUrl, '//') === 0)
-            && !preg_match('/^#/', $srcUrl)) {
-            $full = true;
+            && !(preg_match('/^(javascript|https?|ftp|tel):/', $_url))
+            && !(strpos($_url, '//') === 0)
+            && !preg_match('/^#/', $_url)) {
+
+            $_url = preg_replace("/^\//", "", $_url);
+            if (preg_match('{^' . BcUtil::getPrefix(true) . '\/}', $_url)) {
+                $admin = true;
+            } else {
+                $admin = false;
+            }
+            if (Configure::read('App.baseUrl')) {
+                $_url = 'index.php/' . $_url;
+            }
+            if(!preg_match('/^(mailto:|tel:)/', $_url)) {
+                if (!$ssl && !$admin) {
+                    $url = Configure::read('BcEnv.siteUrl') . $_url;
+                } else {
+                    $sslUrl = Configure::read('BcEnv.sslUrl');
+                    if ($sslUrl) {
+                        $url = $sslUrl . $_url;
+                    } else {
+                        $url = '/' . $_url;
+                    }
+                }
+            }
         }
 
-        if (preg_match('{^' . BcUtil::getPrefix(true) . '\/}', $srcUrl) || !isset($this->BcContents)) {
-            $url = $this->getUrl($srcUrl, $full, ['escape' => false]);
-        } else {
-            $site = $this->getCurrentSite();
-            $useSubdomain = ($site)? $site->use_subdomain : false;
-            $url = $this->BcContents->getUrl($srcUrl, $full, $useSubdomain, (bool) $request->getAttribute('base'));
+        if (!$options) {
+            $options = [];
         }
 
-        if (!$full) {
-            $url = preg_replace('/^' . preg_quote($request->getAttribute('base'), '/') . '\//', '/', $url);
+        if (!is_array($url)) {
+            $url = preg_replace('/^' . preg_quote($this->_View->getRequest()->getAttribute('base'), '/') . '\//', '/', $url);
         }
-
         $out = $this->BcHtml->link($title, $url, $options);
 
         // EVENT Html.afterGetLink
@@ -515,27 +542,6 @@ class BcBaserHelper extends Helper
 
         return $out;
     }
-
-    /**
-     * リンクが有効化どうか
-     *
-     * ログインしているユーザーの権限によって判定する
-     * ログインしていない場合、ユーザーグループがユーザーに関連付けられていない場合は、常に有効とする
-     * @param string $link
-     * @return true
-     * @noTodo
-     * @checked
-     */
-    public function isLinkEnabled(string $link): bool
-    {
-        if (!BcUtil::isInstalled()) return true;
-        $user = Bcutil::loginUser();
-        if(!$user) return true;
-        if(!$user->user_groups) return true;
-        $userGroups = array_column($user->user_groups, 'id');
-        return $this->PermissionsService->check($link, $userGroups);
-    }
-
 
     /**
      * 管理者グループかどうかチェックする
@@ -796,12 +802,9 @@ class BcBaserHelper extends Helper
      * @unitTest
      * @noTodo
      */
-    public function getUrl($url = null, $full = false, $options = [])
+    public function getUrl($url = null, $full = false)
     {
-        $options = array_merge([
-            'fullBase' => $full
-        ], $options);
-        return $this->Url->build($url, $options);
+        return $this->Url->build($url, ['fullBase' => $full]);
     }
 
     /**

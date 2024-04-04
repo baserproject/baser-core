@@ -43,13 +43,10 @@ class BcArrayHelper extends Helper
     public function first($array, int $key)
     {
         if($array instanceof Query) {
-            $iterator = clone $array->getIterator();
-            $iterator->first();
-            $first = $iterator->key();
-        } else {
-            reset($array);
-            $first = key($array);
+            $array = $array->toArray();
         }
+        reset($array);
+        $first = key($array);
         if ($key === $first) {
             return true;
         } else {
@@ -69,11 +66,10 @@ class BcArrayHelper extends Helper
     public function last($array, $key)
     {
         if($array instanceof Query) {
-            $end = $array->count() - 1;
-        } else {
-            end($array);
-            $end = key($array);
+            $array = $array->toArray();
         }
+        end($array);
+        $end = key($array);
         if ($key === $end) {
             return true;
         } else {

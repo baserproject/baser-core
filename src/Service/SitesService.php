@@ -18,7 +18,6 @@ use BaserCore\Utility\BcUtil;
 use Cake\Core\Configure;
 use Cake\Core\Exception\Exception;
 use Cake\ORM\Query;
-use Cake\ORM\Table;
 use Cake\ORM\TableRegistry;
 use Cake\Datasource\EntityInterface;
 use BaserCore\Annotation\UnitTest;
@@ -36,7 +35,7 @@ class SitesService implements SitesServiceInterface
      * Sites Table
      * @var SitesTable
      */
-    public SitesTable|Table $Sites;
+    public $Sites;
 
     /**
      * SitesService constructor.
@@ -97,10 +96,10 @@ class SitesService implements SitesServiceInterface
             $query->limit($queryParams['limit']);
         }
         if (!empty($queryParams['name'])) {
-            $query->where(['Sites.name LIKE' => '%' . $queryParams['name'] . '%']);
+            $query->where(['name LIKE' => '%' . $queryParams['name'] . '%']);
         }
         if (isset($queryParams['status'])) {
-            $query->where(['Sites.status' => $queryParams['status']]);
+            $query->where(['status' => $queryParams['status']]);
         }
         return $query;
     }
