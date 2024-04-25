@@ -47,6 +47,7 @@ class PluginsController extends BcAdminAppController
     /**
      * Before Filter
      * @param \Cake\Event\EventInterface $event An Event instance
+     * @return Response|void
      * @checked
      * @unitTest
      * @noTodo
@@ -56,7 +57,6 @@ class PluginsController extends BcAdminAppController
         $response = parent::beforeFilter($event);
         if($response) return $response;
         $this->Security->setConfig('unlockedActions', ['reset_db', 'update_sort', 'batch']);
-        if(Configure::read('BcRequest.isUpdater')) $this->Authentication->allowUnauthenticated(['update']);
     }
 
     /**
@@ -74,12 +74,14 @@ class PluginsController extends BcAdminAppController
     /**
      * インストール
      *
+     * @param PluginsAdminServiceInterface $service
      * @param string $name プラグイン名
+     * @return Response|void|null
      * @checked
      * @noTodo
      * @unitTest
      */
-    public function install(PluginsAdminServiceInterface $service, $name)
+    public function install(PluginsAdminServiceInterface $service, string $name)
     {
         $this->set($service->getViewVarsForInstall($this->Plugins->getPluginConfig($name)));
         if ($service->getInstallStatusMessage($name) || !$this->request->is(['put', 'post'])) {
