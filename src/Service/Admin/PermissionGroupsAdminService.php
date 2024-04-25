@@ -63,16 +63,10 @@ class PermissionGroupsAdminService extends PermissionGroupsService implements Pe
         if($userGroupId) {
             $currentUserGroup = $this->UserGroups->get($userGroupId);
         }
-        $isDeletable = false;
-        if ($entity->id) {
-            $isDeletable = !$this->PermissionGroups->Permissions
-                ->exists(['Permissions.permission_group_id' => $entity->id]);
-        }
         return [
             'entity' => $entity,
             'userGroupTitle' => $currentUserGroup->title?? __d('baser_core', 'ゲスト'),
-            'userGroupId' => $currentUserGroup->id ?? '0',
-            'isDeletable' => $isDeletable,
+            'userGroupId' => $currentUserGroup->id ?? "0"
         ];
     }
 

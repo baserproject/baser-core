@@ -178,9 +178,8 @@ class ContentsService implements ContentsServiceInterface
     public function getChildren($id, $conditions = [])
     {
         try {
-            $query = $this->Contents->find('children', ['for' => $id, 'order' => ['Contents.lft' => 'ASC']])
-                ->where($conditions);
-        } catch (\Exception) {
+            $query = $this->Contents->find('children', ['for' => $id])->where($conditions);
+        } catch (\Exception $e) {
             return null;
         }
         return $query->all()->isEmpty()? null : $query;
@@ -421,19 +420,7 @@ class ContentsService implements ContentsServiceInterface
             $postData['parent_id'] = $this->Contents->copyContentFolderPath($postData['url'], $postData['site_id']);
         }
         $data = array_merge($this->get($postData['alias_id'], ['contain' => []])->toArray(), $postData);
-        unset(
-            $data['id'],
-            $data['lft'],
-            $data['rght'],
-            $data['level'],
-            $data['pubish_begin'],
-            $data['publish_end'],
-            $data['created_date'],
-            $data['created'],
-            $data['modified'],
-            $data['site'],
-            $data['site_root']
-        );
+        unset($data['id'], $data['lft'], $data['rght'], $data['level'], $data['pubish_begin'], $data['publish_end'], $data['created_date'], $data['created'], $data['modified'], $data['site']);
         $alias = $this->Contents->newEntity($data);
         $alias->name = $postData['name'] ?? $postData['title'];
         $alias->created_date = FrozenTime::now();

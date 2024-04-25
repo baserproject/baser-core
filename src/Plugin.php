@@ -45,7 +45,6 @@ use Cake\Http\ServerRequestFactory;
 use Cake\I18n\I18n;
 use Cake\Log\Log;
 use Cake\ORM\TableRegistry;
-use Cake\Routing\Middleware\RoutingMiddleware;
 use Cake\Routing\RouteBuilder;
 use Cake\Routing\Router;
 use Cake\Utility\Inflector;
@@ -61,7 +60,7 @@ use ReflectionProperty;
 /**
  * Class plugin
  */
-class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderInterface
+class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
 {
 
     /**
@@ -90,8 +89,8 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
          * インストールされてない場合のテストをできるようにするため、Configure の設定を優先する
          */
         $hasInstall = file_exists(CONFIG . 'install.php');
-        if (is_null(Configure::read('BcEnv.isInstalled'))) {
-            Configure::write('BcEnv.isInstalled', $hasInstall);
+        if (is_null(Configure::read('BcRequest.isInstalled'))) {
+            Configure::write('BcRequest.isInstalled', $hasInstall);
         }
 
         /**
@@ -283,7 +282,7 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
     public function middleware(MiddlewareQueue $middlewareQueue): MiddlewareQueue
     {
         $middlewareQueue
-            ->insertBefore(RoutingMiddleware::class, new BcRequestFilterMiddleware())
+            ->prepend(new BcRequestFilterMiddleware())
             ->insertBefore(CsrfProtectionMiddleware::class, new AuthenticationMiddleware($this))
             ->add(new BcAdminMiddleware())
             ->add(new BcFrontMiddleware())
@@ -599,17 +598,6 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
         );
 
         parent::routes($routes);
-    }
-
-    /**
-     * 初期データ読み込み時の更新処理
-     * @param array $options
-     * @return void
-     */
-    public function updateDefaultData($options = []) : void
-    {
-        // コンテンツの作成日を更新
-        $this->updateDateNow('BaserCore.Contents', ['created_date'], [], $options);
     }
 
     /**
