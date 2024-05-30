@@ -619,6 +619,46 @@ class BcValidationTest extends BcTestCase
     }
 
     /**
+     * @param $str
+     * @param $key
+     * @param $regex
+     * @param $expect
+     *
+     * test checkWithJson
+     * @dataProvider checkWithJsonProvider
+     *
+     */
+    public function test_checkWithJson($key, $str, $regex, $expect)
+    {
+        $request = $this->getRequest('/')->withData('validate', ['EMAIL_CONFIRM', 'FILE_EXT', 'MAX_FILE_SIZE']);
+        Router::setRequest($request);
+
+        $result = $this->BcValidation->checkWithJson($str, $key, $regex);
+        $this->assertEquals($expect, $result);
+    }
+
+    public static function checkWithJsonProvider()
+    {
+        return [
+            //Eメール比較先フィールド名 テスト
+            ['BcCustomContent.email_confirm', '{"BcCustomContent":{"email_confirm":"ああ"}}', "/^[a-z0-9_]+$/", false],       //戻り＝falseケース：全角文字
+            ['BcCustomContent.email_confirm', '{"BcCustomContent":{"email_confirm":" "}}', "/^[a-z0-9_]+$/", false],         //戻り＝falseケース：半角スペース
+            ['BcCustomContent.email_confirm', '{"BcCustomContent":{"email_confirm":"ああaaa"}}', "/^[a-z0-9_]+$/", false],    //戻り＝falseケース：半角・全角
+            ['BcCustomContent.email_confirm', '{"BcCustomContent":{"email_confirm":"aaaa_bbb"}}', "/^[a-z0-9_]+$/", true],    //戻り＝trueケース
+
+            //ファイルアップロードサイズ制限 テスト
+            ['BcCustomContent.max_file_size', '{"BcCustomContent":{"max_file_size":"aaaaa111"}}', "/^[0-9]+$/", false],       //戻り＝falseケース：文字列
+            ['BcCustomContent.max_file_size', '{"BcCustomContent":{"max_file_size":"ああaaa"}}', "/^[0-9]+$/", false],         //戻り＝falseケース：半角・全角
+            ['BcCustomContent.max_file_size', '{"BcCustomContent":{"max_file_size":"123"}}', "/^[0-9]+$/", true],             //戻り＝falseケース：数値
+
+            //ファイル拡張子チェック テスト
+            ['BcCustomContent.file_ext', '{"BcCustomContent":{"file_ext":"ああaaa"}}', "/^[a-z,]+$/", false],                  //戻り＝falseケース：半角・全角
+            ['BcCustomContent.file_ext', '{"BcCustomContent":{"file_ext":"1111"}}', "/^[a-z,]+$/", false],                    //戻り＝falseケース：数字
+            ['BcCustomContent.file_ext', '{"BcCustomContent":{"file_ext":"pdf,png"}}', "/^[a-z,]+$/", true],                  //戻り＝trueケース：文字列
+        ];
+    }
+
+    /**
      * test hexColorPlus
      *
      * @param string $value
