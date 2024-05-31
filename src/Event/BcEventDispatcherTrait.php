@@ -69,6 +69,7 @@ trait BcEventDispatcherTrait
             $class = str_replace('Mailer', '', $classArray[count($classArray) - 1]);
         }
         $options = array_merge([
+            'modParams' => 0,
             'plugin' => $plugin,
             'layer' => $layer,
             'class' => $class

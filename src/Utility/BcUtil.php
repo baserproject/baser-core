@@ -483,18 +483,13 @@ class BcUtil
             if (!$pluginPath) {
                 return false;
             }
-            $name = Inflector::camelize($name, '-');
-            if(file_exists($pluginPath . 'src' . DS . 'Plugin.php')) {
-                $pluginClassPath = $pluginPath . 'src' . DS . 'Plugin.php';
-            } elseif(file_exists($pluginPath . 'src' . DS . $name . 'Plugin.php')) {
-                $pluginClassPath = $pluginPath . 'src' . DS . $name . 'Plugin.php';
-            } else {
-                return false;
+            $pluginClassPath = $pluginPath . 'src' . DS . 'Plugin.php';
+            if (file_exists($pluginClassPath)) {
+                $loader = require ROOT . DS . 'vendor/autoload.php';
+                $loader->addPsr4($name . '\\', $pluginPath . 'src');
+                $loader->addPsr4($name . '\\Test\\', $pluginPath . 'tests');
+                require_once $pluginClassPath;
             }
-            $loader = require ROOT . DS . 'vendor/autoload.php';
-            $loader->addPsr4($name . '\\', $pluginPath . 'src');
-            $loader->addPsr4($name . '\\Test\\', $pluginPath . 'tests');
-            require_once $pluginClassPath;
         }
         return true;
     }
@@ -841,11 +836,9 @@ class BcUtil
         $sitesTable = TableRegistry::getTableLocator()->get('BaserCore.Sites');
         $site = $sitesTable->get($siteId);
 
-        $themes = $site->theme? [$site->theme] : [];
+        $themes = [$site->theme];
         $rootTheme = BcUtil::getRootTheme();
-        if (!$themes || $rootTheme !== $themes[0]) {
-            $themes[] = $rootTheme;
-        }
+        if ($rootTheme !== $themes[0]) $themes[] = $rootTheme;
         $defaultTheme = Configure::read('BcApp.coreFrontTheme');
         if (!in_array($defaultTheme, $themes)) $themes[] = $defaultTheme;
 
@@ -1093,7 +1086,7 @@ class BcUtil
      */
     public static function isInstalled()
     {
-        return (bool)Configure::read('BcEnv.isInstalled');
+        return (bool)Configure::read('BcRequest.isInstalled');
     }
 
     /**
@@ -1446,8 +1439,6 @@ class BcUtil
      *
      * @param mixed $url
      * @return mixed
-     * @checked
-     * @noTodo
      */
     public static function addSessionId($url, $force = false)
     {
@@ -1459,10 +1450,12 @@ class BcUtil
             return $url;
         }
 
-        $currentUrl = \Cake\Routing\Router::getRequest()->getPath();
-        $sites = \Cake\ORM\TableRegistry::getTableLocator()->get('BaserCore.Sites');
-        $site = $sites->findByUrl($currentUrl);
-
+        $site = null;
+        if (!Configure::read('BcRequest.isUpdater')) {
+            $currentUrl = \Cake\Routing\Router::getRequest()->getPath();
+            $sites = \Cake\ORM\TableRegistry::getTableLocator()->get('BaserCore.Sites');
+            $site = $sites->findByUrl($currentUrl);
+        }
         // use_trans_sid が有効になっている場合、２重で付加されてしまう
         if ($site && $site->device == 'mobile' && Configure::read('BcAgent.mobile.sessionId') && (!ini_get('session.use_trans_sid') || $force)) {
             if (is_array($url)) {
@@ -1574,8 +1567,6 @@ class BcUtil
 
     /**
      * オベントをオフにする
-     *
-     * グローバルイベントマネージャーからも削除する
      * @param EventManagerInterface $eventManager
      * @param string $eventKey
      * @return array
@@ -1586,11 +1577,9 @@ class BcUtil
     public static function offEvent(EventManagerInterface $eventManager, string $eventKey)
     {
         $eventListeners = $eventManager->listeners($eventKey);
-        $globalEventManager = $eventManager->instance();
         if ($eventListeners) {
             foreach($eventListeners as $eventListener) {
                 $eventManager->off($eventKey, $eventListener['callable']);
-                $globalEventManager->off($eventKey, $eventListener['callable']);
             }
         }
         return $eventListeners;
@@ -1732,51 +1721,13 @@ class BcUtil
     {
         $pluginPath = BcUtil::getPluginPath($newPlugin);
         if (!$pluginPath) return false;
-        if(file_exists($pluginPath . 'src' . DS . 'Plugin.php')) {
-            $pluginClassPath = $pluginPath . 'src' . DS . 'Plugin.php';
-        } elseif(file_exists($pluginPath . 'src' . DS . $newPlugin . 'Plugin.php')) {
-            $pluginClassPath = $pluginPath . 'src' . DS . $newPlugin . 'Plugin.php';
-        } else {
-            return false;
-        }
-        $file = new File($pluginClassPath);
+        $file = new File($pluginPath . 'src' . DS . 'Plugin.php');
         $data = $file->read();
         $file->write(preg_replace('/namespace .+?;/', 'namespace ' . $newPlugin . ';', $data));
         $file->close();
         return true;
     }
 
-    /**
-     * Plugin クラスのクラス名を変更する
-     *
-     * 古い形式の場合は新しい形式に変更する
-     * `Plugin` -> `{PluginName}Plugin`
-     * @param string $oldPlugin
-     * @param string $newPlugin
-     * @return bool
-     */
-    public static function changePluginClassName(string $oldPlugin, string $newPlugin)
-    {
-        $pluginPath = BcUtil::getPluginPath($newPlugin);
-        if (!$pluginPath) return false;
-        $oldTypePath = $pluginPath . 'src' . DS . 'Plugin.php';
-        $oldPath = $pluginPath . 'src' . DS . $oldPlugin . 'Plugin.php';
-        $newPath = $pluginPath . 'src' . DS . $newPlugin . 'Plugin.php';
-        if(!file_exists($newPath)) {
-            if(file_exists($oldTypePath)) {
-                rename($oldTypePath, $newPath);
-            } elseif(file_exists($oldPath)) {
-                rename($oldPath, $newPath);
-            } else {
-                return false;
-            }
-        }
-        $file = new File($newPath);
-        $data = $file->read();
-        $file->write(preg_replace('/class\s+.*?Plugin/', 'class ' . $newPlugin . 'Plugin', $data));
-        $file->close();
-        return true;
-    }
 
     /**
      * httpからのフルURLを取得する
@@ -2182,36 +2133,6 @@ class BcUtil
         if ($remove) $message .= sprintf(__d('baser_core', 'バージョン %s で削除される予定です。'), $remove);
         if ($note) $message .= $note;
         return $message;
-    }
-
-    /**
-     * baserCMS のバージョンが 5.1 かどうか判定
-     * 5.1系へのバージョンアップ時のみ利用
-     *
-     * @return bool
-     * @deprecated remove 5.1.0 このメソッドは非推奨です。
-     */
-    public static function is51()
-    {
-        if(file_exists(ROOT . DS . 'plugins' . DS . 'baser-core' . DS . 'VERSION.txt')) {
-            $versionData = file_get_contents(ROOT . DS . 'plugins' . DS . 'baser-core' . DS . 'VERSION.txt');
-        } elseif(ROOT . DS . 'vendor' . DS . 'baserproject' . DS . 'baser-core' . DS . 'VERSION.txt') {
-            $versionData = file_get_contents(ROOT . DS . 'vendor' . DS . 'baserproject' . DS . 'baser-core' . DS . 'VERSION.txt');
-        } else {
-            trigger_error('baserCMSのバージョンが特定できません。');
-        }
-        $aryVersionData = explode("\n", $versionData);
-        if (!empty($aryVersionData[0])) {
-            $version = $aryVersionData[0];
-            if(preg_match('/^5\.0/', $version) || $version === '5.1.0-dev') {
-                return false;
-            } else {
-                return true;
-            }
-        } else {
-            trigger_error('baserCMSのバージョンが特定できません。');
-        }
-        return false;
     }
 
 }

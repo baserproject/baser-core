@@ -23,7 +23,6 @@ use Cake\Core\Exception\Exception;
 use Cake\Http\Cookie\Cookie;
 use Cake\Http\ServerRequest;
 use Cake\ORM\Query;
-use Cake\ORM\Table;
 use Cake\ORM\TableRegistry;
 use Cake\Datasource\EntityInterface;
 use BaserCore\Annotation\UnitTest;
@@ -40,18 +39,6 @@ use Cake\Http\Response;
  */
 class UsersService implements UsersServiceInterface
 {
-
-    /**
-     * Users Table
-     * @var UsersTable|Table
-     */
-    public UsersTable|Table $Users;
-
-    /**
-     * LoginStores Table
-     * @var LoginStoresTable|Table
-     */
-    public LoginStoresTable|Table $LoginStores;
 
     /**
      * UsersService constructor.
@@ -128,12 +115,6 @@ class UsersService implements UsersServiceInterface
         }
         if (!empty($queryParams['name'])) {
             $query->where(['name LIKE' => '%' . $queryParams['name'] . '%']);
-        }
-        if (!empty($queryParams['real_name'])) {
-            $query->where(['OR' => [
-                ['real_name_1 LIKE' => '%' . $queryParams['real_name'] . '%'],
-                ['real_name_2 LIKE' => '%' . $queryParams['real_name'] . '%'],
-            ]]);
         }
         return $query;
     }

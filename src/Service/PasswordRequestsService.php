@@ -37,7 +37,7 @@ class PasswordRequestsService implements PasswordRequestsServiceInterface
      * PasswordRequestsTable
      * @var PasswordRequestsTable|\Cake\ORM\Table
      */
-    public PasswordRequestsTable|\Cake\ORM\Table $PasswordRequests;
+    public \Cake\ORM\Table $PasswordRequests;
 
     /**
      * コンストラクタ

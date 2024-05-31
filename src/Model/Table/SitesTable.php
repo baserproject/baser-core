@@ -14,16 +14,13 @@ namespace BaserCore\Model\Table;
 use ArrayObject;
 use BaserCore\Service\ContentFoldersService;
 use BaserCore\Service\ContentsService;
-use BaserCore\Utility\BcPluginUtil;
 use Cake\Core\Configure;
-use Cake\Core\Plugin;
 use Cake\ORM\TableRegistry;
 use BaserCore\Utility\BcLang;
 use BaserCore\Utility\BcUtil;
 use BaserCore\Utility\BcAgent;
 use Cake\Event\EventInterface;
 use Cake\Routing\Router;
-use Cake\Utility\Inflector;
 use Cake\Validation\Validator;
 use BaserCore\Model\Entity\Site;
 use Cake\Datasource\EntityInterface;
@@ -89,9 +86,6 @@ class SitesTable extends AppTable
     /**
      * Validation Default
      *
-     * name / alias は、利用しているプラグインをハイフン区切りにした名称と同じ名称は利用できない
-     * フロントエンドのルーティングの際に、プラグインルーティングに奪われてしまい表示できないため
-     *
      * @param Validator $validator
      * @return Validator
      * @checked
@@ -121,12 +115,6 @@ class SitesTable extends AppTable
                     'rule' => ['alphaNumericPlus'],
                     'provider' => 'bc',
                     'message' => __d('baser_core', '識別名称は、半角英数・ハイフン（-）・アンダースコア（_）で入力してください。')
-                ]])
-            ->add('name', [
-                'pluginExistsByDasherize' => [
-                    'rule' => ['pluginExistsByDasherize'],
-                    'provider' => 'table',
-                    'message' => __d('baser_core', '識別名称は、利用しているプラグイン名をハイフン区切りにした名称と同じ名称は利用できません。別の名称に変更してください。')
                 ]]);
         $validator
             ->scalar('display_name')
@@ -155,12 +143,6 @@ class SitesTable extends AppTable
                     'rule' => 'checkContentExists',
                     'provider' => 'site',
                     'message' => __d('baser_core', 'コンテンツ管理上にエイリアスと同名のコンテンツ、またはフォルダが存在するため利用できません。別の名称にするか、コンテンツ、またはフォルダをリネームしてください。')
-                ]])
-            ->add('alias', [
-                'pluginExistsByDasherize' => [
-                    'rule' => ['pluginExistsByDasherize'],
-                    'provider' => 'table',
-                    'message' => __d('baser_core', 'エイリアスは、利用しているプラグイン名をハイフン区切りにした名称と同じ名称は利用できません。別の名称に変更してください。')
                 ]]);
         $validator
             ->scalar('title')
@@ -168,28 +150,6 @@ class SitesTable extends AppTable
             ->requirePresence('title', 'create', __d('baser_core', 'サイトタイトルを入力してください。'))
             ->notEmptyString('title', __d('baser_core', 'サイトタイトルを入力してください。'));
         return $validator;
-    }
-
-    /**
-     * プラグインが存在するかどうか
-     *
-     * プラグイン名はダッシュライズに変換する前提とする
-     * ルーティング衝突の回避のため、プラグイン名と同じ名称は利用できない
-     * プラグインルーティングは、ダッシュライズ前提のため
-     *
-     * @param $value
-     * @return bool
-     */
-    public function pluginExistsByDasherize($value)
-    {
-        $plugins = Plugin::loaded();
-        foreach($plugins as $plugin) {
-            if(!BcPluginUtil::isPlugin($plugin)) continue;
-            if($value === Inflector::dasherize($plugin)) {
-                return false;
-            }
-        }
-        return true;
     }
 
     /**
@@ -242,7 +202,7 @@ class SitesTable extends AppTable
                 unset($options['excludeIds'][$excludeKey]);
             }
             if ($options['excludeIds']) {
-                $conditions[]['Sites.id NOT IN'] = $options['excludeIds'];
+                $conditions[]['id NOT IN'] = $options['excludeIds'];
             }
         }
 
@@ -255,7 +215,7 @@ class SitesTable extends AppTable
                 unset($options['includeIds'][$includeKey]);
             }
             if ($options['includeIds']) {
-                $conditions[]['Sites.id IN'] = $options['includeIds'];
+                $conditions[]['id IN'] = $options['includeIds'];
             }
         }
         $this->setDisplayField('display_name');
@@ -404,7 +364,7 @@ class SitesTable extends AppTable
     {
         if (is_null($id)) return '';
 
-        $site = $this->find()->select(['name', 'alias'])->where(['Sites.id' => $id])->first();
+        $site = $this->find()->select(['name', 'alias'])->where(['id' => $id])->first();
         if (!$site) {
             return false;
         }
@@ -430,7 +390,7 @@ class SitesTable extends AppTable
             return 1;
         }
         $Contents = TableRegistry::getTableLocator()->get('BaserCore.Contents');
-        $contents = $Contents->find()->select(['Contents.id'])->where(['Contents.site_root' => true, 'Contents.site_id' => $id]);
+        $contents = $Contents->find()->select(['id'])->where(['Contents.site_root' => true, 'Contents.site_id' => $id]);
         if (!$contents->all()->isEmpty()) return $contents->first()->id;
         return 1;
     }
@@ -439,12 +399,12 @@ class SitesTable extends AppTable
      * URLよりサイトを取得する
      *
      * @param string $url
-     * @return Site|EntityInterface
+     * @return EntityInterface
      * @checked
      * @noTodo
      * @unitTest
      */
-    public function findByUrl(string $url): ?EntityInterface
+    public function findByUrl($url)
     {
         if (!$url) {
             $url = '/';
@@ -507,7 +467,7 @@ class SitesTable extends AppTable
     {
         $site = $this->findByUrl($url);
         if ($site->main_site_id) {
-            return $this->find()->where(['Sites.id' => $site->main_site_id])->first();
+            return $this->find()->where(['id' => $site->main_site_id])->first();
         }
         return null;
     }
@@ -590,7 +550,7 @@ class SitesTable extends AppTable
      */
     public function getMain($id)
     {
-        $currentSite = $this->find()->where(['Sites.id' => $id])->first();
+        $currentSite = $this->find()->where(['id' => $id])->first();
         if (!$currentSite) {
             return false;
         }
@@ -598,7 +558,7 @@ class SitesTable extends AppTable
             return $this->getRootMain();
         }
         $mainSite = $this->find()->where([
-            'Sites.id' => $currentSite->main_site_id
+            'id' => $currentSite->main_site_id
         ])->first();
         if (!$mainSite) {
             return false;
@@ -624,7 +584,7 @@ class SitesTable extends AppTable
         $devices = ['' => __d('baser_core', '指定しない')];
         $this->setDisplayField('device');
         $conditions = [
-            'Sites.id IS NOT' => $currentSiteId
+            'id IS NOT' => $currentSiteId
         ];
         if ($mainSiteId) {
             $conditions['main_site_id'] = $mainSiteId;
@@ -658,7 +618,7 @@ class SitesTable extends AppTable
         $devices = ['' => __d('baser_core', '指定しない')];
         $this->setDisplayField('lang');
         $conditions = [
-            'Sites.id IS NOT' => $currentSiteId
+            'id IS NOT' => $currentSiteId
         ];
         if ($mainSiteId) {
             $conditions['main_site_id'] = $mainSiteId;
@@ -758,7 +718,7 @@ class SitesTable extends AppTable
     {
         // エイリアスに変更があったかチェックする
         if ($entity->id && $entity->alias) {
-            $oldSite = $this->find()->where(['Sites.id' => $entity->id])->first();
+            $oldSite = $this->find()->where(['id' => $entity->id])->first();
             if ($oldSite && $oldSite->alias !== $entity->alias) {
                 $this->changedAlias = true;
             }
@@ -780,7 +740,7 @@ class SitesTable extends AppTable
     {
         $success = parent::save($entity, $options);
         $request = Router::getRequest();
-        if($success && $request) {
+        if($request) {
             $session = Router::getRequest()->getSession();
             $currentSite = $session->read('BcApp.Admin.currentSite');
             if ($currentSite && $success->id === $currentSite->id) {

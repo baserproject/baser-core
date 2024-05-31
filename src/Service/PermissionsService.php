@@ -19,7 +19,6 @@ use BaserCore\Utility\BcContainerTrait;
 use Cake\Core\Configure;
 use Cake\Http\ServerRequest;
 use Cake\ORM\Query;
-use Cake\ORM\Table;
 use Cake\ORM\TableRegistry;
 use Cake\Datasource\EntityInterface;
 use BaserCore\Utility\BcUtil;
@@ -46,7 +45,7 @@ class PermissionsService implements PermissionsServiceInterface
      * Permissions Table
      * @var \Cake\ORM\Table
      */
-    public PermissionsTable|Table $Permissions;
+    public $Permissions;
 
     /**
      * @var string

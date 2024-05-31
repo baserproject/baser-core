@@ -13,7 +13,6 @@ namespace BaserCore\Service;
 
 use Cake\Core\Plugin;
 use Cake\Datasource\QueryInterface;
-use Cake\ORM\Table;
 use Exception;
 use Cake\ORM\Query;
 use Cake\Utility\Hash;
@@ -57,14 +56,14 @@ class ContentsService implements ContentsServiceInterface
      *
      * @var ContentsTable
      */
-    public ContentsTable|Table $Contents;
+    public $Contents;
 
     /**
      * Sites
      *
      * @var SitesTable
      */
-    public SitesTable|Table $Sites;
+    public $Sites;
 
     /**
      * Construct
@@ -178,9 +177,8 @@ class ContentsService implements ContentsServiceInterface
     public function getChildren($id, $conditions = [])
     {
         try {
-            $query = $this->Contents->find('children', ['for' => $id, 'order' => ['Contents.lft' => 'ASC']])
-                ->where($conditions);
-        } catch (\Exception) {
+            $query = $this->Contents->find('children', ['for' => $id])->where($conditions);
+        } catch (\Exception $e) {
             return null;
         }
         return $query->all()->isEmpty()? null : $query;
@@ -421,19 +419,7 @@ class ContentsService implements ContentsServiceInterface
             $postData['parent_id'] = $this->Contents->copyContentFolderPath($postData['url'], $postData['site_id']);
         }
         $data = array_merge($this->get($postData['alias_id'], ['contain' => []])->toArray(), $postData);
-        unset(
-            $data['id'],
-            $data['lft'],
-            $data['rght'],
-            $data['level'],
-            $data['pubish_begin'],
-            $data['publish_end'],
-            $data['created_date'],
-            $data['created'],
-            $data['modified'],
-            $data['site'],
-            $data['site_root']
-        );
+        unset($data['id'], $data['lft'], $data['rght'], $data['level'], $data['pubish_begin'], $data['publish_end'], $data['created_date'], $data['created'], $data['modified'], $data['site']);
         $alias = $this->Contents->newEntity($data);
         $alias->name = $postData['name'] ?? $postData['title'];
         $alias->created_date = FrozenTime::now();
@@ -456,25 +442,32 @@ class ContentsService implements ContentsServiceInterface
     {
         /* @var Content $content */
         $content = $this->get($id);
+        $content->parent_id = null;
+        $content->url = '';
+        $content->status = false;
+        $content->self_status = false;
+        // lft / rght をリセットしておかないと 複数データの save() 実行時、
+        // 2つ目以降の lft / rght がおかしくなる
+        unset($content->lft);
+        unset($content->rght);
+
         $this->Contents->disableUpdatingSystemData();
         $this->Contents->updatingRelated = false;
+        $afterEventListener = BcUtil::offEvent($this->Contents->getEventManager(), 'Model.afterSave');
+        $beforeEventListener = BcUtil::offEvent($this->Contents->getEventManager(), 'Model.beforeSave');
+
+        $content = $this->Contents->save($content, ['validate' => false]);
 
         if(!$content->alias_id) {
-            $this->deleteSearchIndex($id);
             $this->Contents->deleteRelateSubSiteContent($content);
             $this->Contents->deleteAlias($content);
-            // 最上位に移動して保存
-            $content->parent_id = null;
-            $content->url = '';
-            $content->status = false;
-            $content->self_status = false;
-            // lft rght は unset しないと自動更新できない
-            unset($content->lft);
-            unset($content->rght);
-            $this->Contents->save($content, ['validate' => false]);
-
-            // TreeBehavior　をオフにした上で、一旦階層構造から除外したい上でゴミ箱に移動（論理削除）
+            // TreeBehavior　をオフにした上で、一旦階層構造から除外しリセットしてゴミ箱に移動（論理削除）
             $this->Contents->Behaviors()->unload('Tree');
+            $content->lft = null;
+            $content->rght = null;
+            $content->level = null;
+            $this->Contents->save($content, ['validate' => false]);
+            $this->deleteSearchIndex($id);
             $result = $this->Contents->delete($content);
             $this->Contents->Behaviors()->load('Tree');
         } else {
@@ -482,6 +475,8 @@ class ContentsService implements ContentsServiceInterface
             $result = $this->Contents->hardDelete($content);
         }
 
+        BcUtil::onEvent($this->Contents->getEventManager(), 'Model.afterSave', $afterEventListener);
+        BcUtil::onEvent($this->Contents->getEventManager(), 'Model.beforeSave', $beforeEventListener);
         $this->Contents->enableUpdatingSystemData();
         $this->Contents->updatingRelated = true;
         return $result;

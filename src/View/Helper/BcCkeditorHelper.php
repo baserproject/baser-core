@@ -251,12 +251,18 @@ class BcCkeditorHelper extends Helper
             ]);
             $this->BcAdminForm->unlockField($options['editorPreviewModeId']);
         }
+        if(strpos($fieldName, '.') !== false) {
+            $dom = explode('.', $fieldName);
+            $domId = Inflector::camelize($dom[0]) . Inflector::camelize($dom[1]);
+        } else {
+            $domId = Inflector::camelize($fieldName);
+        }
 
         $setting = json_encode([
                 'ckeditorField' => "editor_{$field}",
                 'editorStylesSet' => $options['editorStylesSet'],
                 'editorEnterBr' => $options['editorEnterBr'],
-                'editorDomId' => $this->createDomId($fieldName),
+                'editorDomId' => $domId,
                 'editorUseDraft' => $options['editorUseDraft'],
                 'publishAreaId' => $options['publishAreaId'] ?? null,
                 'draftAreaId' => $options['draftAreaId'] ?? null,
@@ -431,24 +437,8 @@ class BcCkeditorHelper extends Helper
                 $_options[$key] = $option;
             }
         }
-        $_options['id'] = $this->createDomId($inputFieldName);
+        $textIdElement = pluginSplit($inputFieldName);
+        $_options['id'] = $textIdElement[0] . Inflector::camelize($textIdElement[1]);
         return $this->BcAdminForm->control($inputFieldName, $_options) . $hidden . $this->build($fieldName, $options);
     }
-
-    /**
-     * フィールド名から Dom ID を生成する
-     * @param string $field
-     * @return string
-     */
-    public function createDomId(string $field): string
-    {
-        $aryField = explode('.', $field);
-        $domId = '';
-        foreach($aryField as $value) {
-            if(!$value) continue;
-            $domId .= Inflector::camelize($value);
-        }
-        return $domId;
-    }
-
 }

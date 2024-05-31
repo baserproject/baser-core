@@ -18,7 +18,6 @@ use BaserCore\Service\BcDatabaseServiceInterface;
 use BaserCore\Service\PermissionGroupsService;
 use BaserCore\Service\PermissionGroupsServiceInterface;
 use BaserCore\Utility\BcContainerTrait;
-use BaserCore\Utility\BcPluginUtil;
 use BaserCore\Utility\BcUpdateLog;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\BasePlugin;
@@ -57,13 +56,6 @@ class BcPlugin extends BasePlugin
      * @var Migrations
      */
     public $migrations;
-
-    /**
-     * 現在のサイト
-     * キャッシュ用
-     * @var null
-     */
-    public static $currentSite = null;
 
     /**
      * Initialize
@@ -489,7 +481,7 @@ class BcPlugin extends BasePlugin
      */
     public function frontPageRouting(RouteBuilder $routes, string $plugin)
     {
-        if(!BcPluginUtil::isPlugin($plugin)) return $routes;
+
         $routes->plugin(
             $plugin,
             ['path' => '/' . Inflector::dasherize($plugin)],
@@ -565,18 +557,14 @@ class BcPlugin extends BasePlugin
      */
     public function siteRouting(RouteBuilder $routes, string $plugin)
     {
-        if(!BcPluginUtil::isPlugin($plugin)) return $routes;
-        if(!self::$currentSite) {
-            $request = Router::getRequest();
-            if (!$request) {
-                $request = ServerRequestFactory::fromGlobals();
-            }
-            /* @var SitesTable $sitesTable */
-            $sitesTable = TableRegistry::getTableLocator()->get('BaserCore.Sites');
-            /* @var Site $site */
-            self::$currentSite = $sitesTable->findByUrl($request->getPath());
+        $request = Router::getRequest();
+        if (!$request) {
+            $request = ServerRequestFactory::fromGlobals();
         }
-        $site = self::$currentSite;
+        /* @var SitesTable $sitesTable */
+        $sitesTable = TableRegistry::getTableLocator()->get('BaserCore.Sites');
+        /* @var Site $site */
+        $site = $sitesTable->findByUrl($request->getPath());
         if ($site && $site->alias) {
             $routes->plugin(
                 $plugin,
@@ -621,14 +609,7 @@ class BcPlugin extends BasePlugin
         $options = array_merge([
             'connection' => 'default'
         ], $options);
-        $tableOptions = [];
-        if($options['connection'] && $options['connection'] !== 'default') {
-            $tableOptions = ['connectionName' => $options['connection']];
-        }
-        $table = TableRegistry::getTableLocator()->get($table, $tableOptions);
-        $beforeSaveEvents = BcUtil::offEvent($table->getEventManager(), 'Model.beforeSave');
-        $afterSaveEvents = BcUtil::offEvent($table->getEventManager(), 'Model.afterSave');
-
+        $table = TableRegistry::getTableLocator()->get($table, ['connectionName' => $options['connection']]);
         $entities = $table->find()->where($conditions)->all();
         if($entities->count()) {
             foreach($entities as $entity) {
@@ -640,17 +621,6 @@ class BcPlugin extends BasePlugin
                 $table->save($entity);
             }
         }
-        BcUtil::onEvent($table->getEventManager(), 'Model.beforeSave', $beforeSaveEvents);
-        BcUtil::onEvent($table->getEventManager(), 'Model.afterSave', $afterSaveEvents);
-    }
-
-    /**
-     * カレントサイトを初期化する
-     * @return void
-     */
-    public function clearCurrentSite(): void
-    {
-        self::$currentSite = null;
     }
 
 }
