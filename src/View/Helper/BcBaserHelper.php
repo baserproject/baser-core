@@ -587,6 +587,7 @@ class BcBaserHelper extends Helper
      */
     public function getUserName($user)
     {
+        if(!$user) return '';
         return $user->getDisplayName();
     }
 
@@ -2107,7 +2108,7 @@ class BcBaserHelper extends Helper
      */
     public function getThemeUrl()
     {
-        return '/' . $this->_View->getRequest()->getAttribute('base') . Inflector::underscore($this->getView()->getTheme()) . '/';
+        return $this->_View->getRequest()->getAttribute('base') . '/' . Inflector::underscore($this->getView()->getTheme()) . '/';
     }
 
     /**

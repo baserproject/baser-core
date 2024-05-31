@@ -12,7 +12,8 @@
 namespace BaserCore\Test\TestCase;
 
 use App\Application;
-use BaserCore\Plugin;
+use Authentication\Middleware\AuthenticationMiddleware;
+use BaserCore\BaserCorePlugin;
 use BaserCore\Service\SiteConfigsServiceInterface;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Utility\BcUtil;
@@ -22,17 +23,18 @@ use Cake\Core\Container;
 use Cake\Event\EventManager;
 use Cake\Http\Middleware\CsrfProtectionMiddleware;
 use Cake\Http\MiddlewareQueue;
+use Cake\Routing\Middleware\RoutingMiddleware;
 use Cake\Routing\Router;
 use Cake\Filesystem\File;
 
 /**
  * Class PluginTest
- * @property Plugin $Plugin
+ * @property BaserCorePlugin $Plugin
  */
 class PluginTest extends BcTestCase
 {
     /**
-     * @var Plugin
+     * @var BaserCorePlugin
      */
     public $Plugin;
 
@@ -59,7 +61,7 @@ class PluginTest extends BcTestCase
     {
         parent::setUp();
         $this->application = new Application(CONFIG);
-        $this->Plugin = new Plugin(['name' => 'BaserCore']);
+        $this->Plugin = new BaserCorePlugin(['name' => 'BaserCore']);
     }
 
     /**
@@ -175,9 +177,10 @@ return [];
     {
         $middleware = new MiddlewareQueue();
         $middleware->add(CsrfProtectionMiddleware::class);
+        $middleware->add(RoutingMiddleware::class);
         $middlewareQueue = $this->Plugin->middleware($middleware);
-        $this->assertInstanceOf(BcRequestFilterMiddleware::class, $middlewareQueue->current());
-        $this->assertEquals(6, $middlewareQueue->count());
+        $this->assertInstanceOf(AuthenticationMiddleware::class, $middlewareQueue->current());
+        $this->assertEquals(7, $middlewareQueue->count());
     }
 
     /**

@@ -11,7 +11,10 @@
 
 namespace BaserCore\Model\Validation;
 
+use BaserCore\Utility\BcContainerTrait;
+use Cake\Http\Client\Request;
 use Cake\Log\Log;
+use Cake\Routing\Router;
 use Cake\Utility\Hash;
 use Cake\Core\Configure;
 use Cake\I18n\FrozenTime;
@@ -26,6 +29,11 @@ use BaserCore\Annotation\UnitTest;
  */
 class BcValidation extends Validation
 {
+
+    /**
+     * BcContainerTrait
+     */
+    use BcContainerTrait;
 
     /**
      * 英数チェックプラス
@@ -600,4 +608,49 @@ class BcValidation extends Validation
         return (preg_replace("/( |　)/", '', $string) !== '');
     }
 
+    /**
+     * 16進数カラーコードチェック
+     *
+     * @param string $value 対象となる値
+     * @return bool
+     * @checked
+     * @notodo
+     * @unitTest
+     */
+    public static function hexColorPlus($value): bool
+    {
+        return preg_match('/\A([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})\z/i', $value);
+    }
+
+    /**
+     * Jsonをバリデーション
+     * 半角小文字英数字とアンダースコアを許容
+     * @param $string
+     * @param $key
+     * @return bool
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public static function checkWithJson($string, $key, $regex)
+    {
+        $value = json_decode($string, true);
+        $keys = explode('.', $key);
+
+        foreach ($keys as $k) {
+            $value = $value[$k] ?? '';
+        }
+
+        //入力チェックした項目だけバリデーション
+        $request = Router::getRequest();
+        $validate = $request->getData('validate');
+        if (is_array($validate) && !in_array(strtoupper($k), $validate))
+            return true;
+
+        if (empty($value) || preg_match($regex, $value)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
 }
