@@ -11,12 +11,13 @@
 
 namespace BaserCore\Command;
 
+use BaserCore\Utility\BcComposer;
+use BaserCore\Utility\BcFile;
+use BaserCore\Utility\BcFolder;
 use Cake\Command\Command;
 use Cake\Console\Arguments;
 use Cake\Console\ConsoleIo;
 use Cake\Core\Configure;
-use Cake\Filesystem\File;
-use Cake\Filesystem\Folder;
 use Composer\Package\Archiver\ZipArchiver;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
@@ -59,8 +60,7 @@ class CreateReleaseCommand extends Command
     {
         $packagePath = TMP . 'basercms' . DS;
         if(is_dir($packagePath)) {
-            $folder = new Folder($packagePath);
-            $folder->delete();
+            (new BcFolder($packagePath))->delete();
         }
 
         $io->out(__d('baser_core', 'リリースパッケージを作成します。', TMP));
@@ -70,7 +70,7 @@ class CreateReleaseCommand extends Command
         $this->clonePackage($packagePath, $args->getArgument('branch'));
 
         $io->out(__d('baser_core', '- composer.json をセットアップします。'));
-        $this->setupComposer($packagePath);
+        BcComposer::setupComposerForDistribution($packagePath);
 
         $io->out(__d('baser_core', '- プラグインを初期化します。'));
         $this->deletePlugins($packagePath);
@@ -82,32 +82,10 @@ class CreateReleaseCommand extends Command
         $this->createZip($packagePath);
 
         $io->out(__d('baser_core', '- クリーニング処理を実行します。'));
-        $folder = new Folder($packagePath);
-        $folder->delete();
+        (new BcFolder($packagePath))->delete();
 
         $io->out();
         $io->out(__d('baser_core', 'リリースパッケージの作成が完了しました。/tmp/basercms.zip を確認してください。'));
-    }
-
-    /**
-     * composer.json を配布用にセットアップする
-     *
-     * @param string $packagePath
-     * @checked
-     * @noTodo
-     */
-    public function setupComposer(string $packagePath)
-    {
-        $composer = $packagePath . 'composer.json';
-        $file = new File($composer);
-        $data = $file->read();
-        $regex = '/^(.+?)    "replace": {.+?},\n(.+?)/s';
-        $data = preg_replace($regex, "$1$2", $data);
-        $regex = '/^(.+?"cakephp\/cakephp": ".+?",)(.+?)$/s';
-        $setupVersion = Configure::read('BcApp.setupVersion');
-        $replace = "$1\n        \"baserproject/baser-core\": \"{$setupVersion}\",$2";
-        $data = preg_replace($regex, $replace, $data);
-        $file->write($data);
     }
 
     /**
@@ -136,13 +114,12 @@ class CreateReleaseCommand extends Command
     public function deletePlugins(string $packagePath)
     {
         $excludes = ['BcThemeSample', 'BcPluginSample', 'BcColumn'];
-        $folder = new Folder($packagePath . 'plugins');
-        $files = $folder->read(true, true, true);
-        foreach($files[0] as $path) {
+        $folder = new BcFolder($packagePath . 'plugins');
+        $files = $folder->getFolders(['full'=>true]);
+        foreach($files as $path) {
             if(in_array(basename($path), $excludes)) continue;
-            $folder->delete($path);
+            (new BcFolder($path))->delete();
         }
-        new File($packagePath . 'plugins' . DS . '.gitkeep');
     }
 
     /**
@@ -175,9 +152,9 @@ class CreateReleaseCommand extends Command
         foreach($excludeFiles as $file) {
             $file = $packagePath . $file;
             if(is_dir($file)) {
-                (new Folder($file))->delete();
+                (new BcFolder($file))->delete();
             } elseif(file_exists($file)) {
-                (new File($file))->delete();
+                (new BcFile($file))->delete();
             }
         }
     }

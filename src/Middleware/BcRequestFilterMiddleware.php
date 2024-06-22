@@ -14,7 +14,9 @@ namespace BaserCore\Middleware;
 use BaserCore\Utility\BcAgent;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\Configure;
+use Cake\Database\Exception\MissingConnectionException;
 use Cake\Http\Response;
+use Cake\ORM\TableRegistry;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
@@ -63,11 +65,10 @@ class BcRequestFilterMiddleware implements MiddlewareInterface
          * リーバースプロキシを利用している場合、HTTPS ではなく HTTP_X_FORWARDED_SSL が true になるため
          * そちらの値で判定するように調整
          */
-         $a  = filter_var(env('TRUST_PROXY', false));
         if(filter_var(env('TRUST_PROXY', false), FILTER_VALIDATE_BOOLEAN)) {
             $request->trustProxy = true;
-            $request->addDetector('ssl', ['env' => 'HTTP_X_FORWARDED_SSL', 'options' => [1, 'on']]);
-            $request->addDetector('ssl', ['env' => 'HTTP_X_FORWARDED_PROTO', 'options' => [1, 'https']]);
+            $request->addDetector('https', ['env' => 'HTTP_X_FORWARDED_SSL', 'options' => [1, 'on']]);
+            $request->addDetector('https', ['env' => 'HTTP_X_FORWARDED_PROTO', 'options' => [1, 'https']]);
         }
 
         return $handler->handle($request);
@@ -87,8 +88,12 @@ class BcRequestFilterMiddleware implements MiddlewareInterface
      */
     public function redirectIfIsDeviceFile(ServerRequestInterface $request)
     {
-        $sites = \Cake\ORM\TableRegistry::getTableLocator()->get('BaserCore.Sites');
-        $site = $sites->findByUrl($request->getPath());
+        $sites = TableRegistry::getTableLocator()->get('BaserCore.Sites');
+        try {
+            $site = $sites->findByUrl($request->getPath());
+        } catch (MissingConnectionException) {
+            return;
+        }
         if ($site && $site->device) {
             $param = preg_replace('/^\/' . $site->alias . '\//', '', $request->getPath());
             if (preg_match('/^files/', $param)) {
@@ -110,11 +115,12 @@ class BcRequestFilterMiddleware implements MiddlewareInterface
     public function getDetectorConfigs()
     {
         $configs = [];
-        $configs['admin'] = [$this, 'isAdmin'];
-        $configs['install'] = [$this, 'isInstall'];
-        $configs['maintenance'] = [$this, 'isMaintenance'];
-        $configs['page'] = [$this, 'isPage'];
-        $configs['requestview'] = [$this, 'isRequestView'];
+        $configs['admin'] = $this->isAdmin(...);
+        $configs['install'] = $this->isInstall(...);
+        $configs['maintenance'] = $this->isMaintenance(...);
+        $configs['page'] = $this->isPage(...);
+        $configs['requestview'] = $this->isRequestView(...);
+		$configs['rss'] = ['param' => '_ext', 'value' => 'rss'];
 
         $agents = BcAgent::findAll();
         foreach($agents as $agent) {
@@ -162,7 +168,6 @@ class BcRequestFilterMiddleware implements MiddlewareInterface
      * @return bool
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function isInstall(ServerRequestInterface $request)
     {

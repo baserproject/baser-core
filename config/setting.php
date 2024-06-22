@@ -66,7 +66,7 @@ return [
      * エラー構成
      */
     'Error' => [
-        'errorLevel' => E_ALL & ~E_USER_DEPRECATED,
+        'errorLevel' => E_ALL,
         'exceptionRenderer' => BcExceptionRenderer::class,
     ],
 
@@ -296,9 +296,9 @@ return [
 
         /**
          * インストール時に composer.json にセットするバージョン
-         * @see \BaserCore\Command\CreateReleaseCommand::setupComposer()
+         * @see \BaserCore\Utility\BcComposer::setupComposerForDistribution()
          */
-        'setupVersion' => '5.0.*',
+        'setupVersion' => '5.1.*',
 
         /**
          * リリースパッケージに不要なファイル

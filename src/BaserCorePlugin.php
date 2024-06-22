@@ -38,8 +38,10 @@ use Cake\Core\Configure;
 use Cake\Core\ContainerInterface;
 use Cake\Core\Exception\MissingPluginException;
 use Cake\Core\PluginApplicationInterface;
+use Cake\Database\Exception\MissingConnectionException;
 use Cake\Event\EventManager;
 use Cake\Http\Middleware\CsrfProtectionMiddleware;
+use Cake\Http\Middleware\HttpsEnforcerMiddleware;
 use Cake\Http\MiddlewareQueue;
 use Cake\Http\ServerRequestFactory;
 use Cake\I18n\I18n;
@@ -199,7 +201,12 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
         $application->addPlugin(Inflector::camelize(Configure::read('BcApp.coreFrontTheme'), '-'));
         if (!BcUtil::isInstalled()) return;
         $sitesTable = TableRegistry::getTableLocator()->get('BaserCore.Sites');
-        $sites = $sitesTable->find()->where(['Sites.status' => true]);
+        try {
+            $sites = $sitesTable->find()->where(['Sites.status' => true]);
+        } catch (MissingConnectionException) {
+            return;
+        }
+
         $path = [];
         foreach($sites as $site) {
             if ($site->theme) {
@@ -233,20 +240,12 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
     {
         $admin = Configure::read('BcApp.coreAdminTheme');
         $front = Configure::read('BcApp.coreFrontTheme');
-        if (BcUtil::isAdminSystem() && empty($_REQUEST['preview'])) {
-            Configure::write('App.paths.templates', array_merge([
-                ROOT . DS . 'plugins' . DS . $admin . DS . 'templates' . DS,
-                ROOT . DS . 'vendor' . DS . 'baserproject' . DS . $admin . DS . 'templates' . DS
-            ], Configure::read('App.paths.templates')));
-        } else {
-            Configure::write('App.paths.templates', array_merge([
-                ROOT . DS . 'plugins' . DS . $front . DS . 'templates' . DS,
-                ROOT . DS . 'vendor' . DS . 'baserproject' . DS . $front . DS . 'templates' . DS,
-                ROOT . DS . 'plugins' . DS . $admin . DS . 'templates' . DS,
-                ROOT . DS . 'vendor' . DS . 'baserproject' . DS . $admin . DS . 'templates' . DS
-            ], Configure::read('App.paths.templates')));
-        }
-
+        Configure::write('App.paths.templates', array_merge([
+            ROOT . DS . 'plugins' . DS . $front . DS . 'templates' . DS,
+            ROOT . DS . 'vendor' . DS . 'baserproject' . DS . $front . DS . 'templates' . DS,
+            ROOT . DS . 'plugins' . DS . $admin . DS . 'templates' . DS,
+            ROOT . DS . 'vendor' . DS . 'baserproject' . DS . $admin . DS . 'templates' . DS
+        ], Configure::read('App.paths.templates')));
     }
 
     /**
@@ -288,6 +287,14 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
             ->add(new BcAdminMiddleware())
             ->add(new BcFrontMiddleware())
             ->add(new BcRedirectSubSiteMiddleware());
+
+        if (Configure::read('BcApp.adminSsl') && !BcUtil::isConsole() && BcUtil::isAdminSystem() && BcUtil::isInstalled()) {
+            $config = ['redirect' => false];
+            if(filter_var(env('TRUST_PROXY', false))) {
+                $config['trustedProxies'] = !empty($_SERVER['HTTP_X_FORWARDED_FOR'])? [$_SERVER['HTTP_X_FORWARDED_FOR']] : [];
+            }
+            $middlewareQueue->add(new HttpsEnforcerMiddleware($config));
+        }
 
         // APIへのアクセスの場合、セッションによる認証以外は、CSRFを利用しない設定とする
         $ref = new ReflectionClass($middlewareQueue);
@@ -592,7 +599,7 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
                     ['path' => '/baser-core'],
                     function(RouteBuilder $routes) {
                         $routes->setExtensions(['json']);
-                        $routes->connect('/.well-known/:controller/*', ['action' => 'index'], ['controller' => '(jwks)']);
+                        $routes->connect('/.well-known/{controller}/*', ['action' => 'index'], ['controller' => '(jwks)']);
                     }
                 );
             }
@@ -636,7 +643,6 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
     {
         $commands->add('setup test', SetupTestCommand::class);
         $commands->add('composer', ComposerCommand::class);
-        $commands->add('update', UpdateCommand::class);
         $commands->add('create release', CreateReleaseCommand::class);
         $commands->add('setup install', SetupInstallCommand::class);
         return $commands;

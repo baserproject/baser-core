@@ -261,7 +261,7 @@ class PagesTable extends AppTable
         int $newAuthorId,
         int $newSiteId = null)
     {
-        $page = $this->get($id, ['contain' => ['Contents']]);
+        $page = $this->get($id, contain: ['Contents']);
         $oldPage = clone $page;
 
         // EVENT Pages.beforeCopy

@@ -11,12 +11,20 @@
 
 namespace BaserCore\Test\TestCase\Controller\Api\Admin;
 
+use BaserCore\Test\Scenario\InitAppScenario;
+use BaserCore\Test\Scenario\LoginStoresScenario;
+use BaserCore\Test\Scenario\PermissionsScenario;
+use BaserCore\Test\Scenario\PluginsScenario;
+use BaserCore\Test\Scenario\SiteConfigsScenario;
 use BaserCore\TestSuite\BcTestCase;
+use BaserCore\Utility\BcComposer;
+use BaserCore\Utility\BcZip;
+use BaserCore\Utility\BcFolder;
 use Cake\Core\App;
 use Cake\Core\Configure;
 use Cake\Core\Configure\Engine\PhpConfig;
-use Cake\Filesystem\Folder;
 use Cake\TestSuite\IntegrationTestTrait;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 use Composer\Package\Archiver\ZipArchiver;
 
 /**
@@ -25,21 +33,7 @@ use Composer\Package\Archiver\ZipArchiver;
 class PluginsControllerTest extends BcTestCase
 {
     use IntegrationTestTrait;
-
-    /**
-     * Fixtures
-     *
-     * @var array
-     */
-    public $fixtures = [
-        'plugin.BaserCore.Users',
-        'plugin.BaserCore.UsersUserGroups',
-        'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.Plugins',
-        'plugin.BaserCore.Permissions',
-        'plugin.BaserCore.Sites',
-        'plugin.BaserCore.SiteConfigs',
-    ];
+    use ScenarioAwareTrait;
 
     /**
      * Access Token
@@ -59,6 +53,11 @@ class PluginsControllerTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
+        $this->loadFixtureScenario(InitAppScenario::class);
+        $this->loadFixtureScenario(SiteConfigsScenario::class);
+        $this->loadFixtureScenario(PluginsScenario::class);
+        $this->loadFixtureScenario(PermissionsScenario::class);
+        $this->loadFixtureScenario(LoginStoresScenario::class);
         Configure::config('baser', new PhpConfig());
         Configure::load('BaserCore.setting', 'baser');
         $token = $this->apiLoginAdmin(1);
@@ -122,19 +121,19 @@ class PluginsControllerTest extends BcTestCase
             'permission' => "1"
         ];
         $pluginPath = App::path('plugins')[0] . DS . 'BcTest';
-        $folder = new Folder($pluginPath);
-        $folder->create($pluginPath, 0777);
+        $folder = new BcFolder($pluginPath);
+        $folder->create();
         $this->post('/baser/api/admin/baser-core/plugins/install/' . $pluginName .'.json?token=' . $this->accessToken, $data);
         $this->assertResponseCode($statusCode);
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals($message, $result->message);
-        $folder->delete($pluginPath);
+        $folder->delete();
     }
-    public function installDataProvider()
+    public static function installDataProvider()
     {
         return [
             ["BcUploader", 200, "プラグイン「BcUploader」をインストールしました。"],
-            ["UnKnown", 500, "データベース処理中にエラーが発生しました。Plugin UnKnown could not be found."],
+            ["UnKnown", 500, "データベース処理中にエラーが発生しました。Plugin `UnKnown` could not be found."],
             ["BcTest", 500, "データベース処理中にエラーが発生しました。プラグインに Plugin クラスが存在しません。src ディレクトリ配下に作成してください。"],
         ];
     }
@@ -208,9 +207,11 @@ class PluginsControllerTest extends BcTestCase
 
         $path = BASER_PLUGINS . 'BcPluginSample';
         $zipSrcPath = TMP . 'zip' . DS;
-        $folder = new Folder();
-        $folder->create($zipSrcPath, 0777);
-        $folder->copy($zipSrcPath . 'BcPluginSample2', ['from' => $path, 'mode' => 0777]);
+        $folder = new BcFolder($zipSrcPath);
+        $folder->create();
+        //copy
+        $folder = new BcFolder($path);
+        $folder->copy($zipSrcPath . 'BcPluginSample2');
         $plugin = 'BcPluginSample2';
         $zip = new ZipArchiver();
         $testFile = $zipSrcPath . $plugin . '.zip';
@@ -222,9 +223,10 @@ class PluginsControllerTest extends BcTestCase
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('新規プラグイン「' . $plugin . '」を追加しました。', $result->message);
 
-        $folder = new Folder();
-        $folder->delete(BASER_PLUGINS . $plugin);
-        $folder->delete($zipSrcPath);
+        $folder = new BcFolder(BASER_PLUGINS . $plugin);
+        $folder->delete();
+        $folder = new BcFolder($zipSrcPath);
+        $folder->delete();
     }
 
     /**
@@ -262,6 +264,54 @@ class PluginsControllerTest extends BcTestCase
         }
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals('一括処理が完了しました。', $result->message);
+    }
+
+    /**
+     * test update_core_files
+     */
+    public function test_update_core_files()
+    {
+        // composer.json をバックアップ
+        copy(ROOT . DS . 'composer.json', ROOT . DS . 'composer.bak.json');
+        copy(ROOT . DS . 'composer.lock', ROOT . DS . 'composer.bak.lock');
+
+        // composer.json を配布用に更新
+        BcComposer::setupComposerForDistribution(ROOT . DS);
+
+        // vendor を一時フォルダにコピー
+        (new BcFolder(ROOT . DS . 'vendor'))->copy(TMP . 'update' . DS . 'vendor');
+
+        // composer.json を一時フォルダにコピー
+        copy(ROOT . DS . 'composer.json', TMP . 'update' . DS . 'composer.json');
+        copy(ROOT . DS . 'composer.lock', TMP . 'update' . DS . 'composer.lock');
+
+        // 最新版を反映
+        $this->post('/baser/api/admin/baser-core/plugins/update_core_files.json?token=' . $this->accessToken);
+        $this->assertResponseOk();
+        $result = json_decode((string)$this->_response->getBody());
+        $this->assertEquals('コアファイルの最新版への更新が完了しました。', $result->message);
+
+        // vendor を元に戻す
+        (new BcFolder(ROOT . DS . 'vendor'))->delete();
+        $zip = new BcZip();
+        $zip->extract(TMP . 'update' . DS . 'vendor.zip', ROOT . DS . 'vendor');
+
+        // 一時ファイルを削除
+        (new BcFolder(TMP . 'update'))->delete();
+
+        // composer.json を元に戻す
+        rename(ROOT . DS . 'composer.bak.json', ROOT . DS . 'composer.json');
+        rename(ROOT . DS . 'composer.bak.lock', ROOT . DS . 'composer.lock');
+    }
+
+    /**
+     * test get_available_core_version_info
+     */
+    public function test_get_available_core_version_info()
+    {
+        $this->get('/baser/api/admin/baser-core/plugins/get_available_core_version_info.json?token=' . $this->accessToken);
+        $result = json_decode((string)$this->_response->getBody());
+        $this->assertIsArray($result->availableCoreVersionInfo);
     }
 
 }

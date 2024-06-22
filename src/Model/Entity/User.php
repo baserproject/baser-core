@@ -14,7 +14,7 @@ namespace BaserCore\Model\Entity;
 use Authentication\PasswordHasher\DefaultPasswordHasher;
 use Cake\Core\Configure;
 use Cake\Datasource\EntityInterface;
-use Cake\I18n\Time as TimeAlias;
+use Cake\I18n\FrozenTime;
 use Cake\ORM\Entity as EntityAlias;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
@@ -31,8 +31,8 @@ use Cake\Utility\Hash;
  * @property string $email
  * @property string $nickname
  * @property bool $status
- * @property TimeAlias $created
- * @property TimeAlias $modified
+ * @property \Cake\I18n\DateTime $created
+ * @property \Cake\I18n\DateTime $modified
  */
 class User extends EntityAlias
 {
@@ -42,7 +42,7 @@ class User extends EntityAlias
      *
      * @var array
      */
-    protected $_accessible = [
+    protected array $_accessible = [
         '*' => true,
         'id' => false
     ];
@@ -52,7 +52,7 @@ class User extends EntityAlias
      *
      * @var array
      */
-    protected $_hidden = [
+    protected array $_hidden = [
         'password'
     ];
 
@@ -97,6 +97,7 @@ class User extends EntityAlias
      * @return bool
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function isSuper(): bool
     {
@@ -128,6 +129,7 @@ class User extends EntityAlias
      * @return bool
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function isEnableLoginAgent(EntityInterface $targetUser): bool
     {
@@ -206,6 +208,7 @@ class User extends EntityAlias
      * @return array
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function getAuthPrefixes(): array
     {

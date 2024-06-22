@@ -18,7 +18,6 @@ use BaserCore\Service\UsersServiceInterface;
 use BaserCore\Utility\BcSiteConfig;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\Configure;
-use Cake\Core\Exception\Exception;
 use Cake\Datasource\Exception\RecordNotFoundException;
 use Cake\Http\Exception\ForbiddenException;
 use Cake\Http\Exception\NotFoundException;
@@ -48,7 +47,7 @@ class UsersController extends BcAdminAppController
     public function initialize(): void
     {
         parent::initialize();
-        if(isset($this->Authentication)) {
+        if($this->components()->has('Authentication')) {
             $this->Authentication->allowUnauthenticated(['login']);
         }
     }
@@ -84,7 +83,7 @@ class UsersController extends BcAdminAppController
                     'loginRedirect' => $target
                 ]);
                 $service->removeLoginKey($user->id);
-                if ($this->request->is('ssl') && $this->request->getData('saved')) {
+                if ($this->request->is('https') && $this->request->getData('saved')) {
                     // 自動ログイン保存
                     $this->response = $service->setCookieAutoLoginKey($this->response, $user->id);
                 }

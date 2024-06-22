@@ -162,6 +162,9 @@ class DblogsService implements DblogsServiceInterface
             'contain' => ['Users']
         ], $queryParams);
 
+        if (is_null($queryParams['contain']))
+            $queryParams['contain'] = [];
+
         $query = $this->Dblogs->find()->contain($queryParams['contain']);
 
         if (!empty($queryParams['message'])) {
@@ -187,7 +190,7 @@ class DblogsService implements DblogsServiceInterface
         return $this->Dblogs
             ->find('all')
             ->contain('Users')
-            ->order(['Dblogs.id' => 'DESC'])
+            ->orderBy(['Dblogs.id' => 'DESC'])
             ->limit($limit)
             ->all();
     }
