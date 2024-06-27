@@ -1,6 +1,16 @@
 <?php
 /**
- * 5.0.16 アップデーター
+ * baserCMS :  Based Website Development Project <https://basercms.net>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
+ *
+ * @copyright     Copyright (c) NPO baser foundation
+ * @link          https://basercms.net baserCMS Project
+ * @since         5.0.18
+ * @license       https://basercms.net/license/index.html MIT License
+ */
+
+/**
+ * 5.0.18 アップデーター
  *
  * baserCMS5.1系対応の準備処理を実行
  */
@@ -54,10 +64,14 @@ if (is_writable(ROOT . DS . 'webroot' . DS . 'index.php')) {
     BcUpdateLog::set(__d('baser_core', ROOT . DS . 'webroot' . DS . 'index.php に書き込み権限がありません。' . $updateDir . DS . 'webroot' . DS . 'index.php をコピーして手動で上書きしてください。'));
 }
 if (is_writable(ROOT . DS . 'config')) {
-    if (is_writable(ROOT . DS . 'config' . DS . 'plugins.php')) {
-        copy($updateDir . DS . 'config' . DS . 'plugins.php', ROOT . DS . 'config' . DS . 'plugins.php');
+    if(file_exists(ROOT . DS . 'config' . DS . 'plugins.php')) {
+        if (is_writable(ROOT . DS . 'config' . DS . 'plugins.php')) {
+            copy($updateDir . DS . 'config' . DS . 'plugins.php', ROOT . DS . 'config' . DS . 'plugins.php');
+        } else {
+            BcUpdateLog::set(__d('baser_core', ROOT . DS . 'config' . DS . 'plugins.php に書き込み権限がありません。' . $updateDir . DS . 'config' . DS . 'plugins.php をコピーして手動で上書きしてください。'));
+        }
     } else {
-        BcUpdateLog::set(__d('baser_core', ROOT . DS . 'config' . DS . 'plugins.php に書き込み権限がありません。' . $updateDir . DS . 'config' . DS . 'plugins.php をコピーして手動で上書きしてください。'));
+        copy($updateDir . DS . 'config' . DS . 'plugins.php', ROOT . DS . 'config' . DS . 'plugins.php');
     }
 } else {
     BcUpdateLog::set(__d('baser_core', ROOT . DS . 'config に書き込み権限がありません。' . $updateDir . DS . 'config' . DS . 'plugins.php をコピーして、手動で' . ROOT . DS . 'config 配下に配置してください。'));
