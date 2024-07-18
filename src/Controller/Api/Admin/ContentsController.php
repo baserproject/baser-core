@@ -31,6 +31,7 @@ class ContentsController extends BcAdminApiController
      * @param int $id
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function view(ContentsServiceInterface $service, int $id)
     {
@@ -121,12 +122,13 @@ class ContentsController extends BcAdminApiController
      * @return void
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function index_trash(ContentsServiceInterface $service)
     {
         $entities = $this->paginate($service->getTrashIndex(
             $this->request->getQueryParams(), 'threaded'
-        )->order(['site_id', 'lft']));
+        )->orderBy(['site_id', 'lft']));
 
         $this->set(['contents' => $entities]);
         $this->viewBuilder()->setOption('serialize', ['contents']);
@@ -187,7 +189,7 @@ class ContentsController extends BcAdminApiController
     {
         $this->request->allowMethod(['post', 'delete']);
         try {
-            $trash = $service->getTrashIndex($this->request->getQueryParams())->order(['plugin', 'type']);
+            $trash = $service->getTrashIndex($this->request->getQueryParams())->orderBy(['plugin', 'type']);
             foreach ($trash as $entity) {
                 if (!$service->hardDeleteWithAssoc($entity->id)) $result = false;
             }

@@ -80,7 +80,7 @@ class PermissionGroupsService implements PermissionGroupsServiceInterface
      */
     public function get(int $id, int $userGroupId = null)
     {
-        $options = [];
+        $options = ['contain' => []];
         if (!is_null($userGroupId)) {
             $options = [
                 'contain' => [
@@ -89,7 +89,7 @@ class PermissionGroupsService implements PermissionGroupsServiceInterface
                     }]
             ];
         }
-        return $this->PermissionGroups->get($id, $options);
+        return $this->PermissionGroups->get($id, contain: $options['contain']);
     }
 
     /**
@@ -98,6 +98,7 @@ class PermissionGroupsService implements PermissionGroupsServiceInterface
      * @return EntityInterface
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function getNew(string $prefix)
     {

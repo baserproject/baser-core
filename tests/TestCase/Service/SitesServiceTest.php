@@ -12,7 +12,13 @@
 namespace BaserCore\Test\TestCase\Service;
 
 use BaserCore\Service\SitesService;
+use BaserCore\Test\Scenario\ContentFoldersScenario;
+use BaserCore\Test\Scenario\ContentsScenario;
+use BaserCore\Test\Scenario\SiteConfigsScenario;
+use BaserCore\Test\Scenario\SitesScenario;
+use BaserCore\Test\Scenario\UserScenario;
 use BaserCore\Utility\BcContainerTrait;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 class SitesServiceTest extends \BaserCore\TestSuite\BcTestCase
 {
@@ -23,17 +29,9 @@ class SitesServiceTest extends \BaserCore\TestSuite\BcTestCase
     use BcContainerTrait;
 
     /**
-     * Fixtures
-     *
-     * @var array
+     * ScenarioAwareTrait
      */
-    protected $fixtures = [
-        'plugin.BaserCore.Sites',
-        'plugin.BaserCore.Contents',
-        'plugin.BaserCore.ContentFolders',
-        'plugin.BaserCore.Users',
-        'plugin.BaserCore.SiteConfigs'
-    ];
+    use ScenarioAwareTrait;
 
     /**
      * @var SitesService|null
@@ -56,6 +54,11 @@ class SitesServiceTest extends \BaserCore\TestSuite\BcTestCase
     public function setUp(): void
     {
         parent::setUp();
+        $this->loadFixtureScenario(UserScenario::class);
+        $this->loadFixtureScenario(ContentsScenario::class);
+        $this->loadFixtureScenario(ContentFoldersScenario::class);
+        $this->loadFixtureScenario(SiteConfigsScenario::class);
+        $this->loadFixtureScenario(SitesScenario::class);
         $this->Sites = new SitesService();
     }
 
@@ -131,7 +134,8 @@ class SitesServiceTest extends \BaserCore\TestSuite\BcTestCase
             'name' => 'chinese',
             'display_name' => '中国サイト',
             'title' => 'baserの中国サイト',
-            'alias' => 'zh'
+            'alias' => 'zh',
+            'use_subdomain' => 0
         ]);
         $this->Sites->create($request->getData());
         $request = $this->getRequest('/?name=chinese');
@@ -202,7 +206,7 @@ class SitesServiceTest extends \BaserCore\TestSuite\BcTestCase
         $request = $this->getRequest('/');
         $users = $this->Sites->getIndex($request->getQueryParams());
         $this->assertEquals(5, $users->all()->count());
-        $this->expectException("Exception");
+        $this->expectException("BaserCore\Error\BcException");
         $this->Sites->delete(1);
     }
 
@@ -237,7 +241,8 @@ class SitesServiceTest extends \BaserCore\TestSuite\BcTestCase
             'display_name' => 'test',
             'alias' => 'test',
             'title' => 'test',
-            'status' => true
+            'status' => true,
+            'use_subdomain' => 0
         ]);
         $this->assertEquals(6, count($this->Sites->getList()));
     }

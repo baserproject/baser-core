@@ -39,6 +39,7 @@ class BcArrayHelper extends Helper
      * @return boolean
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function first($array, int $key)
     {
@@ -65,6 +66,7 @@ class BcArrayHelper extends Helper
      * @return boolean
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function last($array, $key)
     {
@@ -90,6 +92,7 @@ class BcArrayHelper extends Helper
      * @return array
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function addText($array, $prefix = '', $suffix = '')
     {
@@ -107,6 +110,7 @@ class BcArrayHelper extends Helper
      * @param string $add
      * @checked
      * @noTodo
+     * @unitTest
      */
     private function __addText(&$value, $key, $add)
     {

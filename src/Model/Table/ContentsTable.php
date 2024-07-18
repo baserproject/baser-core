@@ -12,9 +12,9 @@
 namespace BaserCore\Model\Table;
 
 use ArrayObject;
+use Cake\Chronos\Chronos;
 use Cake\Utility\Hash;
 use Cake\Core\Configure;
-use Cake\I18n\FrozenTime;
 use Cake\ORM\TableRegistry;
 use BaserCore\Utility\BcUtil;
 use Cake\Event\EventInterface;
@@ -26,7 +26,6 @@ use BaserCore\Annotation\Note;
 use BaserCore\Model\Entity\Content;
 use Cake\Datasource\EntityInterface;
 use Cake\Datasource\ConnectionManager;
-use SoftDelete\Model\Table\SoftDeleteTrait;
 
 /**
  * Class ContentsTable
@@ -296,7 +295,7 @@ class ContentsTable extends AppTable
         // if ($parents) {
         //     $baseUrl = '/' . implode('/', $parents) . '/';
         // }
-        // $sites = $this->Sites->find('all', ['conditions' => ['Site.main_site_id' => $this->data['Content']['site_id'], 'relate_main_site' => true]]);
+        // $sites = $this->Sites->find('all', ...['conditions' => ['Site.main_site_id' => $this->data['Content']['site_id'], 'relate_main_site' => true]]);
         // // URLを取得
         // $urlAry = [];
         // foreach($sites as $site) {
@@ -352,7 +351,7 @@ class ContentsTable extends AppTable
                 $content['self_publish_end'] = null;
             }
             if (!isset($content['created_date'])) {
-                $content['created_date'] = FrozenTime::now();
+                $content['created_date'] = \Cake\I18n\DateTime::now();
             }
             if (!isset($content['site_root'])) {
                 $content['site_root'] = 0;
@@ -376,7 +375,7 @@ class ContentsTable extends AppTable
                 }
             }
             if (empty($content['modified_date'])) {
-                $content['modified_date'] = FrozenTime::now();
+                $content['modified_date'] = \Cake\I18n\DateTime::now();
             }
         }
         // name の 重複チェック＆リネーム
@@ -422,7 +421,7 @@ class ContentsTable extends AppTable
         if ($contentId) {
             $query = $query->andWhere(['id <>' => $contentId]);
         }
-        $datas = $query->select('name')->order('name')->all()->toArray();
+        $datas = $query->select('name')->orderBy('name')->all()->toArray();
         $datas = Hash::extract($datas, '{n}.name');
         $numbers = [];
 
@@ -715,7 +714,7 @@ class ContentsTable extends AppTable
                 unset($content->created);
                 unset($content->modified);
                 unset($content->layout_template);
-                $content->created_date = $content->created = FrozenTime::now();
+                $content->created_date = $content->created = \Cake\I18n\DateTime::now();
                 $content->name = $data->name;
                 $content->main_site_content_id = $data->id;
                 $content->site_id = $site->id;
@@ -759,7 +758,7 @@ class ContentsTable extends AppTable
             $currentId = $current->first()->id;
         }
         $prefix = $this->Sites->getPrefix($targetSiteId);
-        $path = $this->find('path', ['for' => $currentId])->toArray();
+        $path = $this->find('path', for: $currentId)->toArray();
         if (!$path) {
             return false;
         }
@@ -796,7 +795,7 @@ class ContentsTable extends AppTable
                         'type' => 'ContentFolder',
                         'site_id' => $targetSiteId,
                         'self_status' => true,
-                        'created_date' => FrozenTime::now()
+                        'created_date' => \Cake\I18n\DateTime::now()
                     ]
                 ]);
                 $result = $contentFoldersTable->save($contentFolder);
@@ -858,7 +857,7 @@ class ContentsTable extends AppTable
             $content['exclude_search'] = 0;
         }
         if (!isset($content['created_date'])) {
-            $content['created_date'] = FrozenTime::now();
+            $content['created_date'] = \Cake\I18n\DateTime::now();
         }
         $content = $this->newEntity($content);
         return $this->save($content);
@@ -892,7 +891,7 @@ class ContentsTable extends AppTable
                 // =========================================================================================================
                 $connection = ConnectionManager::get('default');
                 $content = $connection
-                    ->newQuery()
+                    ->selectQuery()
                     ->select(['lft', 'rght'])
                     ->from($prefix . 'contents')
                     ->where(['id' => $id, 'deleted_date IS' => null])
@@ -904,7 +903,7 @@ class ContentsTable extends AppTable
                     return false;
                 }
                 $parents = $connection
-                    ->newQuery()
+                    ->selectQuery()
                     ->select(['name', 'plugin', 'type'])
                     ->from($prefix . 'contents')
                     ->where(['lft <=' => $content['lft'], 'rght >=' => $content['rght'], 'deleted_date IS' => null])
@@ -1029,7 +1028,7 @@ class ContentsTable extends AppTable
     {
         foreach(['publish_begin', 'publish_end'] as $date) {
             if ($content[$date] !== $content["self_" . $date]) {
-                if ($content[$date] instanceof FrozenTime && $content["self_" . $date] instanceof FrozenTime) {
+                if ($content[$date] instanceof \Cake\I18n\DateTime && $content["self_" . $date] instanceof \Cake\I18n\DateTime) {
                     if ($content[$date]->__toString() !== $content["self_" . $date]->__toString()) {
                         $content->$date = $content["self_" . $date];
                     }
@@ -1065,7 +1064,7 @@ class ContentsTable extends AppTable
      */
     public function updateChildren($id)
     {
-        $children = $this->find('children', ['for' => $id])->order('Contents.lft');
+        $children = $this->find('children', for: $id)->orderBy('Contents.lft');
         $result = true;
         if (!$children->all()->isEmpty()) {
             foreach($children as $child) {
@@ -1101,7 +1100,7 @@ class ContentsTable extends AppTable
         if ($entityId) {
             $conditions['Contents.entity_id'] = $entityId;
         }
-        return $this->find()->where([$conditions])->order(['Contents.id'])->first();
+        return $this->find()->where([$conditions])->orderBy(['Contents.id'])->first();
     }
 
     /**
@@ -1173,10 +1172,10 @@ class ContentsTable extends AppTable
             return false;
         }
         // FrozenTimeの場合は変換
-        if ($publishBegin instanceof FrozenTime) {
+        if ($publishBegin instanceof \Cake\I18n\DateTime) {
             $publishBegin = $publishBegin->i18nFormat('yyyy-MM-dd HH:mm:ss');
         }
-        if ($publishEnd instanceof FrozenTime) {
+        if ($publishEnd instanceof \Cake\I18n\DateTime) {
             $publishEnd = $publishEnd->i18nFormat('yyyy-MM-dd HH:mm:ss');
         }
         if ($publishBegin && $publishBegin != '0000-00-00 00:00:00') {
@@ -1202,7 +1201,7 @@ class ContentsTable extends AppTable
      */
     public function getParentTemplate($id)
     {
-        $contents = $this->find('path', ['for' => $id])->contain(['Sites'])->all()->toArray();
+        $contents = $this->find('path', for: $id)->contain(['Sites'])->all()->toArray();
         $contents = array_reverse($contents);
         unset($contents[0]);
         $parentTemplates = Hash::extract($contents, '{n}.layout_template');
@@ -1246,11 +1245,10 @@ class ContentsTable extends AppTable
             $conditions['Content.site_id <>'] = $options['excludeIds'];
         }
         $conditions = array_merge($conditions, $this->getConditionAllowPublish());
-        $contents = $this->find('all', [
-            'conditions' => $conditions,
-            'order' => ['Content.id'],
-            'recursive' => 0
-        ]);
+        $contents = $this->find('all',
+        conditions: $conditions,
+        order: ['Content.id'],
+        recursive: 0);
         $mainSite = $this->Sites->getRootMain();
         foreach($contents as $key => $content) {
             if ($content['Content']['site_id'] == 0) {
@@ -1267,10 +1265,9 @@ class ContentsTable extends AppTable
      */
     public function updateAllUrl()
     {
-        $contents = $this->find('all', [
-            'recursive' => -1,
-            'order' => ['Content.lft']
-        ]);
+        $contents = $this->find('all',
+        recursive: -1,
+        order: ['Content.lft']);
         $result = true;
         $updatingRelated = $this->updatingRelated;
         $updatingSystemData = $this->updatingSystemData;
@@ -1297,7 +1294,7 @@ class ContentsTable extends AppTable
     public function updateChildrenUrl($id)
     {
         set_time_limit(0);
-        $children = $this->find('children', ['for' => $id])->select(['url', 'id'])->order('lft');
+        $children = $this->find('children', for: $id)->select(['url', 'id'])->orderBy('lft');
         /** @var \Cake\Database\Connection $connection */
         $connection = ConnectionManager::get('default');
         if ($children) {
@@ -1328,7 +1325,7 @@ class ContentsTable extends AppTable
         $result = true;
         $siteRoots = $this->find()
             ->where(['Contents.site_root' => true])
-            ->order('lft')
+            ->orderBy('Contents.lft')
             ->all();
         $count = 0;
         $mainSite = [];
@@ -1339,7 +1336,7 @@ class ContentsTable extends AppTable
             $siteRoot->parent_id = ($siteRoot->id == 1)? null : 1;
             $contents = $this->find()
                 ->where(['Contents.site_id' => $siteRoot->site_id, 'Contents.site_root' => false])
-                ->order('lft')
+                ->orderBy('Contents.lft')
                 ->all();
             if ($contents) {
                 foreach($contents as $content) {
@@ -1371,7 +1368,7 @@ class ContentsTable extends AppTable
         BcUtil::onEvent($eventManager, 'Model.beforeSave', $beforeSaveListeners);
         BcUtil::onEvent($eventManager, 'Model.afterSave', $afterSaveListeners);
 
-        $contents = $this->find()->order(['lft'])->all();
+        $contents = $this->find()->orderBy(['Contents.lft'])->all();
         if ($contents) {
             foreach($contents as $content) {
                 // setDirty を利用して同名コンテンツを強制的にリネームする
@@ -1404,7 +1401,7 @@ class ContentsTable extends AppTable
     public function findByUrl($url, $publish = true, $extend = false, $sameUrl = false, $useSubDomain = false)
     {
         $url = preg_replace('/^\//', '', $url);
-        $query = $this->find()->order(['url' => 'DESC'])->contain('Sites');
+        $query = $this->find()->orderBy(['Contents.url' => 'DESC'])->contain('Sites');
         if ($extend) {
             $params = explode('/', $url);
             $condUrls = [];
@@ -1460,7 +1457,10 @@ class ContentsTable extends AppTable
      */
     public function getOrderSameParent($id, $parentId)
     {
-        $contents = $this->find()->select(['id', 'parent_id', 'title'])->where(['parent_id' => $parentId])->order('lft');
+        $contents = $this->find()
+            ->select(['Contents.id', 'Contents.parent_id', 'Contents.title'])
+            ->where(['Contents.parent_id' => $parentId])
+            ->orderBy('Contents.lft');
         $order = null;
         if (!$contents->all()->isEmpty()) {
             if ($id) {

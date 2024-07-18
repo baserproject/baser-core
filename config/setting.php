@@ -66,7 +66,7 @@ return [
      * エラー構成
      */
     'Error' => [
-        'errorLevel' => E_ALL & ~E_USER_DEPRECATED,
+        'errorLevel' => E_ALL,
         'exceptionRenderer' => BcExceptionRenderer::class,
     ],
 
@@ -157,10 +157,6 @@ return [
          * サイトURL
          */
         'siteUrl' => env('SITE_URL', 'https://localhost/'),
-        /**
-         * SSL URL
-         */
-        'sslUrl' => env('SSL_URL', 'https://localhost/'),
         /**
          * CMS URL
          * CMSのURLが別ドメインの場合に設定する
@@ -287,6 +283,7 @@ return [
             'BcMail',
             'BcThemeConfig',
             'BcWidgetArea',
+            'BcUploader',
         ],
 
         /**
@@ -298,7 +295,7 @@ return [
          * インストール時に composer.json にセットするバージョン
          * @see \BaserCore\Utility\BcComposer::setupComposerForDistribution()
          */
-        'setupVersion' => '5.0.*',
+        'setupVersion' => '5.1.*',
 
         /**
          * リリースパッケージに不要なファイル
@@ -332,9 +329,9 @@ return [
         'passwordRequestAllowTime' => 1440,
 
         /**
-         * 管理画面のSSL
+         * 二段階認証コードの有効時間(min)
          */
-        'adminSsl' => filter_var(env('ADMIN_SSL', true), FILTER_VALIDATE_BOOLEAN),
+        'twoFactorAuthenticationCodeAllowTime' => 10,
 
         /**
          * エディタ
@@ -544,7 +541,26 @@ return [
                     ]
                 ]
             ]
-        ]
+        ],
+
+        /*
+         * パスワードの設定ルール
+         */
+        'passwordRule' => [
+            // 最小文字数
+            'minLength' => 12,
+            // 入力必須な文字種
+            'requiredCharacterTypes' => [
+                // 数字
+                'numeric',
+                // 大文字英字
+                'uppercase',
+                // 小文字英字
+                'lowercase',
+                // 記号
+                // 'symbol',
+            ],
+        ],
     ],
 
     /**
@@ -554,11 +570,13 @@ return [
         'defaultAllows' => [
             '/baser/admin',
             '/baser/admin/baser-core/users/login',
+            '/baser/admin/baser-core/users/login_code',
             '/baser/admin/baser-core/users/logout',
             '/baser/admin/baser-core/password_requests/*',
             '/baser/admin/baser-core/dashboard/*',
             '/baser/admin/baser-core/dblogs/*',
             '/baser/admin/baser-core/users/back_agent',
+            '/baser/admin/baser-core/users/edit_password',
             '/baser/admin/baser-core/preview/*',
             '/baser/admin/baser-core/utilities/credit',
             '/',
