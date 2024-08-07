@@ -11,9 +11,8 @@
 
 namespace BaserCore\Controller;
 
-use BaserCore\Utility\BcFile;
-use BaserCore\Utility\BcFolder;
-use Cake\View\JsonView;
+use Cake\Filesystem\File;
+use Cake\Filesystem\Folder;
 use Doctrine\Common\Annotations\AnnotationReader;
 use Exception;
 use ReflectionClass;
@@ -40,17 +39,6 @@ class AnalyseController extends AppController
     private const CONVERT_CLASS_NAME = [
         '\BaserCore\Routing\RouteCollection' => '\Cake\Routing\RouteCollection'
     ];
-
-    /**
-     * View classes
-     * @return string[]
-     * @checked
-     * @noTodo
-     */
-    public function viewClasses(): array
-    {
-        return [JsonView::class];
-    }
 
     /**
      * 解析したファイル情報一覧
@@ -96,16 +84,17 @@ class AnalyseController extends AppController
      */
     private function getList($path)
     {
-        $folder = new BcFolder($path);
+        $folder = new Folder($path);
+        $files = $folder->read(true, true, true);
         $metas = [];
 
-        foreach($folder->getFolders(['full' => true]) as $file) {
+        foreach($files[0] as $file) {
             if (preg_match('/(\/node_modules\/|\/vendors\/|Migrations|Seeds)/', $file)) {
                 continue;
             }
             $metas = array_merge($metas, $this->getList($file . DS));
         }
-        foreach($folder->getFiles(['full' => true]) as $path) {
+        foreach($files[1] as $path) {
             $fileName = basename($path);
             if (preg_match('/(' . str_replace(',', '|', preg_quote(implode(',', self::EXCLUDE_EXT))) . ')$/', $fileName)) {
                 continue;
@@ -124,7 +113,8 @@ class AnalyseController extends AppController
                 'note' => ''
             ];
             if (preg_match('/^[a-z]/', $fileName) || !preg_match('/\.php$/', $fileName)) {
-                $code = (new BcFile($path))->read();
+                $file = new File($path);
+                $code = $file->read();
                 if (preg_match('/@checked/', $code)) {
                     $meta['checked'] = true;
                 }

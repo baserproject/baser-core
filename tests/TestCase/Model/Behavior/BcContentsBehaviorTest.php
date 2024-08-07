@@ -11,14 +11,11 @@
 namespace BaserCore\Test\TestCase\Model\Behavior;
 
 use ArrayObject;
-use BaserCore\Test\Scenario\ContentFoldersScenario;
-use BaserCore\Test\Scenario\ContentsScenario;
 use Cake\ORM\Entity;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Service\ContentsService;
 use BaserCore\Model\Table\ContentFoldersTable;
 use BaserCore\Model\Behavior\BcContentsBehavior;
-use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * Class BcContentsBehaviorTest
@@ -27,10 +24,20 @@ use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
  */
 class BcContentsBehaviorTest extends BcTestCase
 {
+
     /**
-     * ScenarioAwareTrait
+     * Fixtures
+     *
+     * @var array
      */
-    use ScenarioAwareTrait;
+    protected $fixtures = [
+        'plugin.BaserCore.Contents',
+        'plugin.BaserCore.Sites',
+        'plugin.BaserCore.ContentFolders',
+        'plugin.BaserCore.Users',
+        'plugin.BaserCore.UserGroups',
+        'plugin.BaserCore.UsersUserGroups',
+    ];
 
     /**
      * @var ContentFoldersTable|BcContentsBehavior;
@@ -79,8 +86,6 @@ class BcContentsBehaviorTest extends BcTestCase
      */
     public function testAfterMarshal()
     {
-        $this->loadFixtureScenario(ContentFoldersScenario::class);
-        $this->loadFixtureScenario(ContentsScenario::class);
         $contentFolder = $this->table->find()->first();
         $result = $this->table->dispatchEvent('Model.afterMarshal', ['entity' => $contentFolder, 'data' => new ArrayObject($contentFolder->toArray()), 'options' => new ArrayObject(['validate' => true])]);
         $contentFolder = $result->getData('entity');
@@ -173,8 +178,6 @@ class BcContentsBehaviorTest extends BcTestCase
      */
     public function testBeforeDelete()
     {
-        $this->loadFixtureScenario(ContentFoldersScenario::class);
-        $this->loadFixtureScenario(ContentsScenario::class);
         $event = $this->table->dispatchEvent('Model.beforeDelete', [
             'entity' => $this->table->get(10),
             'options' => new ArrayObject(),
@@ -188,8 +191,6 @@ class BcContentsBehaviorTest extends BcTestCase
      */
     public function testAfterDelete()
     {
-        $this->loadFixtureScenario(ContentFoldersScenario::class);
-        $this->loadFixtureScenario(ContentsScenario::class);
         $entity = $this->table->get(10);
         $entity->content = $this->contentService->getTrash(16);
         $this->table->dispatchEvent('Model.afterDelete', [

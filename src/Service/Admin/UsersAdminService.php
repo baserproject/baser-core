@@ -174,7 +174,7 @@ class UsersAdminService extends UsersService implements UsersAdminServiceInterfa
     public function getViewVarsForLogin(ServerRequest $request): array
     {
         return [
-            'savedEnable' => $request->is('https'),
+            'savedEnable' => $request->is('ssl'),
             'isEnableLoginCredit' => (bool) BcSiteConfig::get('login_credit')
         ];
     }

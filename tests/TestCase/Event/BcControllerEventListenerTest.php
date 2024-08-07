@@ -11,13 +11,11 @@
 
 namespace BaserCore\Test\TestCase\Event;
 
-use BaserCore\Test\Scenario\InitAppScenario;
 use Cake\Event\Event;
 use Cake\Controller\Controller;
 use BaserCore\View\BcAdminAppView;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Event\BcControllerEventListener;
-use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * Class BcControllerEventListenerTest
@@ -26,10 +24,20 @@ use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
  */
 class BcControllerEventListenerTest extends BcTestCase
 {
+
     /**
-     * ScenarioAwareTrait
+     * Fixtures
+     *
+     * @var array
      */
-    use ScenarioAwareTrait;
+    public $fixtures = [
+        'plugin.BaserCore.Users',
+        'plugin.BaserCore.UsersUserGroups',
+        'plugin.BaserCore.UserGroups',
+        'plugin.BaserCore.Contents',
+        'plugin.BaserCore.ContentFolders',
+        'plugin.BaserCore.Sites',
+    ];
 
     /**
      * set up
@@ -39,7 +47,6 @@ class BcControllerEventListenerTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
-        $this->loadFixtureScenario(InitAppScenario::class);
         $this->BcControllerEventListener = new BcControllerEventListener();
         // $BcAdminAppView = new BcAdminAppView($this->getRequest('/baser/admin'));
         // $this->BcAdminAppView = $BcAdminAppView->setPlugin("BcAdminThird");
@@ -79,11 +86,11 @@ class BcControllerEventListenerTest extends BcTestCase
         $this->assertEquals($expected, $controller->viewBuilder()->getHelpers());
     }
 
-    public static function addHelperDataProvider()
+    public function addHelperDataProvider()
     {
         return [
-            ['BcBaser', ['BcBaser' => []]],
-            [['BcBaser', 'BcTime'], ['BcBaser' => [], 'BcTime' => []]]
+            ['BcBaser', ['BcBaser']],
+            [['BcBaser', 'BcTime'], ['BcBaser', 'BcTime']]
         ];
     }
 

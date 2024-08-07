@@ -38,7 +38,7 @@ class BcAuthHelper extends Helper
      * Helper
      * @var array
      */
-    public array $helpers = ['BaserCore.BcBaser'];
+    public $helpers = ['BaserCore.BcBaser'];
 
     /**
      * 現在認証プレフィックスを取得する

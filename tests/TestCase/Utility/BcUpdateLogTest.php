@@ -12,6 +12,7 @@
 namespace BaserCore\Test\TestCase\Utility;
 
 use BaserCore\Utility\BcUpdateLog;
+use Cake\Filesystem\File;
 
 /**
  * BcUpdateLogTest

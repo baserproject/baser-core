@@ -33,6 +33,19 @@ class PluginsController extends BcAdminAppController
 {
 
     /**
+     * initialize
+     * @throws \Exception
+     * @checked
+     * @unitTest
+     * @noTodo
+     */
+    public function initialize(): void
+    {
+        parent::initialize();
+        $this->loadComponent('RequestHandler');
+    }
+
+    /**
      * Before Filter
      * @param \Cake\Event\EventInterface $event An Event instance
      * @return Response|void
@@ -44,7 +57,7 @@ class PluginsController extends BcAdminAppController
     {
         $response = parent::beforeFilter($event);
         if($response) return $response;
-        $this->FormProtection->setConfig('unlockedActions', ['reset_db', 'update_sort', 'batch']);
+        $this->Security->setConfig('unlockedActions', ['reset_db', 'update_sort', 'batch']);
     }
 
     /**

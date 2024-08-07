@@ -12,14 +12,6 @@
 namespace BaserCore\Test\TestCase\Service;
 
 use BaserCore\Model\Entity\Content;
-use BaserCore\Test\Scenario\ContentFoldersScenario;
-use BaserCore\Test\Scenario\ContentsScenario;
-use BaserCore\Test\Scenario\InitAppScenario;
-use BaserCore\Test\Scenario\SiteConfigsScenario;
-use BaserCore\Test\Scenario\SitesScenario;
-use BaserCore\Test\Scenario\UserGroupsScenario;
-use BaserCore\Test\Scenario\UserScenario;
-use BaserCore\Test\Scenario\UsersUserGroupsScenario;
 use Cake\Routing\Router;
 use Cake\ORM\TableRegistry;
 use BaserCore\TestSuite\BcTestCase;
@@ -27,7 +19,6 @@ use BaserCore\Model\Table\ContentsTable;
 use BaserCore\Service\ContentFoldersService;
 use BaserCore\Model\Table\ContentFoldersTable;
 use Cake\ORM\Exception\PersistenceFailedException;
-use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * BaserCore\Model\Table\ContentFoldersTable Test Case
@@ -47,9 +38,19 @@ class ContentFoldersServiceTest extends BcTestCase
     public $ContentFolders;
 
     /**
-     * ScenarioAwareTrait
+     * Fixtures
+     *
+     * @var array
      */
-    use ScenarioAwareTrait;
+    protected $fixtures = [
+        'plugin.BaserCore.Contents',
+        'plugin.BaserCore.ContentFolders',
+        'plugin.BaserCore.Users',
+        'plugin.BaserCore.Sites',
+        'plugin.BaserCore.SiteConfigs',
+        'plugin.BaserCore.UserGroups',
+        'plugin.BaserCore.UsersUserGroups',
+    ];
 
     /**
      * Set Up
@@ -59,13 +60,6 @@ class ContentFoldersServiceTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
-        $this->loadFixtureScenario(UserScenario::class);
-        $this->loadFixtureScenario(UserGroupsScenario::class);
-        $this->loadFixtureScenario(UsersUserGroupsScenario::class);
-        $this->loadFixtureScenario(SitesScenario::class);
-        $this->loadFixtureScenario(SiteConfigsScenario::class);
-        $this->loadFixtureScenario(ContentsScenario::class);
-        $this->loadFixtureScenario(ContentFoldersScenario::class);
         $this->loginAdmin($this->getRequest());
         $this->ContentFoldersService = new ContentFoldersService();
         $this->Contents = $this->getTableLocator()->get('BaserCore.Contents');
@@ -109,7 +103,7 @@ class ContentFoldersServiceTest extends BcTestCase
         $this->assertEquals('メインサイト', $contentFolder->content->site->display_name);
         // 論理削除されているコンテンツに紐付いている場合
         $this->expectException('Cake\Datasource\Exception\RecordNotFoundException');
-        $this->expectExceptionMessage('Record not found in table `content_folders`.');
+        $this->expectExceptionMessage('Record not found in table "content_folders"');
         $this->ContentFoldersService->getTrash(1);
     }
 
@@ -168,7 +162,7 @@ class ContentFoldersServiceTest extends BcTestCase
         }
         $this->assertEquals($errors, $contentFolder->getErrors());
     }
-    public static function createWithFailureDataProvider()
+    public function createWithFailureDataProvider()
     {
         return [
             // contentがフィールドとして存在しない場合
@@ -245,7 +239,7 @@ class ContentFoldersServiceTest extends BcTestCase
         }
         $this->assertEquals($errors, $contentFolder->getErrors());
     }
-    public static function updateWithFailureDataProvider()
+    public function updateWithFailureDataProvider()
     {
         return [
             // contentがフィールドとして存在しない場合
@@ -269,7 +263,7 @@ class ContentFoldersServiceTest extends BcTestCase
         $this->assertEquals($expected, $this->ContentFoldersService->getParentTemplate($id, $type));
     }
 
-    public static function getParentTemplateDataProvider()
+    public function getParentTemplateDataProvider()
     {
         return [
             [1, 'folder', 'default'],
@@ -297,7 +291,7 @@ class ContentFoldersServiceTest extends BcTestCase
         $this->assertEquals($expected,  $result);
     }
 
-    public static function getFolderTemplateListDataProvider()
+    public function getFolderTemplateListDataProvider()
     {
         return [
             // idが1ならgetParentTemplateに関しての処理を飛ばす

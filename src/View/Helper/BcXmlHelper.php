@@ -51,7 +51,6 @@ class BcXmlHelper extends Helper
      * @return string XML宣言
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function header($attrib = [])
     {

@@ -14,13 +14,12 @@ namespace BaserCore\Model\Entity;
 use Authentication\PasswordHasher\DefaultPasswordHasher;
 use Cake\Core\Configure;
 use Cake\Datasource\EntityInterface;
-use Cake\I18n\FrozenTime;
+use Cake\I18n\Time as TimeAlias;
 use Cake\ORM\Entity as EntityAlias;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
 use Cake\Utility\Hash;
-use DateTime;
 
 /**
  * Class User
@@ -32,8 +31,8 @@ use DateTime;
  * @property string $email
  * @property string $nickname
  * @property bool $status
- * @property \Cake\I18n\DateTime $created
- * @property \Cake\I18n\DateTime $modified
+ * @property TimeAlias $created
+ * @property TimeAlias $modified
  */
 class User extends EntityAlias
 {
@@ -43,7 +42,7 @@ class User extends EntityAlias
      *
      * @var array
      */
-    protected array $_accessible = [
+    protected $_accessible = [
         '*' => true,
         'id' => false
     ];
@@ -53,7 +52,7 @@ class User extends EntityAlias
      *
      * @var array
      */
-    protected array $_hidden = [
+    protected $_hidden = [
         'password'
     ];
 
@@ -69,7 +68,6 @@ class User extends EntityAlias
     protected function _setPassword($value)
     {
         if ($value) {
-            $this->password_modified = new DateTime();
             $hasher = new DefaultPasswordHasher();
             return $hasher->hash($value);
         } else {
@@ -99,7 +97,6 @@ class User extends EntityAlias
      * @return bool
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function isSuper(): bool
     {
@@ -131,7 +128,6 @@ class User extends EntityAlias
      * @return bool
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function isEnableLoginAgent(EntityInterface $targetUser): bool
     {
@@ -150,12 +146,11 @@ class User extends EntityAlias
      * @return bool
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function isDeletableUser(EntityInterface $targetUser): bool
     {
         return (($this->isSuper() && !$targetUser->isSuper()) ||
-            ($this->isAdmin() && !$targetUser->isAdmin()) && !$targetUser->isSuper());
+            ($this->isAdmin() && !$targetUser->isAdmin()));
     }
 
     /**
@@ -170,7 +165,6 @@ class User extends EntityAlias
      * @return bool
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function isEditableUser(EntityInterface $targetUser): bool
     {
@@ -212,7 +206,6 @@ class User extends EntityAlias
      * @return array
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function getAuthPrefixes(): array
     {

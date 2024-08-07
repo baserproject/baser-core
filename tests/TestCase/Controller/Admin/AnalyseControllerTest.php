@@ -11,12 +11,9 @@
 
 namespace BaserCore\Test\TestCase\Controller\Admin;
 
-use BaserCore\Test\Scenario\SiteConfigsScenario;
-use BaserCore\Test\Scenario\SitesScenario;
 use Cake\Core\Plugin as CakePlugin;
 use Cake\TestSuite\IntegrationTestTrait;
 use BaserCore\TestSuite\BcTestCase;
-use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 use ReflectionClass;
 use BaserCore\Controller\AnalyseController;
 
@@ -26,7 +23,16 @@ use BaserCore\Controller\AnalyseController;
 class AnalyseControllerTest extends BcTestCase
 {
     use IntegrationTestTrait;
-    use ScenarioAwareTrait;
+
+    /**
+     * Fixtures
+     *
+     * @var array
+     */
+    protected $fixtures = [
+        'plugin.BaserCore.Sites',
+        'plugin.BaserCore.SiteConfigs'
+    ];
 
     /**
      * set up
@@ -34,8 +40,6 @@ class AnalyseControllerTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
-        $this->loadFixtureScenario(SiteConfigsScenario::class);
-        $this->loadFixtureScenario(SitesScenario::class);
         $this->Controller = new AnalyseController($this->getRequest());
     }
 
@@ -132,7 +136,7 @@ class AnalyseControllerTest extends BcTestCase
         $this->assertEquals($result, $expected);
     }
 
-    public static function pathToClassDataProvider()
+    public function pathToClassDataProvider()
     {
         return [
             // rootを取り除く

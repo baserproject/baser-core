@@ -11,10 +11,8 @@
 
 namespace BaserCore\Test\TestCase\Controller\Admin;
 
-use BaserCore\Test\Scenario\InitAppScenario;
 use BaserCore\TestSuite\BcTestCase;
 use Cake\TestSuite\IntegrationTestTrait;
-use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * BaserCore\Controller\DashboardController Test Case
@@ -22,7 +20,18 @@ use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 class DashboardControllerTest extends BcTestCase
 {
     use IntegrationTestTrait;
-    use ScenarioAwareTrait;
+
+    /**
+     * Fixtures
+     *
+     * @var array
+     */
+    public $fixtures = [
+        'plugin.BaserCore.Users',
+        'plugin.BaserCore.UsersUserGroups',
+        'plugin.BaserCore.UserGroups',
+        'plugin.BaserCore.Sites',
+    ];
 
     /**
      * set up
@@ -30,7 +39,6 @@ class DashboardControllerTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
-        $this->loadFixtureScenario(InitAppScenario::class);
         $Users = $this->getTableLocator()->get('BaserCore.Users');
         $this->session(['AuthAdmin' => $Users->get(1)]);
     }

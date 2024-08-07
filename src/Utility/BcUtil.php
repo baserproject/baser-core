@@ -22,13 +22,13 @@ use Cake\Core\App;
 use Cake\Cache\Cache;
 use Cake\Core\Plugin;
 use Cake\Core\Configure;
-use Cake\Database\Exception\MissingConnectionException;
 use Cake\Event\EventListenerInterface;
 use Cake\Event\EventManagerInterface;
 use Cake\Http\ServerRequest;
-use Cake\Http\UriFactory;
 use Cake\Routing\Exception\MissingRouteException;
 use Cake\Routing\Router;
+use Cake\Filesystem\File;
+use Cake\Filesystem\Folder;
 use Cake\ORM\TableRegistry;
 use Cake\Utility\Inflector;
 use Cake\Database\Exception;
@@ -65,15 +65,10 @@ class BcUtil
         'delete' => ['env' => 'REQUEST_METHOD', 'value' => 'DELETE'],
         'head' => ['env' => 'REQUEST_METHOD', 'value' => 'HEAD'],
         'options' => ['env' => 'REQUEST_METHOD', 'value' => 'OPTIONS'],
-        'https' => ['env' => 'HTTPS', 'options' => [1, 'on']],
+        'ssl' => ['env' => 'HTTPS', 'options' => [1, 'on']],
         'ajax' => ['env' => 'HTTP_X_REQUESTED_WITH', 'value' => 'XMLHttpRequest'],
         'json' => ['accept' => ['application/json'], 'param' => '_ext', 'value' => 'json'],
-        'xml' => [
-            'accept' => ['application/xml', 'text/xml'],
-            'exclude' => ['text/html'],
-            'param' => '_ext',
-            'value' => 'xml',
-        ],
+        'xml' => ['accept' => ['application/xml', 'text/xml'], 'param' => '_ext', 'value' => 'xml'],
     ];
 
     /**
@@ -155,7 +150,7 @@ class BcUtil
                     $userModel = Configure::read("BcPrefixAuth.{$prefix}.userModel");
                     if ($userModel === 'BaserCore.Users') {
                         $userTable = TableRegistry::getTableLocator()->get('BaserCore.Users');
-                        $user = $userTable->get($user->id, contain: ['UserGroups']);
+                        $user = $userTable->get($user->id, ['contain' => ['UserGroups']]);
                     }
                 }
                 return $user;
@@ -308,7 +303,7 @@ class BcUtil
                 return false;
             }
         }
-        $versionFile = new BcFile($path);
+        $versionFile = new File($path);
         $versionData = $versionFile->read();
         $aryVersionData = explode("\n", $versionData);
         if (!empty($aryVersionData[0])) {
@@ -429,16 +424,17 @@ class BcUtil
         }
         if (!$enablePlugins) {
             $enablePlugins = [];
-            $pluginsTable = TableRegistry::getTableLocator()->get('BaserCore.Plugins');;   // ConnectionManager の前に呼出さないとエラーとなる
-            $prefix = self::getCurrentDbConfig()['prefix'];
             // DBに接続できない場合、CakePHPのエラーメッセージが表示されてしまう為、 try を利用
             try {
-                $sources = self::getCurrentDb()->getSchemaCollection()->listTables();
-            } catch (MissingConnectionException) {
+                $pluginsTable = TableRegistry::getTableLocator()->get('BaserCore.Plugins');;   // ConnectionManager の前に呼出さないとエラーとなる
+            } catch (Exception $ex) {
                 return [];
             }
+
+            $prefix = self::getCurrentDbConfig()['prefix'];
+            $sources = self::getCurrentDb()->getSchemaCollection()->listTables();
             if (!is_array($sources) || in_array($prefix . strtolower('plugins'), array_map('strtolower', $sources))) {
-                $plugins = $pluginsTable->find('all', conditions: ['status' => true], order: 'priority');
+                $plugins = $pluginsTable->find('all', ['conditions' => ['status' => true], 'order' => 'priority']);
                 TableRegistry::getTableLocator()->remove('Plugin');
                 if ($plugins->count()) {
                     foreach($plugins as $key => $plugin) {
@@ -464,7 +460,6 @@ class BcUtil
      * @return array
      * @checked
      * @noTodo
-     * @unitTest
      */
     public static function getCurrentDbConfig()
     {
@@ -671,10 +666,10 @@ class BcUtil
     {
         $path = BcUtil::getPluginPath($theme) . 'plugins';
         if (!file_exists($path)) return [];
-        $Folder = new BcFolder($path);
-        $files = $Folder->getFolders();
-        if (!empty($files)) {
-            return $files;
+        $Folder = new Folder($path);
+        $files = $Folder->read(true, true, false);
+        if (!empty($files[0])) {
+            return $files[0];
         }
         return [];
     }
@@ -815,8 +810,8 @@ class BcUtil
                 self::getTemplatePath(Inflector::camelize(Configure::read('BcApp.coreAdminTheme'), '-')) . 'plugin' . DS . $plugin . DS
             ];
             foreach($templatePaths as $templatePath) {
-                $folder = new BcFolder($templatePath . $path . DS);
-                $files = $folder->getFiles();
+                $folder = new Folder($templatePath . $path . DS);
+                $files = $folder->read(true, true)[1];
                 if ($files) {
                     $templates = array_merge($templates, $files);
                 }
@@ -898,12 +893,12 @@ class BcUtil
         $paths = [ROOT . DS . 'plugins'];
         $themes = [];
         foreach($paths as $path) {
-            $Folder = new BcFolder($path);
-            $folders = $Folder->getFolders();
-            if (!$folders) {
+            $folder = new Folder($path);
+            $files = $folder->read(true);
+            if (!$files[0]) {
                 continue;
             }
-            foreach($folders as $name) {
+            foreach($files[0] as $name) {
                 $appConfigPath = BcUtil::getPluginPath($name) . 'config.php';
                 if ($name === '_notes' || !file_exists($appConfigPath)) {
                     continue;
@@ -970,7 +965,6 @@ class BcUtil
      * @return string
      * @checked
      * @noTodo
-     * @unitTest
      */
     public static function getSubDomain($host = null)
     {
@@ -1124,7 +1118,6 @@ class BcUtil
      * @return    boolean
      * @checked
      * @noTodo
-     * @unitTest
      */
     public static function isInstalled()
     {
@@ -1197,7 +1190,7 @@ class BcUtil
         }
         $request = Router::getRequest();
         $protocol = 'http://';
-        if (!empty($request) && $request->is('https')) {
+        if (!empty($request) && $request->is('ssl')) {
             $protocol = 'https://';
         }
         $host = Configure::read('BcEnv.host');
@@ -1257,12 +1250,8 @@ class BcUtil
                 return $site->theme;
             } else {
                 $sitesService = BcContainer::get()->get(SitesServiceInterface::class);
-                try {
-                    $site = $sitesService->get($site->main_site_id);
-                    return $site->theme;
-                } catch (MissingConnectionException) {
-                    return $theme;
-                }
+                $site = $sitesService->get($site->main_site_id);
+                return $site->theme;
             }
         } elseif (self::getRootTheme()) {
             return self::getRootTheme();
@@ -1281,12 +1270,8 @@ class BcUtil
     public static function getRootTheme()
     {
         $sites = TableRegistry::getTableLocator()->get('BaserCore.Sites');
-        try {
-            $site = $sites->getRootMain();
-            return (isset($site->theme))? $site->theme : null;
-        } catch (MissingConnectionException) {
-            return null;
-        }
+        $site = $sites->getRootMain();
+        return (isset($site->theme))? $site->theme : null;
     }
 
     /**
@@ -1300,13 +1285,8 @@ class BcUtil
     public static function getCurrentAdminTheme()
     {
         $adminTheme = Inflector::camelize(Inflector::underscore(Configure::read('BcApp.coreAdminTheme')));
-        if (BcUtil::isInstalled()) {
-            try {
-                $siteConfigAdminTheme = BcSiteConfig::get('admin_theme');
-                if($siteConfigAdminTheme) return $siteConfigAdminTheme;
-            } catch (MissingConnectionException) {
-                return $adminTheme;
-            }
+        if (BcUtil::isInstalled() && !empty(BcSiteConfig::get('admin_theme'))) {
+            $adminTheme = BcSiteConfig::get('admin_theme');
         }
         return $adminTheme;
     }
@@ -1564,10 +1544,10 @@ class BcUtil
     public static function emptyFolder($path)
     {
         $result = true;
-        $Folder = new BcFolder($path);
-        $files = $Folder->getFiles(['full'=>true]);
-        if (is_array($files)) {
-            foreach($files as $file) {
+        $Folder = new Folder($path);
+        $files = $Folder->read(true, true, true);
+        if (is_array($files[1])) {
+            foreach($files[1] as $file) {
                 if ($file != 'empty') {
                     if (!@unlink($file)) {
                         $result = false;
@@ -1575,10 +1555,9 @@ class BcUtil
                 }
             }
         }
-        $folders = $Folder->getFolders(['full'=>true]);
-        if (is_array($folders)) {
-            foreach($folders as $folder) {
-                if (!BcUtil::emptyFolder($folder)) {
+        if (is_array($files[0])) {
+            foreach($files[0] as $file) {
+                if (!BcUtil::emptyFolder($file)) {
                     $result = false;
                 }
             }
@@ -1630,6 +1609,7 @@ class BcUtil
      * @return array
      * @checked
      * @noTodo
+     * @unitTest
      */
     public static function offEvent(EventManagerInterface $eventManager, string $eventKey)
     {
@@ -1651,6 +1631,7 @@ class BcUtil
      * @param EventListenerInterface[] $eventListeners
      * @checked
      * @noTodo
+     * @unitTest
      */
     public static function onEvent(EventManagerInterface $eventManager, string $eventKey, array $eventListeners)
     {
@@ -1666,7 +1647,7 @@ class BcUtil
      * Request を取得する
      *
      * @param string $url
-     * @return ServerRequestInterface
+     * @return ServerRequest
      * @checked
      * @noTodo
      * @unitTest
@@ -1688,12 +1669,12 @@ class BcUtil
             $queryParameters = [];
             if ($query) parse_str($query, $queryParameters);
             $defaultConfig = [
-                'uri' => UriFactory::marshalUriAndBaseFromSapi([
+                'uri' => ServerRequestFactory::createUri([
                     'HTTP_HOST' => $parseUrl['host'],
                     'REQUEST_URI' => $url,
                     'HTTPS' => (preg_match('/^https/', $url))? 'on' : '',
                     'QUERY_STRING' => $query
-                ])['uri'],
+                ]),
                 'query' => $queryParameters,
                 'environment' => [
                     'REQUEST_METHOD' => $method
@@ -1759,11 +1740,12 @@ class BcUtil
         if (!is_writable(TMP)) {
             return;
         }
-        (new BcFolder(TMP . 'sessions'))->create();
-        (new BcFolder(CACHE))->create();
-        (new BcFolder(CACHE . 'models'))->create();
-        (new BcFolder(CACHE . 'persistent'))->create();
-        (new BcFolder(CACHE . 'environment'))->create();
+        $folder = new Folder();
+        $folder->create(TMP . 'sessions', 0777);
+        $folder->create(CACHE, 0777);
+        $folder->create(CACHE . 'models', 0777);
+        $folder->create(CACHE . 'persistent', 0777);
+        $folder->create(CACHE . 'environment', 0777);
     }
 
     /**
@@ -1785,9 +1767,10 @@ class BcUtil
         } else {
             return false;
         }
-        $file = new BcFile($pluginClassPath);
+        $file = new File($pluginClassPath);
         $data = $file->read();
         $file->write(preg_replace('/namespace .+?;/', 'namespace ' . $newPlugin . ';', $data));
+        $file->close();
         return true;
     }
 
@@ -1816,9 +1799,10 @@ class BcUtil
                 return false;
             }
         }
-        $file = new BcFile($newPath);
+        $file = new File($newPath);
         $data = $file->read();
         $file->write(preg_replace('/class\s+.*?Plugin/', 'class ' . $newPlugin . 'Plugin', $data));
+        $file->close();
         return true;
     }
 
@@ -1979,7 +1963,6 @@ class BcUtil
      * @return array Associative array
      * @checked
      * @noTodo
-     * @unitTest
      */
     public static function pairToAssoc()
     {
@@ -2095,7 +2078,6 @@ class BcUtil
      * @return bool
      * @checked
      * @noTodo
-     * @unitTest
      */
     public static function isDebug(): bool
     {
@@ -2111,7 +2093,6 @@ class BcUtil
      * @return bool
      * @checked
      * @noTodo
-     * @unitTest
      */
     public static function checkTime($hour, $min, $sec = null): bool
     {
@@ -2139,7 +2120,6 @@ class BcUtil
      * @return string
      * @checked
      * @noTodo
-     * @unitTest
      */
     public static function base64UrlSafeDecode($val): string
     {
@@ -2160,7 +2140,6 @@ class BcUtil
      * @return string
      * @checked
      * @noTodo
-     * @unitTest
      */
     public static function base64UrlSafeEncode($val): string
     {

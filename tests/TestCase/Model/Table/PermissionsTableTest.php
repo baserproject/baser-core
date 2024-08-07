@@ -11,10 +11,8 @@
 
 namespace BaserCore\Test\TestCase\Model\Table;
 
-use BaserCore\Test\Scenario\PermissionsScenario;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Model\Table\PermissionsTable;
-use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * BaserCore\Model\Table\PermissionsTable Test Case
@@ -32,9 +30,16 @@ class PermissionsTableTest extends BcTestCase
     public $Permissions;
 
     /**
-     * ScenarioAwareTrait
+     * Fixtures
+     *
+     * @var array
      */
-    use ScenarioAwareTrait;
+    protected $fixtures = [
+        'plugin.BaserCore.Permissions',
+        'plugin.BaserCore.Users',
+        'plugin.BaserCore.UserGroups',
+        'plugin.BaserCore.UsersUserGroups',
+    ];
 
         /**
      * Set Up
@@ -82,7 +87,7 @@ class PermissionsTableTest extends BcTestCase
         $permission = $this->Permissions->newEntity($fields);
         $this->assertSame($messages, $permission->getErrors());
     }
-    public static function validationDefaultDataProvider()
+    public function validationDefaultDataProvider()
     {
         $maxName = str_repeat("a", 255);
         $maxUrl = '/' . str_repeat("a", 254);
@@ -246,7 +251,7 @@ class PermissionsTableTest extends BcTestCase
         $this->assertEquals($expected, $result->url, $message);
     }
 
-    public static function beforeSaveDataProvider()
+    public function beforeSaveDataProvider()
     {
         return [
             ['hoge', '/hoge', 'urlが絶対パスになっていません'],
@@ -265,13 +270,12 @@ class PermissionsTableTest extends BcTestCase
      */
     public function testCopy($id, $data, $expected, $message = null)
     {
-        $this->loadFixtureScenario(PermissionsScenario::class);
         $record = $this->Permissions->copy($id, $data);
         $result = $expected ? $record->name : $record;
         $this->assertEquals($expected, $result, $message);
     }
 
-    public static function copyDataProvider()
+    public function copyDataProvider()
     {
         return [
             // id指定の場合
@@ -307,7 +311,6 @@ class PermissionsTableTest extends BcTestCase
      */
     public function testGetTargetPermissionsAndSetTargetPermissions(): void
     {
-        $this->loadFixtureScenario(PermissionsScenario::class);
         $this->Permissions->setTargetPermissions([2, 3]);
         $data = $this->Permissions->getTargetPermissions([2, 3]);
         $this->assertNotEmpty($data[2]);

@@ -30,7 +30,7 @@ class BaserCoreBaserHelper extends Helper implements BcPluginBaserHelperInterfac
      *
      * @var string[]
      */
-    public array $helpers = [
+    public $helpers = [
         'BaserCore.BcContents',
         'BaserCore.BcForm',
         'BaserCore.BcUpload',
@@ -43,7 +43,6 @@ class BaserCoreBaserHelper extends Helper implements BcPluginBaserHelperInterfac
      * @return array[]
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function methods(): array
     {

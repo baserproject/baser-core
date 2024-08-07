@@ -112,7 +112,7 @@ class PluginsTable extends AppTable
         }
 
         $result = $this->find()
-            ->orderBy(['priority'])
+            ->order(['priority'])
             ->where(['name' => $pluginName])
             ->first();
 

@@ -47,7 +47,7 @@ class BcUploadHelper  extends Helper
      *
      * @var array
      */
-    public array $helpers = ['Html', 'BaserCore.BcAdminForm'];
+    public $helpers = ['Html', 'BaserCore.BcAdminForm'];
 
     /**
      * BcUploadHelperで使用するテーブル

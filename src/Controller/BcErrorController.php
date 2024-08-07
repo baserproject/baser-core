@@ -14,12 +14,11 @@ use BaserCore\ServiceProvider\BcServiceProvider;
 use BaserCore\Utility\BcContainer;
 use BaserCore\Utility\BcUtil;
 use Cake\Controller\ComponentRegistry;
-use Cake\Database\Exception\MissingConnectionException;
+use Cake\Datasource\Exception\MissingDatasourceConfigException;
 use Cake\Event\EventInterface;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
-use Cake\Event\EventManager;
 use Cake\Event\EventManagerInterface;
 use Cake\Http\Response;
 use Cake\Http\ServerRequest;
@@ -61,14 +60,14 @@ class BcErrorController extends BcFrontAppController
      */
     protected function getCurrent(ServerRequest $request): ServerRequest
     {
-        $sitesTable = TableRegistry::getTableLocator()->get('BaserCore.Sites');
-        $contentsTable = TableRegistry::getTableLocator()->get('BaserCore.Contents');
-        $url = BcUtil::fullUrl($request->getUri()->getPath());
         try {
-            $site = $sitesTable->findByUrl($url);
-        } catch(MissingConnectionException) {
+            $sitesTable = TableRegistry::getTableLocator()->get('BaserCore.Sites');
+            $contentsTable = TableRegistry::getTableLocator()->get('BaserCore.Contents');
+        } catch(MissingDatasourceConfigException $e) {
             return $request;
         }
+        $url = BcUtil::fullUrl($request->getUri()->getPath());
+        $site = $sitesTable->findByUrl($url);
         $url = '/';
         if($site->alias) $url .= $site->alias . '/';
         $content = $contentsTable->findByUrl($url);
@@ -86,6 +85,7 @@ class BcErrorController extends BcFrontAppController
      */
     public function initialize(): void
     {
+        $this->loadComponent('RequestHandler');
         // エラー時にはサービスプロバイダーが登録されず、エラー画面表示時にヘルパーでサービスが見つからずにエラーとなってしまう。
         // 画面表示時にさらにエラーになるとテーマが適用されなくなってしまうためここでサービスプロバイダーを登録する
         BcContainer::get()->addServiceProvider(new BcServiceProvider());
@@ -104,8 +104,6 @@ class BcErrorController extends BcFrontAppController
     {
         parent::beforeRender($event);
         $this->viewBuilder()->setTemplatePath('Error');
-        // プラグイン等のイベントが残っているとエラー画面が正常に表示されない場合があるため、イベントを削除する
-        EventManager::instance()->off('View.beforeRender');
     }
 
 }

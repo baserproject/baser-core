@@ -129,16 +129,6 @@ class SitesTable extends AppTable
                     'message' => __d('baser_core', '識別名称は、利用しているプラグイン名をハイフン区切りにした名称と同じ名称は利用できません。別の名称に変更してください。')
                 ]]);
         $validator
-            ->scalar('alias')
-            ->maxLength('alias', 50, __d('baser_core', 'エイリアスは50文字以内で入力してください。'))
-            ->notEmptyString('alias', __d('baser_core', 'エイリアスを入力してください。'))
-            ->add('alias', [
-                'checkSiteAlias' => [
-                    'rule' => ['checkSiteAlias'],
-                    'provider' => 'site',
-                    'message' => __d('baser_core', 'エイリアスは、半角英数・ハイフン（-）・アンダースコア（_）で入力してください。')
-                ]]);
-        $validator
             ->scalar('display_name')
             ->maxLength('display_name', 50, __d('baser_core', 'サイト名は50文字以内で入力してください。'))
             ->requirePresence('display_name', 'create', __d('baser_core', 'サイト名を入力してください。'))
@@ -497,7 +487,7 @@ class SitesTable extends AppTable
                 'alias' => $domain,
             ];
         }
-        $result = $this->find()->where($where)->orderBy(['alias DESC']);
+        $result = $this->find()->where($where)->order(['alias DESC']);
         if ($result->count()) {
             return $result->first();
         } else {
@@ -786,10 +776,8 @@ class SitesTable extends AppTable
      * @checked
      * @noTodo
      */
-    public function save(
-        EntityInterface $entity,
-        array $options = []
-    ): EntityInterface|false {
+    public function save(EntityInterface $entity, $options = [])
+    {
         $success = parent::save($entity, $options);
         $request = Router::getRequest();
         if($success && $request) {
@@ -801,4 +789,5 @@ class SitesTable extends AppTable
         }
         return $success;
     }
+
 }

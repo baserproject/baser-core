@@ -44,7 +44,7 @@ class BcFormHelper extends FormHelper
      *
      * @var array
      */
-    public array $helpers = [
+    public $helpers = [
         'Url',
         'Js',
         'Html',
@@ -718,10 +718,9 @@ SCRIPT_END;
             return $bcCkeditor->editor($fieldName, $options);
         }
 
-        $className = $options['editor'];
+        $this->_View->loadHelper($options['editor']);
         [, $editor] = pluginSplit($options['editor']);
-        $this->getView()->loadHelper($editor, ['className' => $className]);
-        if (isset($this->getView()->helpers()->{$editor})) {
+        if (!empty($this->getView()->{$editor})) {
             return $this->getView()->{$editor}->editor($fieldName, $options);
         } elseif ($editor === 'none') {
             $_options = [];
@@ -866,9 +865,7 @@ SCRIPT_END;
 
         // PHP5.3対応のため、is_string($value) 判別を実行
         $delCheckTag = '';
-        if ($fileLinkTag && $linkOptions['delCheck'] && (is_string($value) ||
-                (is_array($value) && empty($value['session_key'])) ||
-                (is_object($value) && $value->getError() == UPLOAD_ERR_NO_FILE))) {
+        if ($fileLinkTag && $linkOptions['delCheck'] && (is_string($value) || empty($value['session_key']))) {
             $delCheckTag = $this->Html->tag('span', $this->checkbox($fieldName . '_delete', $deleteCheckboxOptions) . $this->label($fieldName . '_delete', __d('baser_core', '削除する'), $deleteLabelOptions), $deleteSpanOptions);
         }
         $hiddenValue = $this->getSourceValue($fieldName . '_');
@@ -876,10 +873,10 @@ SCRIPT_END;
 
         $hiddenTag = '';
         if ($fileLinkTag) {
-            if (is_object($fileValue) && empty($fileValue->getClientFileName()) && $hiddenValue) {
+            if (is_array($fileValue) && empty($fileValue['tmp_name']) && $hiddenValue) {
                 $hiddenTag = $this->hidden($fieldName . '_', ['value' => $hiddenValue]);
             } else {
-                if (is_array($fileValue) || is_object($fileValue)) {
+                if (is_array($fileValue)) {
                     $fileValue = null;
                 }
                 $hiddenTag = $this->hidden($fieldName . '_', ['value' => $fileValue]);

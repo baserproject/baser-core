@@ -15,7 +15,7 @@ use BaserCore\Service\ThemesService;
 use BaserCore\Test\Scenario\InitAppScenario;
 use BaserCore\Test\Scenario\SmallSetContentFoldersScenario;
 use BaserCore\TestSuite\BcTestCase;
-use BaserCore\Utility\BcFolder;
+use Cake\Filesystem\Folder;
 use Cake\TestSuite\IntegrationTestTrait;
 use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 use Composer\Package\Archiver\ZipArchiver;
@@ -97,11 +97,9 @@ class ThemesControllerTest extends BcTestCase
 
         $path = ROOT . DS . 'plugins' . DS . 'BcPluginSample';
         $zipSrcPath = TMP  . 'zip' . DS;
-        $folder = new BcFolder($zipSrcPath);
-        $folder->create();
-        //copy
-        $folder = new BcFolder($path);
-        $folder->copy($zipSrcPath. 'BcPluginSample2');
+        $folder = new Folder();
+        $folder->create($zipSrcPath, 0777);
+        $folder->copy($zipSrcPath . 'BcPluginSample2', ['from' => $path, 'mode' => 0777]);
         $theme = 'BcPluginSample2';
         $zip = new ZipArchiver();
         $testFile = $zipSrcPath . $theme . '.zip';
@@ -114,8 +112,9 @@ class ThemesControllerTest extends BcTestCase
         $this->assertEquals($theme, $result->theme);
         $this->assertEquals('テーマファイル「' . $theme . '」を追加しました。', $result->message);
 
-        (new BcFolder(ROOT . DS . 'plugins' . DS . $theme))->delete();
-        (new BcFolder($zipSrcPath))->delete();
+        $folder = new Folder();
+        $folder->delete(ROOT . DS . 'plugins' . DS . $theme);
+        $folder->delete($zipSrcPath);
     }
     /**
      * test copy

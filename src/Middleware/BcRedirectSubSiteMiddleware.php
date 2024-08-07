@@ -56,10 +56,7 @@ class BcRedirectSubSiteMiddleware implements MiddlewareInterface
         RequestHandlerInterface $handler
     ): ResponseInterface
     {
-        if ($request->is('admin')
-            || !BcUtil::isInstalled()
-            || !$request->is('requestview')
-        ) {
+        if ($request->is('admin') || !BcUtil::isInstalled()) {
             return $handler->handle($request);
         }
         $sites = \Cake\ORM\TableRegistry::getTableLocator()->get('BaserCore.Sites');

@@ -11,6 +11,7 @@
 
 namespace BaserCore\Utility;
 
+use Cake\Filesystem\Folder;
 use ZipArchive;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
@@ -74,10 +75,10 @@ class BcZip
         }
         if ($result) {
             $extractedPath = $target . $this->topArchiveName;
-            $Folder = new BcFolder($extractedPath);
-            $Folder->chmod( 0777);
+            $Folder = new Folder();
+            $Folder->chmod($extractedPath, 0777);
             if ($this->Zip) $this->Zip->close();
-            return $this->topArchiveName;
+            return true;
         } else {
             return false;
         }

@@ -27,7 +27,7 @@ class SiteConfig extends EntityAlias
      *
      * @var array
      */
-    protected array $_accessible = [
+    protected $_accessible = [
         '*' => true,
         'id' => false
     ];

@@ -12,9 +12,7 @@
 namespace BaserCore\Test\TestCase\Middleware;
 
 use BaserCore\Middleware\BcAdminMiddleware;
-use BaserCore\Test\Scenario\InitAppScenario;
 use BaserCore\TestSuite\BcTestCase;
-use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * Class BcAdminMiddlewareTest
@@ -22,10 +20,15 @@ use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
  */
 class BcAdminMiddlewareTest extends BcTestCase
 {
+
     /**
-     * ScenarioAwareTrait
+     * Fixtures
+     *
+     * @var array
      */
-    use ScenarioAwareTrait;
+    protected $fixtures = [
+        'plugin.BaserCore.Sites',
+    ];
 
     /**
      * Set Up
@@ -35,7 +38,6 @@ class BcAdminMiddlewareTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
-        $this->loadFixtureScenario(InitAppScenario::class);
         $this->BcAdminMiddleware = new BcAdminMiddleware();
     }
 
@@ -55,9 +57,9 @@ class BcAdminMiddlewareTest extends BcTestCase
      */
     public function testProcess(): void
     {
-        $request = $this->getRequest('/baser/admin/?site_id=1');
+        $request = $this->getRequest('/baser/admin/?site_id=3');
         $request = $this->execPrivateMethod($this->BcAdminMiddleware, 'setCurrentSite', [$request]);
-        $this->assertEquals(1, $request->getAttribute('currentSite')->id);
+        $this->assertEquals(3, $request->getAttribute('currentSite')->id);
     }
 
 }

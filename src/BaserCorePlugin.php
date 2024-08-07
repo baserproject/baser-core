@@ -21,7 +21,6 @@ use BaserCore\Command\CreateReleaseCommand;
 use BaserCore\Command\SetupInstallCommand;
 use BaserCore\Command\SetupTestCommand;
 use BaserCore\Command\UpdateCommand;
-use BaserCore\Event\BcAuthenticationEventListener;
 use BaserCore\Event\BcContainerEventListener;
 use BaserCore\Event\BcControllerEventDispatcher;
 use BaserCore\Event\BcModelEventDispatcher;
@@ -39,10 +38,8 @@ use Cake\Core\Configure;
 use Cake\Core\ContainerInterface;
 use Cake\Core\Exception\MissingPluginException;
 use Cake\Core\PluginApplicationInterface;
-use Cake\Database\Exception\MissingConnectionException;
 use Cake\Event\EventManager;
 use Cake\Http\Middleware\CsrfProtectionMiddleware;
-use Cake\Http\Middleware\HttpsEnforcerMiddleware;
 use Cake\Http\MiddlewareQueue;
 use Cake\Http\ServerRequestFactory;
 use Cake\I18n\I18n;
@@ -150,27 +147,19 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
             Log::setConfig(Configure::consume('Log'));
         }
 
-
-
         /**
          * プラグインロード
          */
-        if (!filter_var(env('USE_DEBUG_KIT', true), FILTER_VALIDATE_BOOLEAN)) {
-            // 明示的に指定がない場合、DebugKitは重すぎるのでデバッグモードでも利用しない
-            \Cake\Core\Plugin::getCollection()->remove('DebugKit');
-        }
-
-        // CSRFトークンの場合は高速化のためここで処理を終了
-        if(!empty($_SERVER['REQUEST_URI']) && preg_match('/\?requestview=false$/', $_SERVER['REQUEST_URI'])) {
-            return;
-        }
-
         if (BcUtil::isTest()) $app->addPlugin('CakephpFixtureFactories');
         $app->addPlugin('Authentication');
         $app->addPlugin('Migrations');
 
         $this->addTheme($app);
 
+        if (!filter_var(env('USE_DEBUG_KIT', true), FILTER_VALIDATE_BOOLEAN)) {
+            // 明示的に指定がない場合、DebugKitは重すぎるのでデバッグモードでも利用しない
+            \Cake\Core\Plugin::getCollection()->remove('DebugKit');
+        }
         $plugins = BcUtil::getEnablePlugins();
         if ($plugins) {
             foreach($plugins as $plugin) {
@@ -193,7 +182,6 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
         $event->on(new BcModelEventDispatcher());
         $event->on(new BcViewEventDispatcher());
         $event->on(new BcContainerEventListener());
-        $event->on(new BcAuthenticationEventListener());
     }
 
     /**
@@ -211,12 +199,7 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
         $application->addPlugin(Inflector::camelize(Configure::read('BcApp.coreFrontTheme'), '-'));
         if (!BcUtil::isInstalled()) return;
         $sitesTable = TableRegistry::getTableLocator()->get('BaserCore.Sites');
-        try {
-            $sites = $sitesTable->find()->where(['Sites.status' => true]);
-        } catch (MissingConnectionException) {
-            return;
-        }
-
+        $sites = $sitesTable->find()->where(['Sites.status' => true]);
         $path = [];
         foreach($sites as $site) {
             if ($site->theme) {
@@ -250,12 +233,20 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
     {
         $admin = Configure::read('BcApp.coreAdminTheme');
         $front = Configure::read('BcApp.coreFrontTheme');
-        Configure::write('App.paths.templates', array_merge([
-            ROOT . DS . 'plugins' . DS . $front . DS . 'templates' . DS,
-            ROOT . DS . 'vendor' . DS . 'baserproject' . DS . $front . DS . 'templates' . DS,
-            ROOT . DS . 'plugins' . DS . $admin . DS . 'templates' . DS,
-            ROOT . DS . 'vendor' . DS . 'baserproject' . DS . $admin . DS . 'templates' . DS
-        ], Configure::read('App.paths.templates')));
+        if (BcUtil::isAdminSystem() && empty($_REQUEST['preview'])) {
+            Configure::write('App.paths.templates', array_merge([
+                ROOT . DS . 'plugins' . DS . $admin . DS . 'templates' . DS,
+                ROOT . DS . 'vendor' . DS . 'baserproject' . DS . $admin . DS . 'templates' . DS
+            ], Configure::read('App.paths.templates')));
+        } else {
+            Configure::write('App.paths.templates', array_merge([
+                ROOT . DS . 'plugins' . DS . $front . DS . 'templates' . DS,
+                ROOT . DS . 'vendor' . DS . 'baserproject' . DS . $front . DS . 'templates' . DS,
+                ROOT . DS . 'plugins' . DS . $admin . DS . 'templates' . DS,
+                ROOT . DS . 'vendor' . DS . 'baserproject' . DS . $admin . DS . 'templates' . DS
+            ], Configure::read('App.paths.templates')));
+        }
+
     }
 
     /**
@@ -601,7 +592,7 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
                     ['path' => '/baser-core'],
                     function(RouteBuilder $routes) {
                         $routes->setExtensions(['json']);
-                        $routes->connect('/.well-known/{controller}/*', ['action' => 'index'], ['controller' => '(jwks)']);
+                        $routes->connect('/.well-known/:controller/*', ['action' => 'index'], ['controller' => '(jwks)']);
                     }
                 );
             }

@@ -12,6 +12,7 @@
 namespace BaserCore\Utility;
 
 use Cake\Core\Configure;
+use Cake\Filesystem\File;
 use Exception;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
@@ -147,13 +148,11 @@ class BcComposer
      * @return array
      * @checked
      * @noTodo
+     * @checked
      */
     public static function require(string $package, string $version)
     {
-        if(strpos($package, '/') === false) {
-            $package = 'baserproject/' . $package;
-        }
-        return self::execCommand("require {$package}:{$version} --with-all-dependencies --ignore-platform-req=ext-xdebug");
+        return self::execCommand("require baserproject/{$package}:{$version} --with-all-dependencies --ignore-platform-req=ext-xdebug");
     }
 
     /**
@@ -242,7 +241,7 @@ class BcComposer
     public static function setupComposerForDistribution(string $packagePath)
     {
         $composer = $packagePath . 'composer.json';
-        $file = new BcFile($composer);
+        $file = new File($composer);
         $data = $file->read();
         $regex = '/^(.+?)    "replace": {.+?},\n(.+?)/s';
         $data = preg_replace($regex, "$1$2", $data);

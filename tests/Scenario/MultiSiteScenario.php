@@ -43,7 +43,7 @@ class MultiSiteScenario implements FixtureScenarioInterface
     /**
      * load
      */
-    public function load(...$args): mixed
+    public function load(...$args)
     {
         SiteFactory::make()->main()->persist();
         SiteFactory::make()->smartphone(2)->persist();
@@ -92,7 +92,6 @@ class MultiSiteScenario implements FixtureScenarioInterface
         );
         $contentsTable = TableRegistry::getTableLocator()->get('BaserCore.Contents');
         $contentsTable->recover();
-        return null;
     }
 
 }

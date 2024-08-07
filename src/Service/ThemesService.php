@@ -14,7 +14,6 @@ namespace BaserCore\Service;
 use BaserCore\Error\BcException;
 use BaserCore\Model\Entity\Site;
 use BaserCore\Utility\BcContainerTrait;
-use BaserCore\Utility\BcFolder;
 use BaserCore\Utility\BcSiteConfig;
 use BaserCore\Utility\BcUtil;
 use BaserCore\Annotation\UnitTest;
@@ -25,6 +24,7 @@ use BcMail\Service\MailMessagesServiceInterface;
 use Cake\Core\Configure;
 use Cake\Core\Plugin;
 use Cake\Datasource\EntityInterface;
+use Cake\Filesystem\Folder;
 use Cake\Log\LogTrait;
 use Cake\ORM\TableRegistry;
 use Cake\Routing\Router;
@@ -97,10 +97,10 @@ class ThemesService implements ThemesServiceInterface
         }
 
         $patterns = [];
-        $Folder = new BcFolder($dataPath);
-        $files = $Folder->getFolders();
-        if ($files) {
-            foreach($files as $pattern) {
+        $Folder = new Folder($dataPath);
+        $files = $Folder->read(true, true);
+        if ($files[0]) {
+            foreach($files[0] as $pattern) {
                 if ($options['useTitle']) {
                     if(BcUtil::isInstalled()) {
                         $pluginsTable = TableRegistry::getTableLocator()->get('BaserCore.Plugins');
@@ -148,11 +148,12 @@ class ThemesService implements ThemesServiceInterface
         }
         $name = $postData['file']->getClientFileName();
         $postData['file']->moveTo(TMP . $name);
+        $srcDirName = basename($name, '.zip');
         $zip = new BcZip();
         if (!$zip->extract(TMP . $name, TMP)) {
             throw new BcException(__d('baser_core', 'アップロードしたZIPファイルの展開に失敗しました。'));
         }
-        $srcDirName = $zip->topArchiveName;
+
         $dstName = $srcName = Inflector::camelize($srcDirName);
         if (preg_match('/^(.+?)([0-9]+)$/', $srcName, $matches)) {
             $baseName = $matches[1];
@@ -166,8 +167,8 @@ class ThemesService implements ThemesServiceInterface
             $num++;
             $dstName = $baseName . $num;
         }
-        $folder = new BcFolder(TMP . $srcDirName);
-        $folder->move(BASER_THEMES . $dstName);
+        $folder = new Folder(TMP . $srcDirName);
+        $folder->move(BASER_THEMES . $dstName, ['mode' => 0777]);
         unlink(TMP . $name);
         BcUtil::changePluginClassName($srcName, $dstName);
         BcUtil::changePluginNameSpace($dstName);
@@ -238,13 +239,13 @@ class ThemesService implements ThemesServiceInterface
     {
         $info = [];
         $themePath = BcUtil::getPluginPath($theme);
-        $Folder = new BcFolder($themePath . 'plugins');
-        $files = $Folder->getFolders();
-        if (!empty($files)) {
+        $Folder = new Folder($themePath . 'plugins');
+        $files = $Folder->read(true, true, false);
+        if (!empty($files[0])) {
             $info = array_merge($info, [
                 __d('baser_core', 'このテーマは下記のプラグインを同梱しています。')
             ]);
-            foreach($files as $file) {
+            foreach($files[0] as $file) {
                 $info[] = '	・' . $file;
             }
         }
@@ -372,8 +373,10 @@ class ThemesService implements ThemesServiceInterface
             if (!is_dir(BASER_THEMES . $newTheme)) break;
             $newTheme .= 'Copy';
         }
-        $folder = new BcFolder(BASER_THEMES . $theme);
-        if (!$folder->copy(BASER_THEMES . $newTheme)) {
+        $folder = new Folder(BASER_THEMES . $theme);
+        if (!$folder->copy(BASER_THEMES . $newTheme, [
+            'mode' => 0777
+        ])) {
             return false;
         }
         if(!file_exists(BASER_THEMES . $newTheme . DS . 'src' . DS . $newTheme . 'Plugin.php')) {
@@ -406,8 +409,8 @@ class ThemesService implements ThemesServiceInterface
     {
         $path = BcUtil::getPluginPath($theme);
         if (!is_writable($path)) throw new BcException($path . ' に書込み権限がありません。');
-        $folder = new BcFolder($path);
-        if (!$folder->delete()) {
+        $folder = new Folder();
+        if (!$folder->delete($path)) {
             return false;
         }
         return true;
@@ -439,11 +442,13 @@ class ThemesService implements ThemesServiceInterface
     {
         $tmpDir = TMP . 'theme' . DS;
         if (!is_dir($tmpDir)) {
-            $folder = new BcFolder($tmpDir);
-            $folder->create();
+            $folder = new Folder($tmpDir);
+            $folder->create($tmpDir);
         }
-        $folder = new BcFolder(BcUtil::getPluginPath($theme));
-        $folder->copy($tmpDir . $theme);
+        $folder = new Folder(BcUtil::getPluginPath($theme));
+        $folder->copy($tmpDir . $theme, [
+            'chmod' => 0777
+        ]);
         return $tmpDir;
     }
 
@@ -461,22 +466,21 @@ class ThemesService implements ThemesServiceInterface
         ini_set('memory_limit', -1);
         // コアのCSVを生成
         $tmpDir = TMP . 'csv' . DS;
-        $folder = new BcFolder($tmpDir);
-        $folder->create();
+        $folder = new Folder();
+        $folder->create($tmpDir);
         BcUtil::emptyFolder($tmpDir);
         BcUtil::clearAllCache();
         $excludes = ['plugins', 'dblogs', 'users'];
         // プラグインのCSVを生成
         $plugins = Plugin::loaded();
         foreach($plugins as $plugin) {
-            (new BcFolder($tmpDir . $plugin))->create();
+            $folder->create($tmpDir . $plugin);
             BcUtil::emptyFolder($tmpDir . $plugin);
             $this->_writeCsv($plugin, $tmpDir . $plugin . DS, $excludes);
-            $folder = new BcFolder($tmpDir . $plugin);
-            $files = $folder->getFiles();
-            $folders = $folder->getFolders();
-            if (!$files && !$folders) {
-                $folder->delete();
+            $folder = new Folder($tmpDir . $plugin);
+            $files = $folder->read();
+            if (!$files[0] && !$files[1]) {
+                $folder->delete($tmpDir . $plugin);
             } else {
                 $pluginClass = Plugin::getCollection()->get($plugin);
                 if(method_exists($pluginClass, 'modifyDownloadDefaultData')) {
@@ -568,13 +572,13 @@ class ThemesService implements ThemesServiceInterface
         if (!$path) return false;
         $corePath = BcUtil::getDefaultDataPath(Configure::read('BcApp.coreFrontTheme'), 'default');
 
-        $Folder = new BcFolder($corePath . DS . 'BaserCore');
-        $files = $Folder->getFiles();
-        $coreTables = $files;
-        $Folder = new BcFolder($path . DS . 'BaserCore');
-        $files = $Folder->getFiles();
-        if (empty($files)) return false;
-        $targetTables = $files;
+        $Folder = new Folder($corePath . DS . 'BaserCore');
+        $files = $Folder->read(true, true);
+        $coreTables = $files[1];
+        $Folder = new Folder($path . DS . 'BaserCore');
+        $files = $Folder->read(true, true);
+        if (empty($files[1])) return false;
+        $targetTables = $files[1];
         foreach($coreTables as $coreTable) {
             if (!in_array($coreTable, $targetTables)) {
                 return false;

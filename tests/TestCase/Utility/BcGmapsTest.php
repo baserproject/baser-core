@@ -1,4 +1,6 @@
 <?php
+// TODO ucmitz  : コード確認要
+return;
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
  * Copyright (c) baserCMS Users Community <https://basercms.net/community/>
@@ -8,9 +10,7 @@
  * @since           baserCMS v 4.0.10
  * @license         https://basercms.net/license/index.html
  */
-namespace BaserCore\Test\TestCase\Utility;
-use BaserCore\TestSuite\BcTestCase;
-use BaserCore\Utility\BcGmaps;
+App::uses('BcGmaps', 'Lib');
 
 /**
  * Class BcGmapsTest
@@ -19,12 +19,16 @@ use BaserCore\Utility\BcGmaps;
  */
 class BcGmapsTest extends BcTestCase
 {
+
     /**
-     * set up
+     * setUp
+     *
+     * @return void
      */
-    public function setUp(): void
+    public function setUp()
     {
         parent::setUp();
+        $this->BcGmaps = new BcGmaps(Configure::read('BcSite.google_maps_api_key'));
     }
 
     /**
@@ -32,7 +36,7 @@ class BcGmapsTest extends BcTestCase
      *
      * @return void
      */
-    public function tearDown(): void
+    public function tearDown()
     {
         parent::tearDown();
     }

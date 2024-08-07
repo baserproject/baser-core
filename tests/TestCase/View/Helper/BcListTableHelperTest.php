@@ -72,7 +72,7 @@ class BcListTableHelperTest extends BcTestCase
          $this->expectOutputRegex('/' . $expected . '/s');
     }
 
-    public static function rowClassDataProvider()
+    public function rowClassDataProvider()
     {
         return [
             [true, 'class="bca-table-listup__tbody-tr publish"'],

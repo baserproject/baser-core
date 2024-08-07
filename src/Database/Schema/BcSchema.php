@@ -117,7 +117,7 @@ class BcSchema extends TableSchema
         }
         if (!empty($this->fields['_constraints'])) {
             foreach($this->fields['_constraints'] as $name => $data) {
-                if ($data['type'] !== TableSchema::CONSTRAINT_FOREIGN) {
+                if (!$connection->supportsDynamicConstraints() || $data['type'] !== TableSchema::CONSTRAINT_FOREIGN) {
                     $this->addConstraint($name, $data);
                 } else {
                     $this->_constraints[$name] = $data;
@@ -146,7 +146,9 @@ class BcSchema extends TableSchema
         $connection = ConnectionManager::get($this->connection());
         $queries = $this->createSql($connection);
         foreach($queries as $query) {
-            $connection->execute($query);
+            $stmt = $connection->prepare($query);
+            $stmt->execute();
+            $stmt->closeCursor();
         }
     }
 

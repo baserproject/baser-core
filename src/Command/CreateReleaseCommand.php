@@ -12,12 +12,12 @@
 namespace BaserCore\Command;
 
 use BaserCore\Utility\BcComposer;
-use BaserCore\Utility\BcFile;
-use BaserCore\Utility\BcFolder;
 use Cake\Command\Command;
 use Cake\Console\Arguments;
 use Cake\Console\ConsoleIo;
 use Cake\Core\Configure;
+use Cake\Filesystem\File;
+use Cake\Filesystem\Folder;
 use Composer\Package\Archiver\ZipArchiver;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
@@ -60,7 +60,8 @@ class CreateReleaseCommand extends Command
     {
         $packagePath = TMP . 'basercms' . DS;
         if(is_dir($packagePath)) {
-            (new BcFolder($packagePath))->delete();
+            $folder = new Folder($packagePath);
+            $folder->delete();
         }
 
         $io->out(__d('baser_core', 'リリースパッケージを作成します。', TMP));
@@ -82,7 +83,8 @@ class CreateReleaseCommand extends Command
         $this->createZip($packagePath);
 
         $io->out(__d('baser_core', '- クリーニング処理を実行します。'));
-        (new BcFolder($packagePath))->delete();
+        $folder = new Folder($packagePath);
+        $folder->delete();
 
         $io->out();
         $io->out(__d('baser_core', 'リリースパッケージの作成が完了しました。/tmp/basercms.zip を確認してください。'));
@@ -114,12 +116,13 @@ class CreateReleaseCommand extends Command
     public function deletePlugins(string $packagePath)
     {
         $excludes = ['BcThemeSample', 'BcPluginSample', 'BcColumn'];
-        $folder = new BcFolder($packagePath . 'plugins');
-        $files = $folder->getFolders(['full'=>true]);
-        foreach($files as $path) {
+        $folder = new Folder($packagePath . 'plugins');
+        $files = $folder->read(true, true, true);
+        foreach($files[0] as $path) {
             if(in_array(basename($path), $excludes)) continue;
-            (new BcFolder($path))->delete();
+            $folder->delete($path);
         }
+        new File($packagePath . 'plugins' . DS . '.gitkeep');
     }
 
     /**
@@ -152,9 +155,9 @@ class CreateReleaseCommand extends Command
         foreach($excludeFiles as $file) {
             $file = $packagePath . $file;
             if(is_dir($file)) {
-                (new BcFolder($file))->delete();
+                (new Folder($file))->delete();
             } elseif(file_exists($file)) {
-                (new BcFile($file))->delete();
+                (new File($file))->delete();
             }
         }
     }

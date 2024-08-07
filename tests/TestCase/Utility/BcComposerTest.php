@@ -13,8 +13,8 @@ namespace BaserCore\Test\TestCase\Utility;
 
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Utility\BcComposer;
-use BaserCore\Utility\BcFile;
-use BaserCore\Utility\BcFolder;
+use Cake\Filesystem\File;
+use Cake\Filesystem\Folder;
 
 /**
  * BcComposer Test
@@ -80,7 +80,6 @@ class BcComposerTest extends BcTestCase
      */
     public function test_require()
     {
-        $this->markTestIncomplete('こちらのテストはまだ未確認です');
         $orgPath = ROOT . DS . 'composer.json';
         $backupPath = ROOT . DS . 'composer.json.bak';
         $orgLockPath = ROOT . DS . 'composer.lock';
@@ -91,21 +90,18 @@ class BcComposerTest extends BcTestCase
         copy($orgLockPath, $backupLockPath);
 
         // replace を削除
-        // baserCMS5.0.0が、CakePHP4.4.* に依存するため、一旦、CakePHP4.4.* に戻す
-        $file = new BcFile($orgPath);
+        $file = new File($orgPath);
         $data = $file->read();
         $regex = '/("replace": {.+?},)/s';
-        $data = str_replace('"cakephp/cakephp": "4.5.*"', '"cakephp/cakephp": "4.4.*"' , $data);
         $data = preg_replace($regex, '' , $data);
         $file->write($data);
-        BcComposer::setup('php');
-        BcComposer::update();
+        $file->close();
 
         // インストール
         BcComposer::setup();
         $result = BcComposer::require('baser-core', '5.0.0');
         $this->assertEquals(0, $result['code']);
-        $file = new BcFile($orgPath);
+        $file = new File($orgPath);
         $data = $file->read();
         $this->assertNotFalse(strpos($data, '"baserproject/baser-core": "5.0.0"'));
 
@@ -113,7 +109,7 @@ class BcComposerTest extends BcTestCase
         BcComposer::setup();
         $result = BcComposer::require('baser-core', '5.0.1');
         $this->assertEquals(0, $result['code']);
-        $file = new BcFile($orgPath);
+        $file = new File($orgPath);
         $data = $file->read();
         $this->assertNotFalse(strpos($data, '"baserproject/baser-core": "5.0.1"'));
 
@@ -121,7 +117,7 @@ class BcComposerTest extends BcTestCase
         BcComposer::setup();
         $result = BcComposer::require('baser-core', '5.0.0');
         $this->assertEquals(0, $result['code']);
-        $file = new BcFile($orgPath);
+        $file = new File($orgPath);
         $data = $file->read();
         $this->assertNotFalse(strpos($data, '"baserproject/baser-core": "5.0.0"'));
 
@@ -132,9 +128,8 @@ class BcComposerTest extends BcTestCase
         // バックアップ復元
         rename($backupPath, $orgPath);
         rename($backupLockPath, $orgLockPath);
-        $folder = new BcFolder(ROOT . DS . 'vendor' . DS . 'baserproject');
-        $folder->delete();
-        BcComposer::update();
+        $folder = new Folder();
+        $folder->delete(ROOT . DS . 'vendor' . DS . 'baserproject');
     }
 
     /**
@@ -161,7 +156,7 @@ class BcComposerTest extends BcTestCase
 
         // 実行
         BcComposer::setupComposerForDistribution(ROOT . DS);
-        $file = new BcFile($composer);
+        $file = new File($composer);
         $data = $file->read();
         $this->assertNotFalse(strpos($data, '"baserproject/baser-core": '));
         $this->assertFalse(strpos($data, '"replace": {'));

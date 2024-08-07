@@ -118,25 +118,18 @@ class AppTable extends Table
      * @checked
      * @noTodo
      */
-    public function find(string $type = 'all', mixed ...$args): Query
+    public function find(string $type = 'all', array $options = []): Query
     {
         // EVENT beforeFind
-        $event = $this->dispatchLayerEvent('beforeFind', [
-            'type' => $type,
-            'options' => $args // 後方互換のため options として渡す
-        ]);
+        $event = $this->dispatchLayerEvent('beforeFind', compact('type', 'options'));
         if ($event !== false) {
-            $args = ($event->getResult() === null || $event->getResult() === true) ? $event->getData('options') : $event->getResult();
+            $options = ($event->getResult() === null || $event->getResult() === true) ? $event->getData('options') : $event->getResult();
         }
 
-        $result = parent::find($type, ...$args);
+        $result = parent::find($type, $options);
 
         // EVENT afterFind
-        $event = $this->dispatchLayerEvent('afterFind', [
-            'type' => $type,
-            'options' => $args,
-            'result' => $result
-        ]);
+        $event = $this->dispatchLayerEvent('afterFind', compact('type', 'options', 'result'));
         if ($event !== false) {
             $result = ($event->getResult() === null || $event->getResult() === true) ? $event->getData('result') : $event->getResult();
         }
@@ -186,7 +179,7 @@ class AppTable extends Table
     public function initialize(array $config): void
     {
         parent::initialize($config);
-        \Cake\I18n\DateTime::setToStringFormat('yyyy-MM-dd HH:mm:ss');
+        FrozenTime::setToStringFormat('yyyy-MM-dd HH:mm:ss');
     }
 
     /**
@@ -199,7 +192,6 @@ class AppTable extends Table
      * @return string 変換後文字列
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function replaceText($str)
     {
@@ -360,7 +352,7 @@ class AppTable extends Table
         $result = $this->find()
             ->where($conditions)
             ->select(["id", $options['sortFieldName']])
-            ->orderBy($order)
+            ->order($order)
             ->limit(abs($offset) + 1)
             ->all();
 
@@ -459,7 +451,9 @@ class AppTable extends Table
         if (!isset($this->tmpEvents[$eventKey])) return;
         $eventManager = $this->getEventManager();
         foreach($this->tmpEvents[$eventKey] as $listener) {
-            $eventManager->on($eventKey, [], $listener['callable']);
+            if (get_class($listener['callable'][0]) !== 'BaserCore\Event\BcModelEventDispatcher') {
+                $eventManager->on($eventKey, [], $listener['callable']);
+            }
         }
         unset($this->tmpEvents[$eventKey]);
     }

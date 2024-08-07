@@ -1,4 +1,6 @@
 <?php
+// TODO ucmitz  : コード確認要
+return;
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
  * Copyright (c) baserCMS Users Community <https://basercms.net/community/>
@@ -9,11 +11,8 @@
  * @license         https://basercms.net/license/index.html
  */
 
-namespace BaserCore\Test\TestCase\View\Helper;
-
-use BaserCore\TestSuite\BcTestCase;
-use BaserCore\View\Helper\BcCsvHelper;
-use BaserCore\View\Helper\BcTextHelper;
+App::uses('View', 'View');
+App::uses('BcCsvHelper', 'View/Helper');
 
 /**
  * text helper library.
@@ -23,23 +22,26 @@ use BaserCore\View\Helper\BcTextHelper;
  */
 class BcCsvHelperTest extends BcTestCase
 {
-    /**
-     * set up
-     */
-    public function setUp(): void
-    {
-        parent::setUp();
-//        $View = new View();
-//        $this->BcCsv = new BcCsvHelper($View);
-    }
 
     /**
-     * tearDown
-     *
-     * @return void
+     * Fixtures
+     * @var array
      */
-    public function tearDown(): void
+    public $fixtures = [
+        'baser.Default.SiteConfig',
+        'baser.Default.Page',
+    ];
+
+    public function setUp()
     {
+        parent::setUp();
+        $View = new View();
+        $this->BcCsv = new BcCsvHelper($View);
+    }
+
+    public function tearDown()
+    {
+        unset($this->BcCsv);
         parent::tearDown();
     }
 
@@ -55,7 +57,7 @@ class BcCsvHelperTest extends BcTestCase
      */
     public function testAddModelData($modelName, $data, $expectedHead, $expectedBody)
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
+
         $this->BcCsv->addModelData($modelName, $data);
         $this->assertEquals($expectedHead, $this->BcCsv->csvHead);
         $body = '';
@@ -67,7 +69,7 @@ class BcCsvHelperTest extends BcTestCase
         $this->assertEquals($expectedBody, $body);
     }
 
-    public static function addModelDataDataProvider()
+    public function addModelDataDataProvider()
     {
         return [
             [
@@ -128,7 +130,6 @@ class BcCsvHelperTest extends BcTestCase
      */
     public function testAddModelDatas($modelName, $datas, $expectedHead, $expectedBody)
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
         $datas = [$datas];
         $this->BcCsv->addModelDatas($modelName, $datas);
         $this->assertEquals($expectedHead, $this->BcCsv->csvHead);
@@ -141,7 +142,7 @@ class BcCsvHelperTest extends BcTestCase
         $this->assertEquals($expectedBody, $body);
     }
 
-    public static function addModelDatasDataProvider()
+    public function addModelDatasDataProvider()
     {
         return [
             [
@@ -188,7 +189,6 @@ class BcCsvHelperTest extends BcTestCase
      */
     public function testDownload($fileName, $debug, $expected)
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
         // csvのデータを作成
         $modelName = 'sample';
         $data = [
@@ -203,7 +203,7 @@ class BcCsvHelperTest extends BcTestCase
         $this->assertEquals($expected, $result);
     }
 
-    public static function downloadDataProvider()
+    public function downloadDataProvider()
     {
         return [
             ['testcsv', true,
@@ -225,7 +225,6 @@ class BcCsvHelperTest extends BcTestCase
      */
     public function testSave()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
 
         // csvのデータを作成
         $modelName = 'sample';

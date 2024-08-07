@@ -40,7 +40,7 @@ class BcPageHelper extends Helper
      *
      * @var array
      */
-    public array $helpers = ['BaserCore.BcContents'];
+    public $helpers = ['BaserCore.BcContents'];
 
     /**
      * initialize

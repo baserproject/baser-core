@@ -55,6 +55,7 @@ class BcAdminAppController extends AppController
         $this->loadComponent('Authentication.Authentication', [
             'logoutRedirect' => Router::url(Configure::read('BcPrefixAuth.Admin.loginAction'), true),
         ]);
+        if (Configure::read('BcApp.adminSsl') && !BcUtil::isConsole()) $this->Security->requireSecure();
     }
 
     /**
@@ -79,23 +80,6 @@ class BcAdminAppController extends AppController
         if (!$usersService->reload($this->request)) {
             return $this->redirect($this->Authentication->logout());
         }
-
-        // パスワード更新日時のチェック
-        $session = $this->request->getSession();
-        // - reload実行後の場合、BcUtil::loginUser()よりも新しい情報を取得可能
-        $user = $session->read(Configure::read('BcPrefixAuth.Admin.sessionKey')) ?? BcUtil::loginUser();
-        if ($user && !BcUtil::isAgentUser() &&
-            !$usersService->checkPasswordModified($this->request, $user) && (
-                $this->getRequest()->getParam('plugin') !== 'BaserCore' ||
-                $this->getRequest()->getParam('controller') !== 'Users' ||
-                $this->getRequest()->getParam('action') !== 'edit_password'
-        )) {
-            $this->BcMessage->setError(__d('baser_core',
-                '管理画面を利用するには定期的なパスワードの再設定が必要です。'));
-            return $this->redirect(['plugin' => 'BaserCore', 'controller' => 'Users', 'action' => 'edit_password',
-                '?'=> ['redirect' => $this->getRequest()->getRequestTarget()]]);
-        }
-
         $response = parent::beforeFilter($event);
         if ($response) return $response;
         $response = $this->redirectIfIsNotSameSite();
@@ -113,6 +97,7 @@ class BcAdminAppController extends AppController
     public function beforeRender(EventInterface $event): void
     {
         parent::beforeRender($event);
+        if (isset($this->RequestHandler) && $this->RequestHandler->prefers('json')) return;
         if ($this->getRequest()->getQuery('preview')) return;
         $this->viewBuilder()->setClassName('BaserCore.BcAdminApp');
         $this->setAdminTheme();
@@ -200,7 +185,7 @@ class BcAdminAppController extends AppController
     }
 
     /**
-     * siteUrlや、cmsUrlと現在のURLが違う場合には、そちらのURLにリダイレクトを行う
+     * siteUrlや、sslUrlと現在のURLが違う場合には、そちらのURLにリダイレクトを行う
      * setting.php にて、cmsUrlとして、cmsUrlを定義した場合にはそちらを優先する
      * @return Response|void|null
      * @checked
@@ -211,6 +196,8 @@ class BcAdminAppController extends AppController
     {
         if (Configure::read('BcEnv.cmsUrl')) {
             $siteUrl = Configure::read('BcEnv.cmsUrl');
+        } elseif ($this->getRequest()->is('ssl')) {
+            $siteUrl = Configure::read('BcEnv.sslUrl');
         } else {
             $siteUrl = Configure::read('BcEnv.siteUrl');
         }

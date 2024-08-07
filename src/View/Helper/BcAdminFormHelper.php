@@ -31,7 +31,7 @@ class BcAdminFormHelper extends BcFormHelper
      * Helpers
      * @var string[]
      */
-    public array $helpers = [
+    public $helpers = [
         'Url',
         'Js',
         'Html',

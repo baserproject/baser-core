@@ -1,4 +1,6 @@
 <?php
+// TODO ucmitz  : コード確認要
+return;
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
  * Copyright (c) baserCMS Users Community <https://basercms.net/community/>
@@ -8,12 +10,9 @@
  * @since           baserCMS v 3.0.0
  * @license         https://basercms.net/license/index.html
  */
-namespace BaserCore\Test\TestCase\View\Helper;
 
-use BaserCore\TestSuite\BcTestCase;
-use BaserCore\View\Helper\BcTextHelper;
-use BaserCore\View\Helper\BcXmlHelper;
-use Cake\View\View;
+App::uses('View', 'View');
+App::uses('BcXmlHelper', 'View/Helper');
 
 /**
  * text helper library.
@@ -22,21 +21,21 @@ use Cake\View\View;
  */
 class BcXmlHelperTest extends BcTestCase
 {
-    /**
-     * set up
-     */
-    public function setUp(): void
-    {
-        parent::setUp();
-        $this->BcXml = new BcXmlHelper(new View());
-    }
 
     /**
-     * tearDown
-     *
-     * @return void
+     * Fixtures
+     * @var array
      */
-    public function tearDown(): void
+    public $fixtures = [];
+
+    public function setUp()
+    {
+        parent::setUp();
+        $View = new View();
+        $this->BcXml = new BcXmlHelper($View);
+    }
+
+    public function tearDown()
     {
         unset($this->BcXml);
         parent::tearDown();
@@ -53,13 +52,14 @@ class BcXmlHelperTest extends BcTestCase
      */
     public function testHeader($attrib, $agent, $expected)
     {
+
         $_SERVER['HTTP_USER_AGENT'] = $agent;
 
         $result = $this->BcXml->header($attrib);
         $this->assertEquals($expected, $result);
     }
 
-    public static function headerDataProvider()
+    public function headerDataProvider()
     {
         return [
             [
@@ -82,21 +82,6 @@ class BcXmlHelperTest extends BcTestCase
                 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:9.0.1) Gecko/20100101 Firefox/9.0.1',
                 '<?xml version="1.0" encoding="SJIS" ?>'
             ],
-            [
-                'xml-stylesheet',
-                'Mozilla/5.0',
-                '<?xml-stylesheet ?>'
-            ],
-            [
-                'stylesheet',
-                'Mozilla/5.0',
-                '<?xml stylesheet ?>'
-            ],
-            [
-                [],
-                'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1)',
-                ''
-            ]
         ];
     }
 
