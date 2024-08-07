@@ -13,7 +13,6 @@ namespace BaserCore\Test\TestCase\Controller\Admin;
 
 use BaserCore\Test\Factory\PluginFactory;
 use BaserCore\TestSuite\BcTestCase;
-use BaserCore\Utility\BcComposer;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\Configure;
 use Cake\Core\Plugin;
@@ -261,7 +260,7 @@ class PluginsControllerTest extends BcTestCase
             'targetVersion' => '5.0.1'
         ]);
         $this->assertRedirect('/baser/admin/baser-core/plugins/update');
-        $this->assertFlashMessage('アップデート処理が完了しました。画面下部のアップデートログを確認してください。');
+        $this->assertFlashMessage(sprintf('全てのアップデート処理が完了しました。 %s にログを出力しています。', LOGS . 'update.log'));
         rename(BASER . 'VERSION.bak.txt', BASER . 'VERSION.txt');
         rename(ROOT . DS . 'composer.json.bak', ROOT . DS . 'composer.json');
         rename(ROOT . DS . 'composer.lock.bak', ROOT . DS . 'composer.lock');
@@ -341,41 +340,4 @@ class PluginsControllerTest extends BcTestCase
         $folder->delete(BASER_PLUGINS . $plugin);
         $folder->delete($zipSrcPath);
     }
-
-    /**
-     * test get_core_update
-     */
-    public function test_get_core_update()
-    {
-        $this->enableSecurityToken();
-        $this->enableCsrfToken();
-
-        // composer.json をバックアップ
-        copy(ROOT . DS . 'composer.json', ROOT . DS . 'composer.bak.json');
-        copy(ROOT . DS . 'composer.lock', ROOT . DS . 'composer.bak.lock');
-
-        // composer.json を配布用に更新
-        BcComposer::setupComposerForDistribution(ROOT . DS);
-
-        $this->post('/baser/admin/baser-core/plugins/get_core_update', [
-            'targetVersion' => '5.0.15',
-            'php' => 'php',
-        ]);
-        $this->assertResponseCode(302);
-        $this->assertFlashMessage('最新版のダウンロードが完了しました。アップデートを実行してください。');
-        $this->assertRedirect([
-            'plugin' => 'BaserCore',
-            'prefix' => 'Admin',
-            'controller' => 'plugins',
-            'action' => 'update'
-        ]);
-
-        // 一時ファイルを削除
-        (new Folder())->delete(TMP . 'update');
-
-        // composer.json を元に戻す
-        rename(ROOT . DS . 'composer.bak.json', ROOT . DS . 'composer.json');
-        rename(ROOT . DS . 'composer.bak.lock', ROOT . DS . 'composer.lock');
-    }
-
 }

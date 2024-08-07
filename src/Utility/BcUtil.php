@@ -259,41 +259,22 @@ class BcUtil
     /**
      * バージョンを取得する
      *
-     * @param string $plugin プラグイン名
-     * @param bool $isUpdateTmp アップデート時の一時ファイルが対象かどうか
-     * @return false|string
+     * @return bool|string
      * @checked
      * @noTodo
      * @unitTest
      */
-    public static function getVersion(string $plugin = '', bool $isUpdateTmp = false): string|false
+    public static function getVersion($plugin = '')
     {
         if (!$plugin) $plugin = 'BaserCore';
         $corePlugins = Configure::read('BcApp.corePlugins');
-        $updateTmpDir = TMP . 'update';
-        $pluginTmpDir = $updateTmpDir . DS . 'vendor' . DS . 'baserproject';
-
         if (in_array($plugin, $corePlugins)) {
             $path = BASER . 'VERSION.txt';
-            if($isUpdateTmp) {
-                if (preg_match('/^' . preg_quote(ROOT . DS . 'plugins' . DS, '/') . '/', $path)) {
-                    $path = str_replace(ROOT . DS . 'plugins', $pluginTmpDir, $path);
-                } else {
-                    $path = str_replace(ROOT, $updateTmpDir, $path);
-                }
-            }
-            if (!file_exists($path)) {
-                return false;
-            }
         } else {
-            if($isUpdateTmp) {
-                $paths = [$pluginTmpDir . DS];
-            } else {
-                $paths = App::path('plugins');
-            }
+            $paths = App::path('plugins');
             $exists = false;
             foreach($paths as $path) {
-                $path .= self::getPluginDir($plugin, $isUpdateTmp) . DS . 'VERSION.txt';
+                $path .= self::getPluginDir($plugin) . DS . 'VERSION.txt';
                 if (file_exists($path)) {
                     $exists = true;
                     break;
@@ -1046,12 +1027,9 @@ class BcUtil
      * @checked
      * @noTodo
      */
-    public static function getPluginPath(string $pluginName, bool $isUpdateTmp = false): string|false
+    public static function getPluginPath($pluginName): string
     {
-        $pluginDir = self::getPluginDir($pluginName, $isUpdateTmp);
-        if($isUpdateTmp) {
-            return TMP . 'update' . DS . 'vendor' . DS . 'baserproject' . DS . $pluginDir . DS;
-        }
+        $pluginDir = self::getPluginDir($pluginName);
         if ($pluginDir) {
             $paths = App::path('plugins');
             foreach($paths as $path) {
@@ -1065,22 +1043,16 @@ class BcUtil
 
     /**
      * プラグインのディレクトリ名を取得する
-     * @param string $pluginName
-     * @param bool $isUpdateTmp
-     * @return false|string
+     * @param $pluginName
+     * @return false|mixed
      * @checked
      * @noTodo
      */
-    public static function getPluginDir(string $pluginName, bool $isUpdateTmp = false): string|false
+    public static function getPluginDir($pluginName)
     {
         if (!$pluginName) $pluginName = 'BaserCore';
         $pluginNames = [$pluginName, Inflector::dasherize($pluginName)];
-        if($isUpdateTmp) {
-            $paths = [TMP . 'update' . DS . 'vendor' . DS . 'baserproject' . DS];
-        } else {
-            $paths = App::path('plugins');
-        }
-        foreach($paths as $path) {
+        foreach(App::path('plugins') as $path) {
             foreach($pluginNames as $name) {
                 if (is_dir($path . $name)) {
                     return $name;

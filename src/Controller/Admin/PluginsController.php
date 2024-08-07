@@ -106,8 +106,8 @@ class PluginsController extends BcAdminAppController
     }
 
 	/**
-	 * プラグインアップデート実行
-     * @param PluginsAdminServiceInterface|PluginsAdminService $service
+	 * アップデート実行
+     * @param PluginsService $service
      * @param string $name
      * @return void|Response
      * @checked
@@ -116,6 +116,7 @@ class PluginsController extends BcAdminAppController
 	 */
 	public function update(PluginsAdminServiceInterface $service, $name = '')
 	{
+        BcUtil::clearAllCache();
         $plugin = $this->Plugins->getPluginConfig($name);
         $this->set($service->getViewVarsForUpdate($plugin));
 
@@ -137,77 +138,30 @@ class PluginsController extends BcAdminAppController
 
         if (!$this->request->is(['put', 'post'])) return;
         try {
-            if($service->update($plugin->name, $this->request->getData('connection') ?? 'default')) {
-                $this->BcMessage->setInfo(__d('baser_core', 'アップデート処理が完了しました。画面下部のアップデートログを確認してください。'));
-            } else {
-                $this->BcMessage->setError(__d('baser_core', 'アップデート処理に失敗しました。画面下部のアップデートログを確認してください。'));
-            }
-        } catch (\Throwable $e) {
-            $this->BcMessage->setError(__d('baser_core', 'アップデート処理に失敗しました。画面下部のアップデートログを確認してください。') . $e->getMessage());
-        }
-        return $this->redirect(['action' => 'update', $name]);
-	}
-
-	/**
-	 * コアアップデート実行
-     * @param PluginsAdminServiceInterface|PluginsAdminService $service
-     * @param string $name
-     * @return void|Response
-     * @checked
-     * @noTodo
-	 */
-	public function update_core(PluginsAdminServiceInterface $service)
-	{
-        if (!$this->request->is(['put', 'post'])) return;
-        try {
-            $request = $this->getRequest();
-            $service->updateCore(
-                $request->getData('php')?? 'php',
-                $request->getData('connection') ?? 'default'
-            );
-            $this->BcMessage->setInfo(__d('baser_core', 'アップデート処理が完了しました。画面下部のアップデートログを確認してください。'));
-        } catch (\Throwable $e) {
-            $this->BcMessage->setError(__d('baser_core', 'アップデート処理に失敗しました。画面下部のアップデートログを確認してください。') . $e->getMessage());
-            try {
-                $service->rollbackCore(
+            if($plugin->name === 'BaserCore') {
+                $request = $this->getRequest();
+                $service->updateCore(
                     $request->getData('currentVersion'),
-                    $request->getData('php')
+                    $request->getData('targetVersion'),
+                    $request->getData('php'),
+                    $request->getData('connection') ?? 'default'
                 );
-                $this->BcMessage->setError(__d('baser_core', 'コアファイルを元に戻しました。'));
-            } catch (\Throwable $e) {
-                $this->BcMessage->setError($e->getMessage());
+                $this->BcMessage->setInfo(__d('baser_core', '全てのアップデート処理が完了しました。 {0} にログを出力しています。', LOGS . 'update.log'));
+                return $this->redirect(['action' => 'update']);
+            } else {
+                $service->update($plugin->name, $this->request->getData('connection') ?? 'default');
+                $this->BcMessage->setInfo(__d('baser_core', 'アップデート処理が完了しました。画面下部のアップデートログを確認してください。'));
+                return $this->redirect(['action' => 'update', $name]);
             }
-        }
-        return $this->redirect(['action' => 'update']);
-	}
-
-    /**
-     * コアアップデートを取得する
-     * @param PluginsAdminServiceInterface $service
-     * @return Response|null
-     * @checked
-     * @noTodo
-     * @unitTest
-     */
-	public function get_core_update(PluginsAdminServiceInterface $service)
-    {
-        if (!$this->request->is(['put', 'post'])) {
-            $this->BcMessage->setError(__d('baser_core', '無効な処理です。'));
-            return $this->redirect(['action' => 'update']);
-        }
-        $request = $this->getRequest();
-        try {
-            $service->getCoreUpdate(
-                $request->getData('targetVersion')?? '',
-                $request->getData('php')?? 'php',
-                $request->getData('force'),
-            );
         } catch (\Throwable $e) {
             $this->BcMessage->setError($e->getMessage());
+            if($plugin->name === 'BaserCore') {
+                return $this->redirect(['action' => 'update']);
+            } else {
+                return $this->redirect(['action' => 'update', $name]);
+            }
         }
-        $this->BcMessage->setSuccess(__d('baser_core', '最新版のダウンロードが完了しました。アップデートを実行してください。'));
-        return $this->redirect(['action' => 'update']);
-    }
+	}
 
     /**
      * 無効化

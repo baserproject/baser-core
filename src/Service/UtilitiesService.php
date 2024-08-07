@@ -105,7 +105,7 @@ class UtilitiesService implements UtilitiesServiceInterface
         $errors = [];
 
         for($i = $min; $i <= $edge; $i++) {
-            $count = $table->find()->applyOptions(['withDeleted'])->where([
+            $count = $table->find()->where([
                 $scope,
                 'OR' => [$left => $i, $right => $i]
             ])->count();

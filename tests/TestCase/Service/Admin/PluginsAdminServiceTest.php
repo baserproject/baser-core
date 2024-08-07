@@ -87,13 +87,12 @@ class PluginsAdminServiceTest extends BcTestCase
             'programVerPoint',
             'availableVersion',
             'log',
-            'coreDownloaded',
+            'requireUpdate',
             'php',
-            'isCore',
             'isWritableVendor',
             'isWritableComposerJson',
             'isWritableComposerLock',
-            'isUpdatable'
+            'isWritablePackage'
         ], array_keys($vars));
     }
 

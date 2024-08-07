@@ -77,7 +77,7 @@ class BcZip
             $extractedPath = $target . $this->topArchiveName;
             $Folder = new Folder();
             $Folder->chmod($extractedPath, 0777);
-            if ($this->Zip) $this->Zip->close();
+            $this->Zip->close();
             return true;
         } else {
             return false;
@@ -97,7 +97,7 @@ class BcZip
     {
         if ($this->Zip->open($source) === true && $this->Zip->extractTo($target)) {
             $archivePath = $this->Zip->getNameIndex(0);
-            $archivePathAry = explode('/', $archivePath);
+            $archivePathAry = explode(DS, $archivePath);
             $this->topArchiveName = $archivePathAry[0];
             return true;
         } else {

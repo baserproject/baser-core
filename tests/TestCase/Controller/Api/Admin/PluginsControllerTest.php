@@ -12,8 +12,6 @@
 namespace BaserCore\Test\TestCase\Controller\Api\Admin;
 
 use BaserCore\TestSuite\BcTestCase;
-use BaserCore\Utility\BcComposer;
-use BaserCore\Utility\BcZip;
 use Cake\Core\App;
 use Cake\Core\Configure;
 use Cake\Core\Configure\Engine\PhpConfig;
