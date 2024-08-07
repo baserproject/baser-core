@@ -809,12 +809,8 @@ class PluginsService implements PluginsServiceInterface
      * @noTodo
      * @unitTest
      */
-    public function getCoreUpdate(string $targetVersion, string $php, ?bool $force = false)
+    public function getCoreUpdate(string $targetVersion, string $php, bool $force = false)
     {
-        if(!preg_match('/[0-9]+\.[0-9x*]+\.[0-9x*]+/', $targetVersion)) {
-            throw new BcException(__d('baser_core', 'バージョン番号が不正です。'));
-        }
-
         if (function_exists('ini_set')) {
             ini_set('max_execution_time', 0);
             ini_set('memory_limit', '512M');
@@ -823,10 +819,9 @@ class PluginsService implements PluginsServiceInterface
             unlink(LOGS . 'update.log');
         }
 
-        if (is_dir(TMP . 'update')) {
-            (new Folder(TMP . 'update'))->delete();
+        if (!is_dir(TMP . 'update')) {
+            mkdir(TMP . 'update', 0777);
         }
-        mkdir(TMP . 'update', 0777);
         if (!is_dir(TMP . 'update' . DS . 'vendor')) {
             $folder = new Folder(ROOT . DS . 'vendor');
             $folder->copy(TMP . 'update' . DS . 'vendor');
