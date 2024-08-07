@@ -12,7 +12,6 @@
 namespace BaserCore\Controller\Admin;
 
 use BaserCore\Controller\Component\BcMessageComponent;
-use BaserCore\Service\Admin\PluginsAdminService;
 use BaserCore\Service\Admin\PluginsAdminServiceInterface;
 use BaserCore\Service\PluginsService;
 use BaserCore\Service\PluginsServiceInterface;
@@ -220,20 +219,13 @@ class PluginsController extends BcAdminAppController
      * POSTデータで、キー`file` を使って zipファイルを送信する。
      * 送信が完了したら一覧画面にリダイレクトする。
      *
-     * @param PluginsAdminServiceInterface|PluginsAdminService $service
+     * @param PluginsServiceInterface $service
      * @checked
      * @noTodo
      * @unitTest
      */
-    public function add(PluginsAdminServiceInterface $service)
+    public function add(PluginsServiceInterface $service)
     {
-        $this->set($service->getViewVarsForAdd());
-        if(!$service->isPluginsDirWritable()) {
-            $this->BcMessage->setError(
-                __d('baser_core', '{0} に書き込み権限がないためアップロードできません。管理者に問い合わせてください。', BASER_PLUGINS)
-            );
-            return;
-        }
         if ($this->request->is('post')) {
             try {
                 /* @var PluginsService $service */
