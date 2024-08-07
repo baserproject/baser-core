@@ -1,6 +1,16 @@
 <?php
 /**
- * 5.0.16 アップデーター
+ * baserCMS :  Based Website Development Project <https://basercms.net>
+ * Copyright (c) NPO baser foundation <https://baserfoundation.org/>
+ *
+ * @copyright     Copyright (c) NPO baser foundation
+ * @link          https://basercms.net baserCMS Project
+ * @since         5.0.18
+ * @license       https://basercms.net/license/index.html MIT License
+ */
+
+/**
+ * 5.0.18 アップデーター
  * 書き込み権限チェック
  */
 $notWritablePath = [];
@@ -31,8 +41,8 @@ if(!is_writable(ROOT . DS . 'src' . DS . 'View' . DS . 'AjaxView.php')) {
 if(!is_writable(ROOT . DS . 'webroot' . DS . 'index.php')) {
     $notWritablePath[] = ROOT . DS . 'webroot' . DS . 'index.php';
 }
-if(!is_writable(ROOT . DS . 'config' . DS . 'plugins.php')) {
-    $notWritablePath[] = ROOT . DS . 'config' . DS . 'plugins.php';
+if(!is_writable(ROOT . DS . 'config')) {
+    $notWritablePath[] = ROOT . DS . 'config';
 }
 if($notWritablePath) {
     return [
