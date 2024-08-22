@@ -15,13 +15,14 @@ use BaserCore\Error\BcException;
 use BaserCore\Model\Entity\Plugin;
 use BaserCore\Model\Table\PluginsTable;
 use BaserCore\Utility\BcContainerTrait;
+use BaserCore\Utility\BcFile;
+use BaserCore\Utility\BcFolder;
 use BaserCore\Utility\BcSiteConfig;
 use BaserCore\Utility\BcUpdateLog;
 use BaserCore\Utility\BcZip;
 use Cake\Cache\Cache;
 use Cake\Core\Exception\MissingPluginException;
 use Cake\Datasource\Exception\RecordNotFoundException;
-use Cake\Filesystem\File;
 use Cake\Http\Client;
 use Cake\Http\Client\Exception\NetworkException;
 use Cake\ORM\Table;
@@ -31,7 +32,6 @@ use Cake\Utility\Inflector;
 use Cake\Core\Configure;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\App;
-use Cake\Filesystem\Folder;
 use Cake\Core\Plugin as CakePlugin;
 use Cake\Datasource\EntityInterface;
 use Cake\Utility\Xml;
@@ -98,7 +98,7 @@ class PluginsService implements PluginsServiceInterface
     public function getIndex(string $sortMode): array
     {
         $plugins = $this->Plugins->find()
-            ->order(['priority'])
+            ->orderBy(['priority'])
             ->all()
             ->toArray();
         if ($sortMode) {
@@ -111,9 +111,9 @@ class PluginsService implements PluginsServiceInterface
             }
             $paths = App::path('plugins');
             foreach($paths as $path) {
-                $Folder = new Folder($path);
-                $files = $Folder->read(true, true, true);
-                foreach($files[0] as $file) {
+                $Folder = new BcFolder($path);
+                $files = $Folder->getFolders(['full'=>true]);
+                foreach($files as $file) {
                     $name = Inflector::camelize(Inflector::underscore(basename($file)));
                     if (in_array(Inflector::camelize(basename($file), '-'), Configure::read('BcApp.core'))) continue;
                     if (in_array($name, $registeredName)) {
@@ -349,10 +349,10 @@ class PluginsService implements PluginsServiceInterface
         $zip->create(ROOT . DS . 'vendor', TMP . 'update' . DS . 'vendor.zip');
 
         // コアファイルを削除
-        (new Folder())->delete(ROOT . DS . 'vendor');
+        (new BcFolder(ROOT . DS . 'vendor'))->delete();
 
         // 最新版に更新
-        if (!(new Folder(TMP . 'update' . DS . 'vendor'))->copy(ROOT . DS . 'vendor')) {
+        if(!(new BcFolder(TMP . 'update' . DS . 'vendor'))->copy(ROOT . DS . 'vendor')) {
             $zip->extract(TMP . 'update' . DS . 'vendor.zip', ROOT . DS . 'vendor');
             throw new BcException(__d('baser_core', '最新版のファイルをコピーできませんでした。'));
         }
@@ -714,8 +714,8 @@ class PluginsService implements PluginsServiceInterface
             $num++;
             $dstName = $baseName . $num;
         }
-        $folder = new Folder(TMP . $srcDirName);
-        $folder->move(BASER_PLUGINS . $dstName, ['mode' => 0777]);
+        $folder = new BcFolder(TMP . $srcDirName);
+        $folder->move(BASER_PLUGINS. $dstName);
         unlink(TMP . $name);
         BcUtil::changePluginClassName($srcName, $dstName);
         BcUtil::changePluginNameSpace($dstName);
@@ -752,7 +752,7 @@ class PluginsService implements PluginsServiceInterface
                 $body = $response->getStringBody();
             } catch (InvalidArgumentException $e) {
                 // ユニットテストの場合にhttpでアクセスできないので、ファイルから直接読み込む
-                $file = new File($releaseUrl);
+                $file = new BcFile($releaseUrl);
                 $body = $file->read();
             } catch (NetworkException $e) {
                 return [];
@@ -824,11 +824,11 @@ class PluginsService implements PluginsServiceInterface
         }
 
         if (is_dir(TMP . 'update')) {
-            (new Folder(TMP . 'update'))->delete();
+            (new BcFolder(TMP . 'update'))->delete();
         }
         mkdir(TMP . 'update', 0777);
         if (!is_dir(TMP . 'update' . DS . 'vendor')) {
-            $folder = new Folder(ROOT . DS . 'vendor');
+            $folder = new BcFolder(ROOT . DS . 'vendor');
             $folder->copy(TMP . 'update' . DS . 'vendor');
         }
         copy(ROOT . DS . 'composer.json', TMP . 'update' . DS . 'composer.json');

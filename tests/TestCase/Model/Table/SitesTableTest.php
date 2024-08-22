@@ -13,9 +13,15 @@ namespace BaserCore\Test\TestCase\Model\Table;
 
 use ArrayObject;
 use BaserCore\Model\Table\SitesTable;
+use BaserCore\Test\Factory\UserFactory;
+use BaserCore\Test\Scenario\ContentFoldersScenario;
+use BaserCore\Test\Scenario\ContentsScenario;
+use BaserCore\Test\Scenario\SiteConfigsScenario;
+use BaserCore\Test\Scenario\SitesScenario;
 use BaserCore\TestSuite\BcTestCase;
 use Cake\Event\Event;
 use Cake\ORM\TableRegistry;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 use ReflectionClass;
 
 /**
@@ -26,19 +32,9 @@ class SitesTableTest extends BcTestCase
 {
 
     /**
-     * Fixtures
-     *
-     * @var array
+     * ScenarioAwareTrait
      */
-    public $fixtures = [
-        'plugin.BaserCore.Sites',
-        'plugin.BaserCore.SiteConfigs',
-        'plugin.BaserCore.Contents',
-        'plugin.BaserCore.ContentFolders',
-        'plugin.BaserCore.Users',
-        'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.UsersUserGroups',
-    ];
+    use ScenarioAwareTrait;
 
     /**
      * Set Up
@@ -46,6 +42,10 @@ class SitesTableTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
+        UserFactory::make()->admin()->persist();
+        $this->loadFixtureScenario(SitesScenario::class);
+        $this->loadFixtureScenario(SiteConfigsScenario::class);
+        $this->loadFixtureScenario(ContentsScenario::class);
         $this->Sites = $this->getTableLocator()->get('BaserCore.Sites');
         $this->Contents = $this->getTableLocator()->get('BaserCore.Contents');
     }
@@ -60,10 +60,69 @@ class SitesTableTest extends BcTestCase
     }
 
     /**
+     * test validationDefault alias
+     */
+    public function testValidationDefault_alias()
+    {
+        //バリデーションを発生した場合
+        $validator = $this->Sites->getValidator('default');
+        $errors = $validator->validate([
+            'alias' => '漢字',
+            'use_subdomain' => 0
+        ]);
+        $this->assertEquals('エイリアスは、半角英数・ハイフン（-）・アンダースコア（_）・スラッシュ（/）で入力してください。', current($errors['alias']));
+
+        $validator = $this->Sites->getValidator('default');
+        $errors = $validator->validate([
+            'alias' => str_repeat('a', 51),
+            'use_subdomain' => 0
+        ]);
+        $this->assertEquals('エイリアスは50文字以内で入力してください。', current($errors['alias']));
+
+        //バリデーションを発生しない場合
+        $validator = $this->Sites->getValidator('default');
+        $errors = $validator->validate([
+            'alias' => 'aaaaaaa',
+            'use_subdomain' => 0
+        ]);
+        $this->assertArrayNotHasKey('alias', $errors);
+
+        //use_subdomain = 0 の場合、ドット（.） が利用不可、スラッシュは利用可能
+        $validator = $this->Sites->getValidator('default');
+        $errors = $validator->validate([
+            'alias' => 'example.com/abc',
+            'use_subdomain' => 0
+        ]);
+        $this->assertEquals('エイリアスは、半角英数・ハイフン（-）・アンダースコア（_）・スラッシュ（/）で入力してください。', current($errors['alias']));
+
+        $errors = $validator->validate([
+            'alias' => 'news/new-1',
+            'use_subdomain' => 0
+        ]);
+        $this->assertArrayNotHasKey('alias', $errors);
+
+        //use_subdomain = 1、かつ、domain_type = 1 と 2 の場合、ドット（.） が利用可能、スラッシュは利用不可
+        $validator = $this->Sites->getValidator('default');
+        $errors = $validator->validate([
+            'alias' => 'example.com/abc',
+            'use_subdomain' => 1
+        ]);
+        $this->assertEquals('サブドメインや外部ドメインを利用する場合、エイリアスは、半角英数・ハイフン（-）・アンダースコア（_）・ドット（.）で入力してください。', current($errors['alias']));
+
+        $validator = $this->Sites->getValidator('default');
+        $errors = $validator->validate([
+            'alias' => 'example.com',
+            'use_subdomain' => 1
+        ]);
+        $this->assertArrayNotHasKey('alias', $errors);
+    }
+
+    /**
      * 公開されている全てのサイトを取得する
      */
     public function testGetPublishedAll()
     {
+        $this->loadFixtureScenario(ContentFoldersScenario::class);
         $this->assertEquals(5, count($this->Sites->getPublishedAll()));
         $site = $this->Sites->find()->where(['id' => 2])->first();
         $site->status = true;
@@ -86,7 +145,7 @@ class SitesTableTest extends BcTestCase
         $this->assertEquals($expects, $result, $message);
     }
 
-    public function getListDataProvider()
+    public static function getListDataProvider()
     {
         return [
 //            [null, [], [1 => 'メインサイト', 3 => '英語サイト', 4 => '別ドメイン', 5 => 'サブドメイン'], '全てのサイトリストの取得ができません。'],
@@ -131,6 +190,7 @@ class SitesTableTest extends BcTestCase
      */
     public function testAfterSave()
     {
+        $this->loadFixtureScenario(ContentFoldersScenario::class);
         $this->loginAdmin($this->getRequest());
         $site = $this->Sites->get(2);
         $this->Sites->dispatchEvent('Model.afterSave', [$site, new ArrayObject()]);
@@ -190,7 +250,7 @@ class SitesTableTest extends BcTestCase
         $this->assertEquals($expected, $site->id);
     }
 
-    public function findByUrlDataProvider()
+    public static function findByUrlDataProvider()
     {
         return [
             ['', 1],
@@ -222,6 +282,7 @@ class SitesTableTest extends BcTestCase
     public function testGetSubByUrl()
     {
         // スマホ
+        $this->loadFixtureScenario(ContentFoldersScenario::class);
         $siteConfigs = TableRegistry::getTableLocator()->get('BaserCore.SiteConfigs');
         $siteConfigs->saveValue('use_site_device_setting', true);
         $_SERVER['HTTP_USER_AGENT'] = 'iPhone';
@@ -274,6 +335,7 @@ class SitesTableTest extends BcTestCase
      */
     public function testResetDevice()
     {
+        $this->loadFixtureScenario(ContentFoldersScenario::class);
         $this->Sites->resetDevice();
         $sites = $this->Sites->find()->all();
         foreach($sites as $site) {
@@ -291,6 +353,7 @@ class SitesTableTest extends BcTestCase
      */
     public function testResetLang()
     {
+        $this->loadFixtureScenario(ContentFoldersScenario::class);
         $this->Sites->resetLang();
         $sites = $this->Sites->find()->all();
         foreach($sites as $site) {

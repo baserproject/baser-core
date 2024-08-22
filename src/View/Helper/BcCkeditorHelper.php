@@ -39,7 +39,7 @@ class BcCkeditorHelper extends Helper
      * ヘルパー
      * @var array
      */
-    public $helpers = ['BcHtml', 'BcAdminForm', 'Url', 'BcBaser'];
+    public array $helpers = ['BcHtml', 'BcAdminForm', 'Url', 'BcBaser'];
 
     /**
      * スクリプト
@@ -439,6 +439,7 @@ class BcCkeditorHelper extends Helper
      * フィールド名から Dom ID を生成する
      * @param string $field
      * @return string
+     * @unitTest
      */
     public function createDomId(string $field): string
     {
