@@ -158,6 +158,7 @@ use BaserCore\Annotation\Doc;
  * ### TextHelper
  * @method string truncateText(string $text, int $length = 100, array $options = [])
  */
+#[\AllowDynamicProperties]
 class BcBaserHelper extends Helper
 {
 
@@ -525,6 +526,7 @@ class BcBaserHelper extends Helper
      * @return true
      * @noTodo
      * @checked
+     * @unitTest
      */
     public function isLinkEnabled(string $link): bool
     {
@@ -813,6 +815,7 @@ class BcBaserHelper extends Helper
      * @return void
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function setTitle($title, $categoryTitleOn = null)
     {
@@ -943,6 +946,7 @@ class BcBaserHelper extends Helper
      * @return string メタタグ用のタイトルを返す
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function getTitle($separator = '｜', $options = [])
     {
@@ -2324,6 +2328,7 @@ class BcBaserHelper extends Helper
      * @return void
      * @checked
      * @noTodo
+     * @unitTest ラッパーメソッドのためユニットテスト不要
      */
     public function siteName()
     {
@@ -2336,6 +2341,7 @@ class BcBaserHelper extends Helper
      * @return string サイト基本設定のWebサイト名
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function getSiteName()
     {
@@ -2364,6 +2370,7 @@ class BcBaserHelper extends Helper
      * @return string サイト基本設定のWebサイト名
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function getSiteUrl()
     {
