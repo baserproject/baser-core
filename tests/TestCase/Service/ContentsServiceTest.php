@@ -14,6 +14,7 @@ namespace BaserCore\Test\TestCase\Service;
 use BaserCore\Test\Factory\ContentFactory;
 use BaserCore\Test\Factory\PageFactory;
 use BaserCore\Test\Factory\SearchIndexesFactory;
+use BaserCore\Test\Factory\SiteFactory;
 use BaserCore\Test\Scenario\ContentFoldersScenario;
 use BaserCore\Test\Scenario\ContentsScenario;
 use BaserCore\Test\Scenario\MailContentsScenario;
@@ -25,6 +26,7 @@ use BaserCore\Test\Scenario\UsersUserGroupsScenario;
 use BcBlog\Test\Factory\BlogContentFactory;
 use Cake\Core\Configure;
 use Cake\Datasource\Exception\RecordNotFoundException;
+use Cake\ORM\TableRegistry;
 use Cake\Routing\Router;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Service\ContentsService;
@@ -678,20 +680,22 @@ class ContentsServiceTest extends BcTestCase
             ['id' => 21]
         ])->persist();
         // 移動元のエンティティ
-        $originEntity = $this->ContentsService->getIndex(['parent_id' => 1])->orderBy('lft')->first();
+        $originEntity = $this->ContentsService->getIndex(['parent_id' => 1])->order('lft')->first();
         $origin = [
             'id' => $originEntity->id,
             'parentId' => $originEntity->parent_id
         ];
+        // target idが指定されてない場合 親要素内の最後に移動
         $target1 = [
-            'id' => "9",
+            'id' => "",
             'parentId' => "1",
             'siteId' => "1",
         ];
-        $this->ContentsService->move($origin, $target1);
-        $movedEntity = $this->ContentsService->get(4);
-        $this->assertEquals(14, $movedEntity->lft);
-        $this->assertEquals(15, $movedEntity->rght);
+        $result = $this->ContentsService->move($origin, $target1);
+        $lastEntity = $this->ContentsService->getIndex(['parent_id' => 1])->order('lft')->all()->last();
+        $this->assertEquals($result->title, $originEntity->title);
+        $this->assertEquals($result->title, $lastEntity->title);
+        // targetIdが指定されてる場合
         // 対象が同じ要素の2番目のエンティティなので、直前つまり最初に移動
         $target2 = [
             'id' => "10",

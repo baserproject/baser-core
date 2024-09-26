@@ -212,6 +212,13 @@ q {}',
                 'modified' => ''
             ],
             [
+                'id' => '25',
+                'name' => 'contents_sort_last_modified',
+                'value' => '',
+                'created' => '',
+                'modified' => ''
+            ],
+            [
                 'id' => '26',
                 'name' => 'mail_additional_parameters',
                 'value' => '1',

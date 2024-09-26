@@ -113,11 +113,9 @@ class BcFolder
             }
         }
         if (!is_dir($this->path)) {
-            mkdir($this->path, $mask, true);
-            chmod($this->path, $mask);
+            return mkdir($this->path, $mask, true);
         }
-        clearstatcache();
-        return is_dir($this->path);
+        return true;
     }
 
     /**
@@ -403,13 +401,6 @@ class BcFolder
         return $files;
     }
 
-    /**
-     * @param string $regexpPattern
-     * @return array
-     * @checked
-     * @noTodo
-     * @unitTest
-     */
     public function find(string $regexpPattern = '.*'): array
     {
         $files = $this->getFiles();
@@ -438,7 +429,6 @@ class BcFolder
      * @return string
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function pwd(): string
     {

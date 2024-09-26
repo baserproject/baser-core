@@ -23,7 +23,6 @@ use Cake\Validation\Validation;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
 use BaserCore\Annotation\UnitTest;
-use Laminas\Diactoros\UploadedFile;
 
 /**
  * Class BcValidation
@@ -265,21 +264,11 @@ class BcValidation extends Validation
     public static function fileExt($file, $exts)
     {
         if (!is_array($exts)) $exts = explode(',', $exts);
-        if($file instanceof UploadedFile) {
-            $fileName = $file->getClientFilename();
-            $type = $file->getClientMediaType();
-        } elseif(is_array($file)) {
-            $fileName = $file['name'];
-            $type = $file['type'];
-        } else {
-            $fileName = $file;
-            $type = null;
-        }
-        if (empty($fileName)) return true;
+        if (empty($file)) return true;
 
         // FILES形式のチェック
-        if ($type) {
-            $ext = BcUtil::decodeContent($type, $fileName);
+        if (is_array($file) && !empty($file['type'])) {
+            $ext = BcUtil::decodeContent($file['type'], $file['name']);
             if (!in_array($ext, $exts)) {
                 return false;
             }

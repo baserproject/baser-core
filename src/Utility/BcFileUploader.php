@@ -471,7 +471,6 @@ class BcFileUploader
      * @return boolean
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function moveFileSessionToTmp($data, $fieldName)
     {
@@ -1197,7 +1196,6 @@ class BcFileUploader
      * @param EntityInterface $entity
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function rollbackFile(EntityInterface $entity)
     {
