@@ -30,10 +30,6 @@ class PermissionGroupsController extends BcAdminAppController
      *
      * @param PermissionGroupsAdminService $service
      * @param int|null $userGroupId
-     *
-     * @noTodo
-     * @checked
-     * @unitTest
      */
     public function index(PermissionGroupsAdminServiceInterface $service, ?int $userGroupId = null)
     {
@@ -63,10 +59,6 @@ class PermissionGroupsController extends BcAdminAppController
      * @param PermissionGroupsAdminServiceInterface $service
      * @param int $userGroupId
      * @param int $id
-     *
-     * @checked
-     * @noTodo
-     * @unitTest
      */
     public function add(PermissionGroupsAdminServiceInterface $service, int $userGroupId, string $prefix)
     {
@@ -94,10 +86,6 @@ class PermissionGroupsController extends BcAdminAppController
      * @param PermissionGroupsAdminServiceInterface $service
      * @param int $userGroupId
      * @param int $id
-     *
-     * @checked
-     * @noTodo
-     * @unitTest
      */
     public function edit(PermissionGroupsAdminServiceInterface $service, int $userGroupId, int $id)
     {
@@ -123,10 +111,6 @@ class PermissionGroupsController extends BcAdminAppController
      * @param PermissionGroupsServiceInterface $service
      * @param int $id
      * @return \Cake\Http\Response|null
-     *
-     * @checked
-     * @noTodo
-     * @unitTest
      */
     public function delete(PermissionGroupsServiceInterface $service, int $userGroupId, int $id)
     {
@@ -148,10 +132,6 @@ class PermissionGroupsController extends BcAdminAppController
      * @param PermissionGroupsServiceInterface $service
      * @param int $userGroupId
      * @return \Cake\Http\Response|void|null
-     *
-     * @checked
-     * @noTodo
-     * @unitTest
      */
     public function rebuild_by_user_group(PermissionGroupsServiceInterface $service, int $userGroupId)
     {
