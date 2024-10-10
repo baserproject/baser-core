@@ -2173,7 +2173,7 @@ END_FLASH;
     {
         $pattern = '/\/$/';
         $shortenedUrl = preg_replace($pattern, '/index', $this->getUrl($url));
-        $shortenedHere = preg_replace($pattern, '/index', $this->_View->getRequest()->getAttribute('here'));
+        $shortenedHere = preg_replace($pattern, '/index', $this->_View->getRequest()->here);
         return ($shortenedUrl === $shortenedHere);
     }
 

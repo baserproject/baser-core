@@ -25,7 +25,6 @@ use Cake\Core\Plugin;
 use Cake\Datasource\EntityInterface;
 use Cake\Filesystem\Folder;
 use Cake\ORM\TableRegistry;
-use Cake\Routing\Router;
 use Cake\Utility\Inflector;
 use Laminas\Diactoros\UploadedFile;
 
@@ -328,10 +327,6 @@ class ThemesService implements ThemesServiceInterface
         ])) {
             $result = false;
         }
-
-        // 管理画面のカレントサイトの設定状態を削除
-        $request = Router::getRequest();
-        $request->getSession()->delete('BcApp.Admin.currentSite');
 
         // DBシーケンスの更新
         $dbService->updateSequence();
