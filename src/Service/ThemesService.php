@@ -273,11 +273,11 @@ class ThemesService implements ThemesServiceInterface
      * @unitTest
      * @noTodo
      */
-    public function installThemesPlugins(string $theme)
+    private function installThemesPlugins(string $theme)
     {
         /* @var PluginsService $pluginsService */
         $pluginsService = $this->getService(PluginsServiceInterface::class);
-        $plugins = BcUtil::getThemesPlugins($theme);
+        $plugins = BcUtil::getCurrentThemesPlugins();
         // テーマ梱包のプラグインをインストール
         foreach($plugins as $plugin) {
             $pluginsService->install($plugin);
@@ -312,6 +312,9 @@ class ThemesService implements ThemesServiceInterface
         } catch (\Throwable $e) {
             throw $e;
         }
+
+        // メッセージテーブルの初期化
+        if (!$dbService->initMessageTables()) $result = false;
 
         // システムデータの初期化
         if (!$dbService->initSystemData([

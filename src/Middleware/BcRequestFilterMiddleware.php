@@ -44,17 +44,12 @@ class BcRequestFilterMiddleware implements MiddlewareInterface
         RequestHandlerInterface $handler
     ): ResponseInterface
     {
-        if(BcUtil::isInstalled()) {
-            $response = $this->redirectIfIsDeviceFile($request);
-            if($response) return $response;
-        }
+        $request = $this->addDetectors($request);
 
         if ($this->isAsset($request)) {
             Configure::write('BcRequest.asset', true);
             return new Response();
         }
-
-        $request = $this->addDetectors($request);
 
         /**
          * CGIモード等PHPでJWT認証で必要なAuthorizationヘッダーが取得出来ないできない場合、REDIRECT_HTTP_AUTHORIZATION環境変数より取得する
@@ -65,15 +60,7 @@ class BcRequestFilterMiddleware implements MiddlewareInterface
             $request = $request->withHeader('Authorization', $request->getEnv('REDIRECT_HTTP_AUTHORIZATION'));
         }
 
-        /**
-         * リーバースプロキシを利用している場合、HTTPS ではなく HTTP_X_FORWARDED_SSL が true になるため
-         * そちらの値で判定するように調整
-         */
-         $a  = filter_var(env('TRUST_PROXY', false));
-        if(filter_var(env('TRUST_PROXY', false), FILTER_VALIDATE_BOOLEAN)) {
-            $request->trustProxy = true;
-            $request->addDetector('ssl', ['env' => 'HTTP_X_FORWARDED_SSL', 'options' => [1, 'on']]);
-        }
+        if(BcUtil::isInstalled()) $this->redirectIfIsDeviceFile($request, $handler);
 
         return $handler->handle($request);
     }
@@ -85,13 +72,17 @@ class BcRequestFilterMiddleware implements MiddlewareInterface
      * CMSで作成するページ内のリンクは、モバイルでアクセスすると、自動的に、/m/ 付のリンクに書き換えられてしまう為、
      * files内のファイルへのリンクがリンク切れになってしまうので暫定対策。
      * @param ServerRequestInterface $request
+     * @param RequestHandlerInterface $handler
      * @return ResponseInterface|void
      * @checked
      * @unitTest
-     * @noTodo
+     * @note(value="マイルストーン３が終わってから動作確認する")
      */
-    public function redirectIfIsDeviceFile(ServerRequestInterface $request)
+    public function redirectIfIsDeviceFile(
+        ServerRequestInterface  $request,
+        RequestHandlerInterface $handler)
     {
+        // TODO ucmitz ユニットテストでしか動作確認していない
         $sites = \Cake\ORM\TableRegistry::getTableLocator()->get('BaserCore.Sites');
         $site = $sites->findByUrl($request->getPath());
         if ($site && $site->device) {

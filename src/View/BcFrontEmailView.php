@@ -33,7 +33,6 @@ class BcFrontEmailView extends View
      *
      * @checked
      * @unitTest
-     * @noTodo
      */
     public function initialize(): void
     {

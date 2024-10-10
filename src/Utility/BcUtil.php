@@ -175,7 +175,6 @@ class BcUtil
      * @return array
      * @checked
      * @noTodo
-     * @unitTest
      */
     public static function getLoggedInUsers($assoc = true)
     {
@@ -498,7 +497,7 @@ class BcUtil
      * @return void
      * @checked
      * @unitTest
-     * @noTodo
+     * @note(value="viewキャッシュ／dataキャッシュ実装時に対応")
      */
     public static function clearAllCache(): void
     {
@@ -601,9 +600,6 @@ class BcUtil
      * ログインしているユーザー名を取得
      *
      * @return string
-     * @noTodo
-     * @checked
-     * @unitTest
      */
     public static function loginUserName()
     {
@@ -827,7 +823,6 @@ class BcUtil
      * @return []|array
      * @checked
      * @noTodo
-     * @unitTest
      */
     public static function getFrontTemplatePaths($siteId, $plugin)
     {
@@ -1081,7 +1076,6 @@ class BcUtil
      * baserCMSのインストールが完了しているかチェックする
      * @return    boolean
      * @checked
-     * @noTodo
      */
     public static function isInstalled()
     {
@@ -1171,7 +1165,6 @@ class BcUtil
      * @return string
      * @checked
      * @noTodo
-     * @unitTest
      */
     public static function getViewPath()
     {
@@ -1262,7 +1255,6 @@ class BcUtil
      * @return string
      * @checked
      * @noTodo
-     * @unitTest
      */
     public static function mbBasename($str, $suffix = null)
     {
@@ -1767,7 +1759,6 @@ class BcUtil
      * @return false|string
      * @checked
      * @noTodo
-     * @unitTest
      */
     public static function getExistsTemplateDir(string $theme, string $plugin, string $path, string $type = '')
     {
@@ -1824,7 +1815,6 @@ class BcUtil
      * @return false|string
      * @checked
      * @noTodo
-     * @unitTest
      */
     public static function getExistsWebrootDir(string $theme, string $plugin, string $path, string $type = '')
     {

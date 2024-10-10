@@ -24,15 +24,15 @@ interface BcDatabaseServiceInterface
 
     /**
      * 初期データを読み込む
-     *
-     * @param string $theme
-     * @param string $pattern
-     * @param string $dbConfigKeyName
+     * 
+     * @param $theme
+     * @param $pattern
+     * @param $excludes
      * @checked
      * @noTodo
      * @unitTest
      */
-    public function loadDefaultDataPattern(string $theme, string $pattern, string $dbConfigKeyName = 'default'): bool;
+    public function loadDefaultDataPattern($theme, $pattern): bool;
 
     /**
      * CSVファイルをDBに読み込む
@@ -66,25 +66,23 @@ interface BcDatabaseServiceInterface
      *
      * @param string $plugin
      * @param array $excludes
-     * @param string $dbConfigKeyName
      * @return boolean
      * @noTodo
      * @checked
      * @unitTest
      */
-    public function resetTables($plugin = 'BaserCore', $excludes = [], string $dbConfigKeyName = 'default'): bool;
+    public function resetTables($plugin = 'BaserCore', $excludes = []): bool;
 
     /**
      * テーブルのデータをリセットする
-     *
-     * @param string $table
-     * @param string $dbConfigKeyName
+     * 
+     * @param $table
      * @return bool
      * @noTodo
      * @checked
      * @unitTest
      */
-    public function truncate(string $table, string $dbConfigKeyName = 'default'): bool;
+    public function truncate($table): bool;
 
     /**
      * システムデータを初期化する
@@ -97,8 +95,18 @@ interface BcDatabaseServiceInterface
     public function initSystemData($options = []): bool;
 
     /**
+     * メールメッセージテーブルを初期化する
+     * 
+     * @return bool
+     * @noTodo
+     * @checked
+     * @unitTest
+     */
+    public function initMessageTables(): bool;
+
+    /**
      * データベースシーケンスをアップデートする
-     *
+     * 
      * @noTodo
      * @checked
      * @unitTest
@@ -144,24 +152,21 @@ interface BcDatabaseServiceInterface
     /**
      * アプリケーションに関連するテーブルリストを取得する
      *
-     * @param string $plugin
-     * @param string $dbConfigKeyName
      * @return array
      * @checked
      * @noTodo
      * @unitTest
      */
-    public function getAppTableList($plugin = '', string $dbConfigKeyName = 'default'): array;
+    public function getAppTableList($plugin = ''): array;
 
     /**
      * アプリケーションに関連するテーブルリストのキャッシュをクリアする
-     *
+     * 
      * @checked
      * @noTodo
      * @unitTest
-     * @param string $dbConfigKeyName
      */
-    public function clearAppTableList(string $dbConfigKeyName = 'default'): void;
+    public function clearAppTableList(): void;
 
     /**
      * モデル名を指定してスキーマファイルを生成する
@@ -178,7 +183,7 @@ interface BcDatabaseServiceInterface
 
     /**
      * スキーマを読み込む
-     *
+     * 
      * @param $options
      * @return bool
      * @unitTest

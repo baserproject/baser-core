@@ -24,7 +24,6 @@ use BcMail\View\Helper\MailformHelper;
 use Cake\Core\Plugin;
 use Cake\Datasource\EntityInterface;
 use Cake\Event\Event;
-use Cake\Http\ServerRequest;
 use Cake\ORM\ResultSet;
 use Cake\ORM\TableRegistry;
 use Cake\Routing\Router;
@@ -686,7 +685,6 @@ class BcBaserHelper extends Helper
      * @return string
      * @checked
      * @unitTest
-     * @noTodo
      * @doc
      */
     public function getContentsName($detail = false, $options = [])
@@ -796,7 +794,7 @@ class BcBaserHelper extends Helper
      * @return string URL
      * @checked
      * @unitTest
-     * @noTodo
+     * @note(value="$sessionId について実装検討要")
      */
     public function getUrl($url = null, $full = false)
     {
@@ -2022,12 +2020,12 @@ class BcBaserHelper extends Helper
      * @param string $url 固定ページのURL
      * @param array $params 固定ページに引き継ぐパラメータ（初期値 : array()）
      * @param array $options オプション（初期値 : array()）
+     *    - `loadHelpers` : ヘルパーを読み込むかどうか（初期値 : false）
      *    - `subDir` : テンプレートの配置場所についてプレフィックスに応じたサブフォルダを利用するかどうか（初期値 : true）
      *    - `recursive` : 固定ページ読み込みを再帰的に読み込むかどうか（初期値 : true）
      *    - `checkExists` : 固定ページの存在判定をするかどうか（初期値 : true）
      * @return void
-     * @checked
-     * @noTodo
+     * @todo ucmitz loadHelpersが利用されていないのをなんとかする
      */
     public function page($url, $params = [], $options = [])
     {
@@ -2036,6 +2034,7 @@ class BcBaserHelper extends Helper
         }
 
         $options = array_merge([
+            'loadHelpers' => false,
             'subDir' => true,
             'recursive' => true,
             'checkExists' => true
@@ -2525,28 +2524,26 @@ class BcBaserHelper extends Helper
     public function setCanonicalUrl()
     {
         $currentSite = $this->_View->getRequest()->getAttribute('currentSite');
-        if (!$currentSite) return;
-
-        $view = $this->getView();
-        $request = $view->getRequest();
+        if (!$currentSite) {
+            return;
+        }
         if ($currentSite->device === 'smartphone') {
             $sites = \Cake\ORM\TableRegistry::getTableLocator()->get('BaserCore.Sites');
-            /** @var Site $mainSite */
-            $mainSite = $sites->getMainByUrl($request->getPath());
-            $url = $mainSite->makeUrl(new ServerRequest(['url' => $this->BcContents->getPureUrl(
-                $request->getPath(),
-                $request->getAttribute('currentSite')->id
-            )]));
+            $mainSite = $sites->getMainByUrl($this->_View->getRequest()->getPath());
+            $url = $mainSite->makeUrl(new CakeRequest($this->BcContents->getPureUrl(
+                $this->_View->getRequest()->getPath(),
+                $this->_View->getRequest()->getAttribute('currentSite')->id
+            )));
 
         } else {
-            $url = $request->getPath();
+            $url = '/' . $this->_View->getRequest()->url;
         }
         $url = preg_replace('/\.html$/', '', $url);
         $url = preg_replace('/\/page:1$/', '', $url);
         $url = preg_replace('/\\/index$/', '/', $url);
-        $view->assign('meta',
+        $this->_View->set('meta',
             $this->BcHtml->meta('canonical',
-                $this->getUrl($url, true),
+                $this->BcHtml->url($url, true),
                 [
                     'rel' => 'canonical',
                     'type' => null,

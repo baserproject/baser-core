@@ -95,7 +95,7 @@ class BcFormHelper extends FormHelper
      * @param string $type フォームのタイプ タイプごとにイベントの登録ができる
      * @return string 行データ
      * @checked
-     * @noTodo
+     * @note(value="フォームの最後のフィールドの後に発動するイベント")
      */
     public function dispatchAfterForm($type = ''): string
     {

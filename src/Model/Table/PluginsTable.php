@@ -148,10 +148,7 @@ class PluginsTable extends AppTable
         // 設定ファイル読み込み
         $appConfigPath = $pluginPath . 'config.php';
         if (file_exists($appConfigPath)) {
-        	$config = include $appConfigPath;
-        	if(is_array($config)) {
-				$this->patchEntity($pluginRecord, include $appConfigPath);
-			}
+            $this->patchEntity($pluginRecord, include $appConfigPath);
         }
         if($name === 'BaserCore') $pluginRecord->title = 'BaserCore';
         return $pluginRecord;

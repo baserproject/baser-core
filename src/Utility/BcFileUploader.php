@@ -941,7 +941,7 @@ class BcFileUploader
             if ($site && $site->theme) {
                 $basePath = ROOT . DS . 'plugins' . DS . $site->theme . DS . 'webroot' . DS . 'files' . DS;
             } else {
-                $basePath = BcUtil::getViewPath() . 'webroot' . DS . 'files' . DS;
+                $basePath = BcUtil::getViewPath() . 'files' . DS;
             }
         }
         if ($limited) {

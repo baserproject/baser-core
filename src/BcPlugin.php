@@ -116,8 +116,7 @@ class BcPlugin extends BasePlugin
         BcUtil::clearAllCache();
         $pluginPath = BcUtil::getPluginPath($options['plugin']);
         try {
-        	TableRegistry::getTableLocator()->clear();
-            $plugins = TableRegistry::getTableLocator()->get('BaserCore.Plugins', ['connectionName' => $options['connection']]);
+            $plugins = TableRegistry::getTableLocator()->get('BaserCore.Plugins');
             $plugin = $plugins->findByName($pluginName)->first();
             if (!$plugin || !$plugin->db_init) {
                 if (is_dir($pluginPath . 'config' . DS . 'Migrations')) {
@@ -140,13 +139,10 @@ class BcPlugin extends BasePlugin
             $this->createAssetsSymlink();
 
             BcUtil::clearAllCache();
-            TableRegistry::getTableLocator()->clear();
             return $plugins->install($pluginName);
         } catch (BcException $e) {
             $this->log($e->getMessage());
             $this->migrations->rollback($options);
-            BcUtil::clearAllCache();
-            TableRegistry::getTableLocator()->clear();
             return false;
         }
     }
@@ -603,12 +599,9 @@ class BcPlugin extends BasePlugin
      * @checked
      * @noTodo
      */
-    public function updateDateNow(string $table, array $fields, array $conditions = [], array $options = []): void
+    public function updateDateNow(string $table, array $fields, array $conditions = []): void
     {
-        $options = array_merge([
-            'connection' => 'default'
-        ], $options);
-        $table = TableRegistry::getTableLocator()->get($table, ['connectionName' => $options['connection']]);
+        $table = TableRegistry::getTableLocator()->get($table);
         $entities = $table->find()->where($conditions)->all();
         if($entities->count()) {
             foreach($entities as $entity) {

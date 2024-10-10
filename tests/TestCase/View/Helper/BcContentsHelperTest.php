@@ -541,6 +541,11 @@ class BcContentsHelperTest extends BcTestCase
         $this->markTestIncomplete('このテストは、まだ実装されていません。');
     }
 
+    public function test_getIconUrl()
+    {
+        $this->markTestIncomplete('このテストは、まだ実装されていません。');
+    }
+
     /**
      * 現在のページがコンテンツフォルダかどうか確認する
      * @param $url
