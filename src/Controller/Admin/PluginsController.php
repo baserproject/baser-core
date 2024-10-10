@@ -51,10 +51,9 @@ class PluginsController extends BcAdminAppController
      * @unitTest
      * @noTodo
      */
-    public function beforeFilter(EventInterface $event)
+    public function beforeFilter(EventInterface $event): void
     {
-        $response = parent::beforeFilter($event);
-        if($response) return $response;
+        parent::beforeFilter($event);
         $this->Security->setConfig('unlockedActions', ['reset_db', 'update_sort', 'batch']);
         if(Configure::read('BcRequest.isUpdater')) $this->Authentication->allowUnauthenticated(['update']);
     }

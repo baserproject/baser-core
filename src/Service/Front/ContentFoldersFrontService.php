@@ -50,7 +50,7 @@ class ContentFoldersFrontService extends ContentFoldersService implements Conten
             $contentFolder->content = $this->Contents->saveTmpFiles($request->getData('content'), mt_rand(0, 99999999));
         } else {
             $editLink = [
-                'prefix' => 'Admin',
+                'admin' => true,
                 'plugin' => 'BaserCore',
                 'controller' =>
                 'content_folders',

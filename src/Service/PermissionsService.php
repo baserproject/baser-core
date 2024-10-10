@@ -328,13 +328,12 @@ class PermissionsService implements PermissionsServiceInterface
      *
      * @param string $url
      * @param array $userGroupId
-     * @param string $method
      * @return bool
      * @checked
      * @unitTest
      * @noTodo
      */
-    public function check(string $url, array $userGroupId, string $method = 'GET'): bool
+    public function check(string $url, array $userGroupId): bool
     {
         if (in_array(Configure::read('BcApp.adminGroupId'), $userGroupId)) return true;
         if ($this->checkDefaultDeny($url)) return false;
@@ -349,12 +348,12 @@ class PermissionsService implements PermissionsServiceInterface
                 if($userGroupId) {
                     $userGroup = $userGroupsService->get($userGroupId);
                 }
-                if ($this->checkGroup($url, $permissionGroup, $userGroup, $method)) {
+                if ($this->checkGroup($url, $permissionGroup, $userGroup)) {
                     return true;
                 }
             }
         } else {
-            if ($this->checkGroup($url, [], null, $method)) {
+            if ($this->checkGroup($url, [], null)) {
                 return true;
             }
         }
@@ -422,17 +421,12 @@ class PermissionsService implements PermissionsServiceInterface
      * @param string $url
      * @param array $groupPermission
      * @param UserGroup|EntityInterface|null $userGroup
-     * @param string $method
      * @return boolean
      * @checked
      * @unitTest
      * @noTodo
      */
-    private function checkGroup(
-        string $url,
-        array $groupPermission,
-        ?EntityInterface $userGroup,
-        string $method = 'GET'): bool
+    private function checkGroup(string $url, array $groupPermission, $userGroup): bool
     {
         // ドメイン部分を除外
         if(preg_match('/^(http(s|):\/\/[^\/]+?\/)(.*?)$/', $url, $matches)) {
@@ -490,39 +484,17 @@ class PermissionsService implements PermissionsServiceInterface
             $url = preg_replace($regex, '/baser/' . Inflector::underscore($key) . '/', $url);
         }
 
-        return $this->isAuthorized($prefixAuthSetting['permissionType'], $url, $method, $groupPermission);
-    }
-
-    /**
-     * URLとメソッドについて許可されているか確認
-     *
-     * @param int $permissionType
-     *  - 1: ホワイトリスト（全部拒否して一部許可を設定）
-     *  - 2: ブラックリスト（全部許可して一部拒否を設定）
-     * @param string $url
-     * @param string $method
-     * @param array $groupPermission
-     * @return bool
-     */
-    public function isAuthorized(int $permissionType, string $url, string $method, array $groupPermission)
-    {
-        list($url) = explode('?', $url);
-        $ret = ($permissionType === 2);
+        // permissionType
+        // 1: ホワイトリスト（全部拒否して一部許可を設定）
+        // 2: ブラックリスト（全部許可して一部拒否を設定）
+        $ret = ((int) $prefixAuthSetting['permissionType'] === 2);
         foreach($groupPermission as $permission) {
             $pattern = $this->convertRegexUrl($permission->url);
             if (preg_match($pattern, $url)) {
-                if(!$permission->auth) {
-                    $ret = false;
-                } else {
-                    if($permission->method === 'GET' && $method !== 'GET') {
-                        $ret = false;
-                    } else {
-                        $ret = true;
-                    }
-                }
+                $ret = $permission->auth;
             }
         }
-        return $ret;
+        return (boolean)$ret;
     }
 
     /**

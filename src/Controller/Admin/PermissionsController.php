@@ -46,8 +46,7 @@ class PermissionsController extends BcAdminAppController
 	 */
 	public function beforeFilter(EventInterface $event)
 	{
-        $response = parent::beforeFilter($event);
-        if($response) return $response;
+		parent::beforeFilter($event);
         $this->viewBuilder()->addHelpers(
             ['BcTime',
             // 'BcFreeze'

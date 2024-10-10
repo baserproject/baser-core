@@ -152,9 +152,6 @@ class PreviewController extends BcAdminAppController
      *
      * @param string $url
      * @return string
-     * @noTodo
-     * @checked
-     * @unitTest
      */
     public function encodePath(string $url) {
         $parseUrl = parse_url($url);

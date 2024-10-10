@@ -85,7 +85,7 @@ class BcAdminApiController extends BcApiController
         }
 
         // 親の beforeFilter で認可チェックが入るので一番最後とする
-        return parent::beforeFilter($event);
+        parent::beforeFilter($event);
     }
 
     /**

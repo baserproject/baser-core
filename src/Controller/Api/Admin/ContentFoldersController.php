@@ -29,7 +29,6 @@ class ContentFoldersController extends BcAdminApiController
      * @param ContentFoldersServiceInterface $service
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function index(ContentFoldersServiceInterface $service)
     {
@@ -51,7 +50,6 @@ class ContentFoldersController extends BcAdminApiController
      * @param int $id
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function view(ContentFoldersServiceInterface $service, int $id)
     {
