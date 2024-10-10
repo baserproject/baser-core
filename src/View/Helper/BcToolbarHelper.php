@@ -28,7 +28,6 @@ use BaserCore\Annotation\UnitTest;
  * @property BcAuthHelper $BcAuth
  * @property BcAdminHelper $BcAdmin
  */
-#[\AllowDynamicProperties]
 class BcToolbarHelper extends Helper
 {
 
@@ -41,11 +40,7 @@ class BcToolbarHelper extends Helper
      * Helper
      * @var string[]
      */
-    public array $helpers = [
-        'BaserCore.BcBaser',
-        'BaserCore.BcAuth',
-        'BaserCore.BcAdmin'
-    ];
+    public $helpers = ['BaserCore.BcBaser', 'BaserCore.BcAuth', 'BaserCore.BcAdmin'];
 
     /**
      * 編集画面へのリンクが利用可能かどうか

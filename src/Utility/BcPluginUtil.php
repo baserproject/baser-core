@@ -10,9 +10,6 @@
  */
 
 namespace BaserCore\Utility;
-use BaserCore\Annotation\NoTodo;
-use BaserCore\Annotation\Checked;
-use BaserCore\Annotation\UnitTest;
 
 /**
  * Class BcPluginUtil
@@ -24,9 +21,6 @@ class BcPluginUtil
      * プラグインのconfig内容を取得する
      * @param string $name
      * @return array
-     * @checked
-     * @noTodo
-     * @unitTest
      */
     public static function getPluginConfig(string $name): array
     {
@@ -59,9 +53,6 @@ class BcPluginUtil
      * プラグインかどうかを判定する
      * @param string $name
      * @return bool
-     * @checked
-     * @noTodo
-     * @unitTest
      */
     public static function isPlugin(string $name): bool
     {

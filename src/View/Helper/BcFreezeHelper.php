@@ -40,7 +40,6 @@ class BcFreezeHelper extends BcFormHelper
      * @return void
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function freeze()
     {
@@ -57,7 +56,6 @@ class BcFreezeHelper extends BcFormHelper
      * @return string htmlタグ
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function text(string $fieldName, array $options = []): string
     {
@@ -93,7 +91,6 @@ class BcFreezeHelper extends BcFormHelper
      * @return string htmlタグ
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function select(string $fieldName, iterable $options = [], array $attributes = []): string
     {
@@ -315,9 +312,8 @@ class BcFreezeHelper extends BcFormHelper
      * @return string htmlタグ
      * @checked
      * @noTodo
-     * @unitTest
      */
-    public function checkbox(string $fieldName, array $options = []): array|string
+    public function checkbox($fieldName, $options = [])
     {
         if ($this->freezed) {
             $label = '';
@@ -339,7 +335,6 @@ class BcFreezeHelper extends BcFormHelper
      * @return string htmlタグ
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function textarea($fieldName, $options = []): string
     {
@@ -374,7 +369,6 @@ class BcFreezeHelper extends BcFormHelper
      * @return string htmlタグ
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function radio($fieldName, $options = [], $attributes = []): string
     {
@@ -480,7 +474,6 @@ class BcFreezeHelper extends BcFormHelper
      * @return string htmlタグ
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function tel($fieldName, $attributes = [])
     {
@@ -504,7 +497,6 @@ class BcFreezeHelper extends BcFormHelper
      * @return    string    htmlタグ
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function email($fieldName, $options = [])
     {
@@ -528,7 +520,6 @@ class BcFreezeHelper extends BcFormHelper
      * @return    string    htmlタグ
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function number($fieldName, $options = [])
     {
@@ -553,7 +544,6 @@ class BcFreezeHelper extends BcFormHelper
      * @return    string    htmlタグ
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function password($fieldName, $options = [])
     {
@@ -563,7 +553,7 @@ class BcFreezeHelper extends BcFormHelper
             } else {
                 $value = $this->getSourceValue($fieldName);
             }
-            $value = $value !== null ? preg_replace('/./', '*', $value) : '';
+            $value = preg_replace('/./', '*', $value);
             return parent::hidden($fieldName, $options) . h($value);
         } else {
             return parent::password($fieldName, $options);
@@ -579,7 +569,6 @@ class BcFreezeHelper extends BcFormHelper
      * @return string html
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function datepicker($fieldName, $options = [])
     {

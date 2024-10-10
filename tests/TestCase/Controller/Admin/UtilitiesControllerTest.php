@@ -18,9 +18,9 @@ use BaserCore\Service\UtilitiesService;
 use BaserCore\Test\Factory\ContentFactory;
 use BaserCore\Test\Factory\SiteFactory;
 use BaserCore\Test\Scenario\InitAppScenario;
-use BaserCore\Utility\BcFile;
-use BaserCore\Utility\BcFolder;
 use Cake\Datasource\ConnectionManager;
+use Cake\Filesystem\File;
+use Cake\Filesystem\Folder;
 use Cake\TestSuite\IntegrationTestTrait;
 use BaserCore\TestSuite\BcTestCase;
 use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
@@ -81,9 +81,10 @@ class UtilitiesControllerTest extends BcTestCase
         // <<<
 
         // ログが存在しないテスト
-        $logsFolder = new BcFolder(LOGS);
+        $logsFolder = new Folder(LOGS);
         $backupPath = ROOT . DS . 'logsBackup' . DS;
-        $logsFolder->move($backupPath); // 念の為ログフォルダをバックアップする
+        $logsFolder->copy($backupPath); // 念の為ログフォルダをバックアップする
+        $logsFolder->delete();
         $this->get('/baser/admin/baser-core/utilities/log_maintenance/download');
         // ステータスを確認
         $this->assertResponseCode(302);
@@ -96,15 +97,16 @@ class UtilitiesControllerTest extends BcTestCase
         ]);
         // ログが存在しない場合のメッセージを確認
         $this->assertFlashMessage("エラーログが存在しません。");
-        $backupFolder = new BcFolder($backupPath);
-        $backupFolder->move( LOGS); // ログフォルダのファイルを復元する
+        $backupFolder = new Folder($backupPath);
+        $backupFolder->copy(LOGS); // ログフォルダのファイルを復元する
+        $backupFolder->delete(); // バックアップフォルダを削除する
         // ---- 引数 $mode が download の場合 end ----
 
         // ---- 引数 $mode が delete の場合 start ----
         // 削除が成功のテスト
         $logPath = LOGS . 'error.log';
         if (!file_exists($logPath)) {
-            (new BcFile($logPath))->create();
+            new File($logPath, true);
         }
         $this->post('/baser/admin/baser-core/utilities/log_maintenance/delete');
         // ステータスを確認

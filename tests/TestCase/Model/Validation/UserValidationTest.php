@@ -12,12 +12,7 @@
 namespace BaserCore\Test\TestCase\Model\Validation;
 
 use BaserCore\Model\Validation\UserValidation;
-use BaserCore\Test\Scenario\InitAppScenario;
-use BaserCore\Test\Scenario\UserGroupsScenario;
-use BaserCore\Test\Scenario\UserScenario;
-use BaserCore\Test\Scenario\UsersUserGroupsScenario;
 use BaserCore\TestSuite\BcTestCase;
-use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * Class UserValidationTest
@@ -27,9 +22,16 @@ class UserValidationTest extends BcTestCase
 {
 
     /**
-     * ScenarioAwareTrait
+     * Fixtures
+     *
+     * @var array
      */
-    use ScenarioAwareTrait;
+    protected $fixtures = [
+        'plugin.BaserCore.Users',
+        'plugin.BaserCore.UsersUserGroups',
+        'plugin.BaserCore.UserGroups',
+        'plugin.BaserCore.LoginStores',
+    ];
 
     /**
      * Test subject
@@ -70,16 +72,13 @@ class UserValidationTest extends BcTestCase
      */
     public function testWillChangeSelfGroup($userId, $value, $expected)
     {
-        $this->loadFixtureScenario(UserScenario::class);
-        $this->loadFixtureScenario(UserGroupsScenario::class);
-        $this->loadFixtureScenario(UsersUserGroupsScenario::class);
         if($userId) {
             $this->loginAdmin($this->getRequest(), $userId);
         }
         $result = $this->UserValidation->willChangeSelfGroup($value, ['data' => ['id' => '2', 'login_user_id' => $userId]]);
         $this->assertEquals($expected, $result);
     }
-    public static function willChangeSelfGroupDataProvider()
+    public function willChangeSelfGroupDataProvider()
     {
         return [
             [1, ['_ids' => [2]], true],

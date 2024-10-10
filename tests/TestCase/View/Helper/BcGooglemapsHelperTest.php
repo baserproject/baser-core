@@ -1,4 +1,6 @@
 <?php
+// TODO ucmitz  : コード確認要
+return;
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
  * Copyright (c) baserCMS Users Community <https://basercms.net/community/>
@@ -9,37 +11,36 @@
  * @license         https://basercms.net/license/index.html
  */
 
-namespace BaserCore\Test\TestCase\View\Helper;
-
-use BaserCore\TestSuite\BcTestCase;
-use BaserCore\View\Helper\BcGoogleMapsHelper;
-use BaserCore\View\Helper\BcTextHelper;
+App::uses('View', 'View');
+App::uses('BcGooglemapsHelper', 'View/Helper');
+App::uses('Component', 'Controller');
 
 /**
  * text helper library.
  *
  * @property BcTextHelper $Helper
- * @property BcGoogleMapsHelper $BcGooglemaps
+ * @property BcGooglemapsHelper $BcGooglemaps
  */
 class BcGooglemapsHelperTest extends BcTestCase
 {
 
     /**
-     * set up
+     * Fixtures
+     * @var array
      */
-    public function setUp(): void
+    public $fixtures = [
+        'baser.Default.Site',
+        'baser.Default.SiteConfig'
+    ];
+
+    public function setUp()
     {
         parent::setUp();
-//        $View = new View();
-//        $this->BcGooglemaps = new BcGooglemapsHelper($View);
+        $View = new View();
+        $this->BcGooglemaps = new BcGooglemapsHelper($View);
     }
 
-    /**
-     * tearDown
-     *
-     * @return void
-     */
-    public function tearDown(): void
+    public function tearDown()
     {
         unset($this->BcGooglemaps);
         parent::tearDown();
@@ -77,7 +78,7 @@ class BcGooglemapsHelperTest extends BcTestCase
 
     }
 
-//	public static function loadDataProvider()
+//	public function loadDataProvider()
 //	{
 //		return [
 //			['福岡', null, null, '<div id="map">'],

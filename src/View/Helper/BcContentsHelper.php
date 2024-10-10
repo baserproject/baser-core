@@ -40,9 +40,7 @@ use BaserCore\Annotation\Doc;
  * @property ContentsTable $_Contents
  * @property PermissionsService $PermissionsService
  * @property ContentsServiceInterface|ContentsService $ContentsService
- * @property Helper\UrlHelper $Url
  */
-#[\AllowDynamicProperties]
 class BcContentsHelper extends Helper
 {
 
@@ -58,10 +56,7 @@ class BcContentsHelper extends Helper
      *
      * @var array
      */
-    public array $helpers = [
-        'BaserCore.BcBaser',
-        'Url'
-    ];
+    public $helpers = ['BcBaser'];
 
     /**
      * initialize
@@ -205,7 +200,7 @@ class BcContentsHelper extends Helper
                 }
             }
         }
-        $contents = $this->_Contents->find('all', ...['withDeleted'])->select(['plugin', 'type', 'title'])->where([$conditions]);
+        $contents = $this->_Contents->find('all', ['withDeleted'])->select(['plugin', 'type', 'title'])->where([$conditions]);
         $existContents = [];
         foreach($contents as $content) {
             $existContents[$content->plugin . '.' . $content->type] = $content->title;
@@ -218,7 +213,6 @@ class BcContentsHelper extends Helper
      * @return string
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function getJsonItems()
     {
@@ -301,14 +295,14 @@ class BcContentsHelper extends Helper
             $conditions['Contents.level <'] = $level;
         }
         if (!empty($options['type'])) {
-            $conditions['Contents.type IN'] = ['ContentFolder', $options['type']];
+            $conditions['Contents.type'] = ['ContentFolder', $options['type']];
         }
         if (!empty($options['conditions'])) {
             $conditions = array_merge($conditions, $options['conditions']);
         }
         // CAUTION CakePHP2系では、fields を指定すると正常なデータが取得できない
         return $this->_Contents->find('threaded')
-            ->orderBy($options['order'])
+            ->order($options['order'])
             ->where($conditions)->all();
     }
 
@@ -335,7 +329,7 @@ class BcContentsHelper extends Helper
         }
         $siteId = $this->_Contents->find()->where(['Contents.id' => $id])->first()->site_id;
         if ($direct) {
-            $parents = $this->_Contents->find('path', for: $id)->all()->toArray();
+            $parents = $this->_Contents->find('path', ['for' => $id])->all()->toArray();
             if (!isset($parents[count($parents) - 2])) return false;
             $parent = $parents[count($parents) - 2];
             if ($parent->site_id === $siteId) {
@@ -344,7 +338,7 @@ class BcContentsHelper extends Helper
                 return false;
             }
         } else {
-            $parents = $this->_Contents->find('path', for: $id)->all()->toArray();
+            $parents = $this->_Contents->find('path', ['for' => $id])->all()->toArray();
             if ($parents) {
                 $result = [];
                 foreach($parents as $parent) {
@@ -533,7 +527,7 @@ class BcContentsHelper extends Helper
      */
     private function _getContent($conditions, $field = null)
     {
-        $content = $this->_Contents->find()->where($conditions)->orderBy(['Contents.id'])->first();
+        $content = $this->_Contents->find()->where($conditions)->order(['Contents.id'])->first();
         if (!empty($content)) {
             if ($field) {
                 return $content->{$field};
@@ -556,7 +550,7 @@ class BcContentsHelper extends Helper
      */
     public function isParentId($id, $parentId)
     {
-        $parentIds = $this->_Contents->find('treeList', valuePath: 'id')->where(['id' => $id])->all()->toArray();
+        $parentIds = $this->_Contents->find('treeList', ['valuePath' => 'id'])->where(['id' => $id])->all()->toArray();
         if (!$parentIds) {
             return false;
         }
@@ -572,7 +566,6 @@ class BcContentsHelper extends Helper
      * @return bool
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function isFolder()
     {
@@ -589,7 +582,6 @@ class BcContentsHelper extends Helper
      * @return Content
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function getSiteRoot($siteId)
     {
@@ -632,11 +624,7 @@ class BcContentsHelper extends Helper
      */
     public function getUrl($url, $full = false, $useSubDomain = false, $base = false)
     {
-        if(BcUtil::isInstalled()) {
-            return $this->ContentsService->getUrl($url, $full, $useSubDomain, $base);
-        } else {
-            return $this->Url->build($url, ['fullBase' => $full]);
-        }
+        return $this->ContentsService->getUrl($url, $full, $useSubDomain, $base);
     }
 
     /**

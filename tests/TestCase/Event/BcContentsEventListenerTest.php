@@ -12,13 +12,10 @@
 namespace BaserCore\Test\TestCase\Event;
 
 use BaserCore\Model\Entity\Page;
-use BaserCore\Test\Scenario\InitAppScenario;
-use BaserCore\Test\Scenario\SmallSetContentFoldersScenario;
 use Cake\Event\Event;
 use BaserCore\View\BcAdminAppView;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Event\BcContentsEventListener;
-use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * Class BcContentsEventListenerTest
@@ -27,10 +24,20 @@ use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
  */
 class BcContentsEventListenerTest extends BcTestCase
 {
+
     /**
-     * ScenarioAwareTrait
+     * Fixtures
+     *
+     * @var array
      */
-    use ScenarioAwareTrait;
+    public $fixtures = [
+        'plugin.BaserCore.Users',
+        'plugin.BaserCore.UsersUserGroups',
+        'plugin.BaserCore.UserGroups',
+        'plugin.BaserCore.Contents',
+        'plugin.BaserCore.ContentFolders',
+        'plugin.BaserCore.Sites',
+    ];
 
     /**
      * set up
@@ -40,8 +47,6 @@ class BcContentsEventListenerTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
-        $this->loadFixtureScenario(InitAppScenario::class);
-        $this->loadFixtureScenario(SmallSetContentFoldersScenario::class);
         $this->BcContentsEventListener = new BcContentsEventListener('page');
         $BcAdminAppView = new BcAdminAppView($this->getRequest('/baser/admin'));
         $this->BcAdminAppView = $BcAdminAppView->setPlugin("BcAdminThird");

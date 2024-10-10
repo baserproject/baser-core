@@ -30,7 +30,7 @@ class SuspendedUsersScenario implements FixtureScenarioInterface
      * @param ...$args
      * @return \BaserCore\Model\Entity\User|\BaserCore\Model\Entity\User[]|mixed|void
      */
-    public function load($n = 1, ...$args): mixed
+    public function load($n = 1, ...$args)
     {
         return UserFactory::make($n)->suspended()->persist();
     }

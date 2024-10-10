@@ -66,7 +66,7 @@ return [
      * エラー構成
      */
     'Error' => [
-        'errorLevel' => E_ALL,
+        'errorLevel' => E_ALL & ~E_USER_DEPRECATED,
         'exceptionRenderer' => BcExceptionRenderer::class,
     ],
 
@@ -157,6 +157,10 @@ return [
          * サイトURL
          */
         'siteUrl' => env('SITE_URL', 'https://localhost/'),
+        /**
+         * SSL URL
+         */
+        'sslUrl' => env('SSL_URL', 'https://localhost/'),
         /**
          * CMS URL
          * CMSのURLが別ドメインの場合に設定する
@@ -283,13 +287,18 @@ return [
             'BcMail',
             'BcThemeConfig',
             'BcWidgetArea',
-            'BcUploader',
         ],
 
         /**
          * コアのリリース情報を取得するためのURL
          */
         'coreReleaseUrl' => 'https://packagist.org/feeds/package.baserproject/baser-core.rss',
+
+        /**
+         * インストール時に composer.json にセットするバージョン
+         * @see \BaserCore\Command\CreateReleaseCommand::setupComposer()
+         */
+        'setupVersion' => '5.0.*',
 
         /**
          * リリースパッケージに不要なファイル
@@ -299,6 +308,7 @@ return [
             '.git',
             '.github',
             '__assets',
+            'docker',
             'tests',
             '.editorconfig',
             '.gitattributes',
@@ -306,8 +316,7 @@ return [
             'monorepo-builder.php',
             'phpdoc.dist.xml'.
             'phpstan.neon',
-            'phpunit.xml.dist',
-            'phpdoc.dist.xml'
+            'phpunit.xml.dist'
         ],
 
         /**
@@ -323,9 +332,9 @@ return [
         'passwordRequestAllowTime' => 1440,
 
         /**
-         * 二段階認証コードの有効時間(min)
+         * 管理画面のSSL
          */
-        'twoFactorAuthenticationCodeAllowTime' => 10,
+        'adminSsl' => filter_var(env('ADMIN_SSL', true), FILTER_VALIDATE_BOOLEAN),
 
         /**
          * エディタ
@@ -406,11 +415,6 @@ return [
          * 例: 'test/' と記載 → https://basercms.net/s/test/ は s が付かなくなる
          */
         'excludeListAddPrefix' => [],
-
-        /**
-         * /config/routes.php を有効化するかどうか
-         */
-        'enableRootRoutes' => false,
 
         /**
          * システムナビ
@@ -540,26 +544,7 @@ return [
                     ]
                 ]
             ]
-        ],
-
-        /*
-         * パスワードの設定ルール
-         */
-        'passwordRule' => [
-            // 最小文字数
-            'minLength' => 12,
-            // 入力必須な文字種
-            'requiredCharacterTypes' => [
-                // 数字
-                'numeric',
-                // 大文字英字
-                'uppercase',
-                // 小文字英字
-                'lowercase',
-                // 記号
-                // 'symbol',
-            ],
-        ],
+        ]
     ],
 
     /**
@@ -569,13 +554,11 @@ return [
         'defaultAllows' => [
             '/baser/admin',
             '/baser/admin/baser-core/users/login',
-            '/baser/admin/baser-core/users/login_code',
             '/baser/admin/baser-core/users/logout',
             '/baser/admin/baser-core/password_requests/*',
             '/baser/admin/baser-core/dashboard/*',
             '/baser/admin/baser-core/dblogs/*',
             '/baser/admin/baser-core/users/back_agent',
-            '/baser/admin/baser-core/users/edit_password',
             '/baser/admin/baser-core/preview/*',
             '/baser/admin/baser-core/utilities/credit',
             '/',

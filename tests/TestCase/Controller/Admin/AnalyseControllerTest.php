@@ -11,13 +11,9 @@
 
 namespace BaserCore\Test\TestCase\Controller\Admin;
 
-use BaserCore\Test\Scenario\SiteConfigsScenario;
-use BaserCore\Test\Scenario\SitesScenario;
 use Cake\Core\Plugin as CakePlugin;
 use Cake\TestSuite\IntegrationTestTrait;
 use BaserCore\TestSuite\BcTestCase;
-use Cake\View\JsonView;
-use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 use ReflectionClass;
 use BaserCore\Controller\AnalyseController;
 
@@ -27,7 +23,16 @@ use BaserCore\Controller\AnalyseController;
 class AnalyseControllerTest extends BcTestCase
 {
     use IntegrationTestTrait;
-    use ScenarioAwareTrait;
+
+    /**
+     * Fixtures
+     *
+     * @var array
+     */
+    protected $fixtures = [
+        'plugin.BaserCore.Sites',
+        'plugin.BaserCore.SiteConfigs'
+    ];
 
     /**
      * set up
@@ -35,8 +40,6 @@ class AnalyseControllerTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
-        $this->loadFixtureScenario(SiteConfigsScenario::class);
-        $this->loadFixtureScenario(SitesScenario::class);
         $this->Controller = new AnalyseController($this->getRequest());
     }
 
@@ -133,7 +136,7 @@ class AnalyseControllerTest extends BcTestCase
         $this->assertEquals($result, $expected);
     }
 
-    public static function pathToClassDataProvider()
+    public function pathToClassDataProvider()
     {
         return [
             // rootを取り除く
@@ -155,17 +158,5 @@ class AnalyseControllerTest extends BcTestCase
             // 全体
             [ROOT . DS . "plugins/baser-core/src/tests/TestSample/test.php", "\BaserCore\Test\TestSample\\test"],
         ];
-    }
-
-    /**
-     * Test viewClasses
-     *
-     */
-    public function testViewClasses()
-    {
-        $result = $this->Controller->viewClasses();
-        $this->assertIsArray($result);
-
-        $this->assertEquals([JsonView::class], $result);
     }
 }

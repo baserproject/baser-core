@@ -24,7 +24,6 @@ use Cake\View\Helper\UrlHelper;
  * @property UrlHelper $Url
  * @property BreadcrumbsHelper $Breadcrumbs
  */
-#[\AllowDynamicProperties]
 class BcHtmlHelper extends HtmlHelper
 {
 
@@ -41,10 +40,7 @@ class BcHtmlHelper extends HtmlHelper
      *
      * @var array
      */
-    public array $helpers = [
-        'Url',
-        'Breadcrumbs'
-    ];
+    public $helpers = ['Url', 'Breadcrumbs'];
 
     /**
      * タグにラッピングされていないパンくずデータを取得する

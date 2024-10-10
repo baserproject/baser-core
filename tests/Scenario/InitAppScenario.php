@@ -33,11 +33,10 @@ class InitAppScenario implements FixtureScenarioInterface
     /**
      * load
      */
-    public function load(...$args): mixed
+    public function load(...$args)
     {
         SiteFactory::make()->main()->persist();
         UserFactory::make()->admin()->persist();
-        return null;
     }
 
 }

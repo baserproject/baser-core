@@ -25,7 +25,6 @@ use BaserCore\Annotation\Checked;
  *
  * @property BcBaserHelper $BcBaser
  */
-#[\AllowDynamicProperties]
 class BcGoogleMapsHelper extends Helper
 {
 
@@ -39,7 +38,7 @@ class BcGoogleMapsHelper extends Helper
      *
      * @var array
      */
-    public array $helpers = ['BaserCore.BcBaser'];
+    public $helpers = ['BcBaser'];
 
     /**
      * Google マップ を読み込む

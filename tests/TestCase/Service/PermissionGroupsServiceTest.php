@@ -266,15 +266,6 @@ class PermissionGroupsServiceTest extends BcTestCase
     }
 
     /**
-     * test getNew
-     */
-    public function test_getNew()
-    {
-        $rs = $this->PermissionGroups->getNew('admin');
-        $this->assertEquals('admin', $rs->type);
-    }
-
-    /**
      * Test getControlSource
      *
      * @return void

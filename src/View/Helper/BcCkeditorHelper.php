@@ -28,7 +28,6 @@ use Cake\View\Helper\UrlHelper;
  * @property BcHtmlHelper $BcHtml
  * @property UrlHelper $Url
  */
-#[\AllowDynamicProperties]
 class BcCkeditorHelper extends Helper
 {
     /**
@@ -40,12 +39,7 @@ class BcCkeditorHelper extends Helper
      * ヘルパー
      * @var array
      */
-    public array $helpers = [
-        'BaserCore.BcHtml',
-        'BaserCore.BcAdminForm',
-        'BaserCore.BcBaser',
-        'Url'
-    ];
+    public $helpers = ['BcHtml', 'BcAdminForm', 'Url', 'BcBaser'];
 
     /**
      * スクリプト
@@ -445,7 +439,6 @@ class BcCkeditorHelper extends Helper
      * フィールド名から Dom ID を生成する
      * @param string $field
      * @return string
-     * @unitTest
      */
     public function createDomId(string $field): string
     {

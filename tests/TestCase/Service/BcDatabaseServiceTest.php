@@ -26,16 +26,16 @@ use BaserCore\Test\Factory\UsersUserGroupFactory;
 use BaserCore\Test\Scenario\SmallSetContentFoldersScenario;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Utility\BcContainerTrait;
-use BaserCore\Utility\BcFile;
-use BaserCore\Utility\BcFolder;
 use BaserCore\Utility\BcUtil;
 use Cake\Cache\Cache;
 use Cake\Core\Configure;
 use Cake\Database\Driver\Mysql;
 use Cake\Database\Driver\Postgres;
 use Cake\Database\Driver\Sqlite;
+use Cake\Filesystem\Folder;
 use Cake\ORM\TableRegistry;
 use Cake\TestSuite\IntegrationTestTrait;
+use Cake\Filesystem\File;
 use Cake\Utility\Inflector;
 use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 use Migrations\Migrations;
@@ -73,25 +73,6 @@ class BcDatabaseServiceTest extends BcTestCase
     public function tearDown(): void
     {
         parent::tearDown();
-    }
-
-    /**
-     * test __construct
-     */
-    public function test__construct()
-    {
-        $option = [
-            'adapter' => 'mysql',
-            'host' => 'bc-db',
-            'user' => 'root',
-            'pass' => 'root',
-            'port' => '3306',
-            'name' => 'test_basercms',
-            'charset' => 'utf8mb4',
-            'unix_socket' => null,
-        ];
-        $adapter = $this->BcDatabaseService->_adapter->getAdapter();
-        $this->assertEquals($option, $adapter->getOptions());
     }
 
     /**
@@ -283,8 +264,7 @@ class BcDatabaseServiceTest extends BcTestCase
         // csvフォルダーを作成する
         $csvFolder = TMP . 'csv' . DS;
         if (!is_dir($csvFolder)) {
-            $csv = new BcFolder($csvFolder);
-            $csv->create();
+            new Folder($csvFolder, true, 0777);
         }
         // csvファイルを作成する
         $table = 'pages';
@@ -357,7 +337,7 @@ class BcDatabaseServiceTest extends BcTestCase
         $this->assertEquals('メインサイト', $rs[0]['title']);
         $this->assertTrue(mb_check_encoding($rs[0]['title'], 'UTF-8'));
 
-        $file = new BcFile($path);
+        $file = new File($path);
         $file->delete();
     }
 
@@ -446,9 +426,9 @@ class BcDatabaseServiceTest extends BcTestCase
             $this->execPrivateMethod($this->BcDatabaseService, '_loadDefaultDataPattern', [$pattern, $theme]);
             $path = BcUtil::getDefaultDataPath($theme, $pattern);
             $this->assertNotNull($path);
-            $Folder = new BcFolder($path . DS . $plugin);
-            $files = $Folder->getFiles(['full'=>true]);
-            $csvList = $files;
+            $Folder = new Folder($path . DS . $plugin);
+            $files = $Folder->read(true, true, true);
+            $csvList = $files[1];
             foreach ($csvList as $path) {
                 $table = basename($path, '.csv');
                 if (!in_array($table, $tableList)) continue;
@@ -487,7 +467,7 @@ class BcDatabaseServiceTest extends BcTestCase
         $this->assertEquals($expected, $rs);
     }
 
-    public static function convertFieldToCsvDataProvider()
+    public function convertFieldToCsvDataProvider()
     {
         return [
             ['test', '"test"'],
@@ -561,7 +541,7 @@ class BcDatabaseServiceTest extends BcTestCase
         $this->assertEquals('', $rs[0]['modified']);
         $this->assertEquals('', $rs[0]['created']);
 
-        $file = new BcFile($path);
+        $file = new File($path);
         $file->delete();
     }
     /**
@@ -576,7 +556,7 @@ class BcDatabaseServiceTest extends BcTestCase
         $this->assertEquals($expected, $rs);
     }
 
-    public static function dbEncToPhpDataProvider()
+    public function dbEncToPhpDataProvider()
     {
         return [
             ['utf8', 'UTF-8'],
@@ -607,7 +587,7 @@ class BcDatabaseServiceTest extends BcTestCase
         $this->assertEquals($expected, $rs);
     }
 
-    public static function phpEncToDbDataProvider()
+    public function phpEncToDbDataProvider()
     {
         return [
             ['UTF-8', 'utf8'],
@@ -623,7 +603,7 @@ class BcDatabaseServiceTest extends BcTestCase
     {
         $path = TMP . 'schema' . DS;
         $fileName = 'UserActionsSchema.php';
-        $schemaFile = new BcFile($path . $fileName, true);
+        $schemaFile = new File($path . $fileName, true);
         $table = 'user_actions';
         // スキーマファイルを生成
         $schemaFile->write("<?php
@@ -674,7 +654,7 @@ class UserActionsSchema extends BcSchema
         $this->assertEquals($this->BcDatabaseService->getDatasourceName($value), $expected);
     }
 
-    public static function getDatasourceNameDataProvider()
+    public function getDatasourceNameDataProvider()
     {
         return [
             ['postgres', Postgres::class],
@@ -694,7 +674,7 @@ class UserActionsSchema extends BcSchema
         ]);
         $expectedFile = TMP . 'schema/UsersSchema.php';
         $this->assertFileExists($expectedFile);
-        $file = new BcFile($expectedFile);
+        $file = new File($expectedFile);
         $file->delete();
     }
 
@@ -721,7 +701,7 @@ class UserActionsSchema extends BcSchema
 
         // 接続できていること
         $this->assertNotEmpty($db);
-        $this->assertTrue($db->getDriver()->isConnected());
+        $this->assertTrue($db->isConnected());
     }
 
     /**
@@ -959,81 +939,5 @@ SQLSTATE[HY000] [2002] php_network_getaddresses: getaddrinfo for test failed: ')
         // テーブル存在のチェック
         $result = $this->BcDatabaseService->tableExists($table);
         $this->assertFalse($result, 'テーブルが存在しないこと');
-    }
-
-
-    /**
-     * Test getSequence
-     */
-    public function test_getSequence()
-    {
-        //default value field
-        $result = $this->BcDatabaseService->getSequence('test');
-        $this->assertEquals('test_id_seq', $result);
-
-        //specific value field
-        $result = $this->BcDatabaseService->getSequence('orders', 'order_number');
-        $this->assertEquals('orders_order_number_seq', $result);
-
-        //table and field different
-        $result = $this->BcDatabaseService->getSequence('products', 'product_code');
-        $this->assertEquals('products_product_code_seq', $result);
-    }
-
-    /**
-     * Test renameTable
-     */
-    public function test_renameTable()
-    {
-        // create table
-        $table = 'table_test_create';
-        $columns = [
-            'no' => ['type' => 'integer'],
-            'contents' => ['type' => 'text'],
-        ];
-
-        $result = $this->BcDatabaseService->createTable($table, $columns);
-        $this->assertTrue($result);
-
-        // rename table
-        $newTable = 'table_test_rename';
-        $result = $this->BcDatabaseService->renameTable($table, $newTable);
-        $this->assertTrue($result);
-
-        // check exist
-        $result = $this->BcDatabaseService->tableExists($newTable);
-        $this->assertTrue($result);
-
-        // drop table
-        $this->BcDatabaseService->dropTable($newTable);
-    }
-
-
-    /**
-     * Test columnExists
-     */
-    public function test_columnExists()
-    {
-        // create table
-        $table = 'table_test_column_exist';
-        $columns = [
-            'contents' => ['type' => 'text'],
-        ];
-        $this->BcDatabaseService->createTable($table, $columns);
-
-        //check table exist
-        $result = $this->BcDatabaseService->tableExists($table);
-        $this->assertTrue($result);
-
-        //check column exist
-        $result = $this->BcDatabaseService->columnExists($table, 'contents');
-        $this->assertTrue($result);
-
-        //check column not exist
-        $result = $this->BcDatabaseService->columnExists($table, 'new_column');
-        $this->assertFalse($result);
-
-        // drop table
-        $this->BcDatabaseService->dropTable($table);
     }
 }

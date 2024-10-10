@@ -44,7 +44,7 @@ class BcAdminApiController extends BcApiController
     {
         parent::initialize();
         $this->loadComponent('Authentication.Authentication');
-        $this->FormProtection->setConfig('validate', false);
+        $this->Security->setConfig('validatePost', false);
     }
 
     /**

@@ -14,6 +14,7 @@ namespace BaserCore\Model\Table;
 use BaserCore\Utility\BcUtil;
 use Cake\ORM\Association\BelongsToMany;
 use Cake\ORM\Table;
+use Cake\I18n\FrozenTime;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
 use BaserCore\Annotation\UnitTest;
@@ -81,7 +82,6 @@ class AppTable extends Table
      * @return string
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function getTable(): string
     {
@@ -99,7 +99,6 @@ class AppTable extends Table
      * @return BelongsToMany
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function belongsToMany(string $associated, array $options = []): BelongsToMany
     {
@@ -125,7 +124,6 @@ class AppTable extends Table
      * @return string
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function addPrefix($table)
     {
@@ -152,7 +150,7 @@ class AppTable extends Table
     public function initialize(array $config): void
     {
         parent::initialize($config);
-        \Cake\I18n\DateTime::setToStringFormat('yyyy-MM-dd HH:mm:ss');
+        FrozenTime::setToStringFormat('yyyy-MM-dd HH:mm:ss');
     }
 
     /**
@@ -165,7 +163,6 @@ class AppTable extends Table
      * @return string 変換後文字列
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function replaceText($str)
     {
@@ -281,7 +278,6 @@ class AppTable extends Table
      * @return boolean
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function sortdown($id, $conditions)
     {
@@ -299,7 +295,6 @@ class AppTable extends Table
      * @return boolean
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function changeSort($id, $offset, $options = [])
     {
@@ -328,7 +323,7 @@ class AppTable extends Table
         $result = $this->find()
             ->where($conditions)
             ->select(["id", $options['sortFieldName']])
-            ->orderBy($order)
+            ->order($order)
             ->limit(abs($offset) + 1)
             ->all();
 
@@ -427,7 +422,9 @@ class AppTable extends Table
         if (!isset($this->tmpEvents[$eventKey])) return;
         $eventManager = $this->getEventManager();
         foreach($this->tmpEvents[$eventKey] as $listener) {
-            $eventManager->on($eventKey, [], $listener['callable']);
+            if (get_class($listener['callable'][0]) !== 'BaserCore\Event\BcModelEventDispatcher') {
+                $eventManager->on($eventKey, [], $listener['callable']);
+            }
         }
         unset($this->tmpEvents[$eventKey]);
     }

@@ -25,6 +25,8 @@ use BaserCore\Service\PermissionsServiceInterface;
 use BaserCore\Utility\BcContainerTrait;
 use BaserCore\Utility\BcSiteConfig;
 use BaserCore\Utility\BcUtil;
+use Cake\Controller\Component\PaginatorComponent;
+use Cake\Controller\Component\SecurityComponent;
 use Cake\Controller\ComponentRegistry;
 use Cake\Core\Configure;
 use Cake\Event\EventInterface;
@@ -34,7 +36,6 @@ use Cake\Http\Exception\ForbiddenException;
 use Cake\Http\Exception\NotFoundException;
 use Cake\Http\Response;
 use Cake\Http\ServerRequest;
-use Cake\Routing\Router;
 use Cake\Utility\Hash;
 use Cake\Utility\Inflector;
 use Psr\Http\Message\ResponseInterface;
@@ -42,6 +43,8 @@ use Psr\Http\Message\ResponseInterface;
 /**
  * Class AppController
  * @property BcMessageComponent $BcMessage
+ * @property SecurityComponent $Security
+ * @property PaginatorComponent $Paginator
  * @property AuthenticationComponent $Authentication
  */
 class AppController extends BaseController
@@ -73,9 +76,6 @@ class AppController extends BaseController
     )
     {
         parent::__construct($request, $response, $name, $eventManager, $components);
-
-        // CSRFトークンの場合は高速化のためここで処理を終了
-        if(!$request->is('requestview')) return;
 
         $request->getSession()->start();
 
@@ -120,12 +120,11 @@ class AppController extends BaseController
     {
         parent::initialize();
         $this->loadComponent('BaserCore.BcMessage');
-        $this->loadComponent('FormProtection', [
-            'unlockedFields' => ['x', 'y', 'MAX_FILE_SIZE'],
-            'validationFailureCallback' => function (BadRequestException $exception) {
-                $message = __d('baser_core', "不正なリクエストと判断されました\nもしくは、システムが受信できるデータ上限より大きなデータが送信された可能性があります。") . "\n" . $exception->getMessage();
-                throw new BadRequestException($message);
-            }
+        $this->loadComponent('Security', [
+            'blackHoleCallback' => '_blackHoleCallback',
+            'validatePost' => true,
+            'requireSecure' => false,
+            'unlockedFields' => ['x', 'y', 'MAX_FILE_SIZE']
         ]);
     }
 
@@ -173,10 +172,15 @@ class AppController extends BaseController
                     } else {
                         $this->BcMessage->setError(__d('baser_core', '実行した操作は許可されていません。'));
                     }
-                    $url = Configure::read("BcPrefixAuth.{$prefix}.loginRedirect");
+                }
+                // リファラが存在する場合はリファラにリダイレクトする
+                // $this->referer() で判定した場合、リファラがなくてもトップのURLが返却されるため ServerRequest で判定
+                if ($this->getRequest()->getEnv('HTTP_REFERER') &&
+                    $this->getRequest()->getAttribute('here') !== $this->referer()
+                ) {
+                    $url = $this->referer();
                 } else {
-                    $url = Router::url(Configure::read("BcPrefixAuth.{$prefix}.loginAction"))
-                        . '?redirect=' . urlencode(Router::url());
+                    $url = Configure::read("BcPrefixAuth.{$prefix}.loginRedirect");
                 }
                 return $this->redirect($url);
             }

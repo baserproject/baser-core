@@ -12,7 +12,6 @@
 namespace BaserCore\Controller\Admin;
 
 use BaserCore\Controller\Component\BcMessageComponent;
-use BaserCore\Service\Admin\PluginsAdminService;
 use BaserCore\Service\Admin\PluginsAdminServiceInterface;
 use BaserCore\Service\PluginsService;
 use BaserCore\Service\PluginsServiceInterface;
@@ -33,6 +32,19 @@ class PluginsController extends BcAdminAppController
 {
 
     /**
+     * initialize
+     * @throws \Exception
+     * @checked
+     * @unitTest
+     * @noTodo
+     */
+    public function initialize(): void
+    {
+        parent::initialize();
+        $this->loadComponent('RequestHandler');
+    }
+
+    /**
      * Before Filter
      * @param \Cake\Event\EventInterface $event An Event instance
      * @return Response|void
@@ -44,7 +56,7 @@ class PluginsController extends BcAdminAppController
     {
         $response = parent::beforeFilter($event);
         if($response) return $response;
-        $this->FormProtection->setConfig('unlockedActions', ['reset_db', 'update_sort', 'batch']);
+        $this->Security->setConfig('unlockedActions', ['reset_db', 'update_sort', 'batch']);
     }
 
     /**
@@ -93,8 +105,8 @@ class PluginsController extends BcAdminAppController
     }
 
 	/**
-	 * プラグインアップデート実行
-     * @param PluginsAdminServiceInterface|PluginsAdminService $service
+	 * アップデート実行
+     * @param PluginsService $service
      * @param string $name
      * @return void|Response
      * @checked
@@ -103,6 +115,7 @@ class PluginsController extends BcAdminAppController
 	 */
 	public function update(PluginsAdminServiceInterface $service, $name = '')
 	{
+        BcUtil::clearAllCache();
         $plugin = $this->Plugins->getPluginConfig($name);
         $this->set($service->getViewVarsForUpdate($plugin));
 
@@ -124,77 +137,30 @@ class PluginsController extends BcAdminAppController
 
         if (!$this->request->is(['put', 'post'])) return;
         try {
-            if($service->update($plugin->name, $this->request->getData('connection') ?? 'default')) {
-                $this->BcMessage->setInfo(__d('baser_core', 'アップデート処理が完了しました。画面下部のアップデートログを確認してください。'));
-            } else {
-                $this->BcMessage->setError(__d('baser_core', 'アップデート処理に失敗しました。画面下部のアップデートログを確認してください。'));
-            }
-        } catch (\Throwable $e) {
-            $this->BcMessage->setError(__d('baser_core', 'アップデート処理に失敗しました。画面下部のアップデートログを確認してください。') . $e->getMessage());
-        }
-        return $this->redirect(['action' => 'update', $name]);
-	}
-
-	/**
-	 * コアアップデート実行
-     * @param PluginsAdminServiceInterface|PluginsAdminService $service
-     * @param string $name
-     * @return void|Response
-     * @checked
-     * @noTodo
-	 */
-	public function update_core(PluginsAdminServiceInterface $service)
-	{
-        if (!$this->request->is(['put', 'post'])) return;
-        try {
-            $request = $this->getRequest();
-            $service->updateCore(
-                $request->getData('php')?? 'php',
-                $request->getData('connection') ?? 'default'
-            );
-            $this->BcMessage->setInfo(__d('baser_core', 'アップデート処理が完了しました。画面下部のアップデートログを確認してください。'));
-        } catch (\Throwable $e) {
-            $this->BcMessage->setError(__d('baser_core', 'アップデート処理に失敗しました。画面下部のアップデートログを確認してください。') . $e->getMessage());
-            try {
-                $service->rollbackCore(
+            if($plugin->name === 'BaserCore') {
+                $request = $this->getRequest();
+                $service->updateCore(
                     $request->getData('currentVersion'),
-                    $request->getData('php')
+                    $request->getData('targetVersion'),
+                    $request->getData('php'),
+                    $request->getData('connection') ?? 'default'
                 );
-                $this->BcMessage->setError(__d('baser_core', 'コアファイルを元に戻しました。'));
-            } catch (\Throwable $e) {
-                $this->BcMessage->setError($e->getMessage());
+                $this->BcMessage->setInfo(__d('baser_core', '全てのアップデート処理が完了しました。 {0} にログを出力しています。', LOGS . 'update.log'));
+                return $this->redirect(['action' => 'update']);
+            } else {
+                $service->update($plugin->name, $this->request->getData('connection') ?? 'default');
+                $this->BcMessage->setInfo(__d('baser_core', 'アップデート処理が完了しました。画面下部のアップデートログを確認してください。'));
+                return $this->redirect(['action' => 'update', $name]);
             }
-        }
-        return $this->redirect(['action' => 'update']);
-	}
-
-    /**
-     * コアアップデートを取得する
-     * @param PluginsAdminServiceInterface $service
-     * @return Response|null
-     * @checked
-     * @noTodo
-     * @unitTest
-     */
-	public function get_core_update(PluginsAdminServiceInterface $service)
-    {
-        if (!$this->request->is(['put', 'post'])) {
-            $this->BcMessage->setError(__d('baser_core', '無効な処理です。'));
-            return $this->redirect(['action' => 'update']);
-        }
-        $request = $this->getRequest();
-        try {
-            $service->getCoreUpdate(
-                $request->getData('targetVersion')?? '',
-                $request->getData('php')?? 'php',
-                $request->getData('force'),
-            );
-            $this->BcMessage->setSuccess(__d('baser_core', '最新版のダウンロードが完了しました。アップデートを実行してください。'));
         } catch (\Throwable $e) {
             $this->BcMessage->setError($e->getMessage());
+            if($plugin->name === 'BaserCore') {
+                return $this->redirect(['action' => 'update']);
+            } else {
+                return $this->redirect(['action' => 'update', $name]);
+            }
         }
-        return $this->redirect(['action' => 'update']);
-    }
+	}
 
     /**
      * 無効化
@@ -253,20 +219,13 @@ class PluginsController extends BcAdminAppController
      * POSTデータで、キー`file` を使って zipファイルを送信する。
      * 送信が完了したら一覧画面にリダイレクトする。
      *
-     * @param PluginsAdminServiceInterface|PluginsAdminService $service
+     * @param PluginsServiceInterface $service
      * @checked
      * @noTodo
      * @unitTest
      */
-    public function add(PluginsAdminServiceInterface $service)
+    public function add(PluginsServiceInterface $service)
     {
-        $this->set($service->getViewVarsForAdd());
-        if(!$service->isPluginsDirWritable()) {
-            $this->BcMessage->setError(
-                __d('baser_core', '{0} に書き込み権限がないためアップロードできません。管理者に問い合わせてください。', BASER_PLUGINS)
-            );
-            return;
-        }
         if ($this->request->is('post')) {
             try {
                 /* @var PluginsService $service */

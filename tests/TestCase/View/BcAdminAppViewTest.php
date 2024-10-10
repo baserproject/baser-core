@@ -11,15 +11,12 @@
 
 namespace BaserCore\Test\TestCase\View;
 
-use BaserCore\Test\Scenario\PluginsScenario;
-use BaserCore\Test\Scenario\SitesScenario;
 use BaserCore\TestSuite\BcTestCase;
-use BaserCore\Utility\BcFile;
-use BaserCore\Utility\BcFolder;
 use BaserCore\View\BcAdminAppView;
 use Cake\Core\Configure;
+use Cake\Filesystem\File;
+use Cake\Filesystem\Folder;
 use Cake\Utility\Inflector;
-use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 use ReflectionClass;
 
 /**
@@ -28,7 +25,16 @@ use ReflectionClass;
  */
 class BcAdminAppViewTest extends BcTestCase
 {
-    use ScenarioAwareTrait;
+
+    /**
+     * Fixtures
+     *
+     * @var array
+     */
+    protected $fixtures = [
+        'plugin.BaserCore.Plugins',
+        'plugin.BaserCore.Sites'
+    ];
 
     /**
      * setUp method
@@ -38,8 +44,6 @@ class BcAdminAppViewTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
-        $this->loadFixtureScenario(SitesScenario::class);
-        $this->loadFixtureScenario(PluginsScenario::class);
         $this->BcAdminAppView = new BcAdminAppView();
     }
 
@@ -87,9 +91,9 @@ class BcAdminAppViewTest extends BcTestCase
         $this->BcAdminAppView->setRequest($this->getRequest('/baser/admin/baser-core/users/index'));
         $pluginDir = ROOT . DS . 'plugins' . DS . $pluginName . DS;
         $templateDir = $pluginDir . 'templates' . DS . 'Admin' . DS . 'element' . DS;
-        $folder = new BcFolder($templateDir);
-        $folder->create();
-        $file = new BcFile($templateDir . 'sidebar.php');
+        $folder = new Folder();
+        $folder->create($templateDir);
+        $file = new File($templateDir . 'sidebar.php');
         $file->create();
         $plugins = $this->getTableLocator()->get('BaserCore.Plugins');
         $plugins->save(new \BaserCore\Model\Entity\Plugin([

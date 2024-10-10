@@ -212,6 +212,13 @@ q {}',
                 'modified' => ''
             ],
             [
+                'id' => '25',
+                'name' => 'contents_sort_last_modified',
+                'value' => '',
+                'created' => '',
+                'modified' => ''
+            ],
+            [
                 'id' => '26',
                 'name' => 'mail_additional_parameters',
                 'value' => '1',
@@ -236,27 +243,6 @@ q {}',
                 'id' => '29',
                 'name' => 'outer_service_output_footer',
                 'value' => '',
-                'created' => '',
-                'modified' => ''
-            ],
-            [
-                'id' => '30',
-                'name' => 'allow_simple_password',
-                'value' => '0',
-                'created' => '',
-                'modified' => ''
-            ],
-            [
-                'id' => '31',
-                'name' => 'password_reset_days',
-                'value' => '',
-                'created' => '',
-                'modified' => ''
-            ],
-            [
-                'id' => '32',
-                'name' => 'use_two_factor_authentication',
-                'value' => '0',
                 'created' => '',
                 'modified' => ''
             ],

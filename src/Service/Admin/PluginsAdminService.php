@@ -12,12 +12,11 @@
 namespace BaserCore\Service\Admin;
 
 use BaserCore\Service\PluginsService;
-use BaserCore\Utility\BcFile;
 use BaserCore\Utility\BcUtil;
-use Cake\Cache\Cache;
 use Cake\Core\Configure;
 use Cake\Core\Plugin as CakePlugin;
 use Cake\Datasource\EntityInterface;
+use Cake\Filesystem\File;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
 use BaserCore\Annotation\UnitTest;
@@ -61,27 +60,17 @@ class PluginsAdminService extends PluginsService implements PluginsAdminServiceI
         $dbVersion = BcUtil::getDbVersion($entity->name);
         BcUtil::includePluginClass($entity->name);
         $plugin = CakePlugin::getCollection()->create($entity->name);
-        $coreDownloaded = Cache::read('coreDownloaded', '_bc_update_');
+        $scriptNum = count($plugin->getUpdaters());
+        $scriptMessages = $plugin->getUpdateScriptMessages();
 
         if ($entity->name === 'BaserCore') {
-            $availableVersion = null;
-            $scriptNum = $scriptMessages = [];
-            if($coreDownloaded) {
-                $availableVersion = BcUtil::getVersion('BaserCore', true);
-                $scriptNum = count($plugin->getUpdaters('', true));
-                $scriptMessages = $plugin->getUpdateScriptMessages('', true);
-                $corePlugins = Configure::read('BcApp.corePlugins');
-                foreach($corePlugins as $corePlugin) {
-                    $scriptNum += count($plugin->getUpdaters($corePlugin, true));
-                    $scriptMessages += $plugin->getUpdateScriptMessages($corePlugin, true);
-                }
-            }
-            if(!$availableVersion) {
-                $availableVersion = $this->getAvailableCoreVersion();
+            $availableVersion = $this->getAvailableCoreVersion();
+            $corePlugins = Configure::read('BcApp.corePlugins');
+            foreach($corePlugins as $corePlugin) {
+                $scriptNum += count($plugin->getUpdaters($corePlugin));
+                $scriptMessages += $plugin->getUpdateScriptMessages($corePlugin);
             }
         } else {
-            $scriptNum = count($plugin->getUpdaters());
-            $scriptMessages = $plugin->getUpdateScriptMessages();
             $availableVersion = null;
         }
 
@@ -91,16 +80,7 @@ class PluginsAdminService extends PluginsService implements PluginsAdminServiceI
         $isWritableVendor = is_writable(ROOT . DS . 'vendor');
         $isWritableComposerJson = is_writable(ROOT . DS . 'composer.json');
         $isWritableComposerLock = is_writable(ROOT . DS . 'composer.lock');
-        $requireUpdate = $this->isRequireUpdate(
-            $programVersion,
-            $dbVersion,
-            $availableVersion
-        );
-        if($entity->name === 'BaserCore') {
-            $isUpdatable = ($requireUpdate && $isWritableVendor && $isWritableComposerJson && $isWritableComposerLock);
-        } else {
-            $isUpdatable = $requireUpdate;
-        }
+
         return [
             'plugin' => $entity,
             'scriptNum' => $scriptNum,
@@ -111,13 +91,17 @@ class PluginsAdminService extends PluginsService implements PluginsAdminServiceI
             'programVerPoint' => $programVerPoint,
             'availableVersion' => $availableVersion,
             'log' => $this->getUpdateLog(),
-            'coreDownloaded' => $coreDownloaded,
+            'requireUpdate' => $this->isRequireUpdate(
+                $programVersion,
+                $dbVersion,
+                $availableVersion,
+                $scriptNum
+            ),
             'php' => $this->whichPhp(),
-            'isCore' => $entity->name === 'BaserCore',
             'isWritableVendor' => $isWritableVendor,
             'isWritableComposerJson' => $isWritableComposerJson,
             'isWritableComposerLock' => $isWritableComposerLock,
-            'isUpdatable' => $isUpdatable
+            'isWritablePackage' => ($isWritableVendor && $isWritableComposerJson && $isWritableComposerLock)
         ];
     }
 
@@ -136,7 +120,7 @@ class PluginsAdminService extends PluginsService implements PluginsAdminServiceI
 
     /**
      * アップデートが必要がどうか
-     * DBのバージョンと利用可能なバージョンが違う場合に必要とする
+     *
      * @param string $programVersion
      * @param string $dbVersion
      * @param string $availableVersion
@@ -144,9 +128,8 @@ class PluginsAdminService extends PluginsService implements PluginsAdminServiceI
      * @return bool
      * @checked
      * @noTodo
-     * @unitTest
      */
-    public function isRequireUpdate(string $programVersion, ?string $dbVersion, ?string $availableVersion)
+    public function isRequireUpdate(string $programVersion, ?string $dbVersion, ?string $availableVersion, $scriptNum)
     {
         $programVerPoint = BcUtil::verpoint($programVersion);
         $dbVerPoint = BcUtil::verpoint($dbVersion);
@@ -157,16 +140,14 @@ class PluginsAdminService extends PluginsService implements PluginsAdminServiceI
         if ($programVerPoint === false || $dbVerPoint === false || $availableVerPoint === false) {
             return false;
         }
-
-        if(is_null($availableVersion)) {
-            // プラグインの場合 プログラムのバージョンを利用可能なバージョンとする
-            $availableVerPoint = $programVerPoint;
-        } else {
-            // コアの場合は、プログラムのバージョンとDBのバージョンが違う場合はアップデート不可
-            if ($programVerPoint !== $dbVerPoint) return false;
+        if ($availableVerPoint !== true) {
+            if ($availableVersion !== $programVersion) return true;
         }
-        if ($availableVerPoint > $dbVerPoint) return true;
-        return false;
+        if ($programVersion !== $dbVersion || $scriptNum) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
     /**
@@ -181,35 +162,10 @@ class PluginsAdminService extends PluginsService implements PluginsAdminServiceI
         $updateLogFile = LOGS . 'update.log';
         $updateLog = '';
         if (file_exists($updateLogFile)) {
-            $File = new BcFile($updateLogFile);
+            $File = new File($updateLogFile);
             $updateLog = $File->read();
         }
         return $updateLog;
-    }
-
-    /**
-     * プラグインアップロード画面用のデータを取得
-     * @return array
-     * @checked
-     * @noTodo
-     * @unitTest
-     */
-    public function getViewVarsForAdd()
-    {
-        return [
-            'isPluginsDirWritable' => $this->isPluginsDirWritable()
-        ];
-    }
-
-    /**
-     * プラグインディレクトリが書き込み可能かどうか
-     * @return bool
-     * @checked
-     * @noTodo
-     */
-    public function isPluginsDirWritable()
-    {
-        return is_writable(BASER_PLUGINS);
     }
 
 }

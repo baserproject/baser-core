@@ -1,4 +1,6 @@
 <?php
+// TODO ucmitz  : コード確認要
+return;
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
  * Copyright (c) baserCMS Users Community <https://basercms.net/community/>
@@ -8,13 +10,13 @@
  * @since           baserCMS v 3.0.0
  * @license         https://basercms.net/license/index.html
  */
-namespace BaserCore\Test\TestCase\View\Helper;
 
-use BaserCore\Test\Scenario\InitAppScenario;
-use BaserCore\TestSuite\BcTestCase;
-use BaserCore\View\Helper\BcTextHelper;
-use Cake\View\View;
-use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
+App::uses('View', 'View');
+App::uses('BcTextHelper', 'View/Helper');
+App::uses('BcTimeHelper', 'View/Helper');
+App::uses('TextHelper', 'View/Helper');
+App::uses('AppHelper', 'View/Helper');
+App::uses('BcFormHelper', 'View/Helper');
 
 /**
  * text helper library.
@@ -23,22 +25,25 @@ use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
  */
 class BcTextHelperTest extends BcTestCase
 {
-    use ScenarioAwareTrait;
-    /**
-     * set up
-     */
-    public function setUp(): void
-    {
-        parent::setUp();
-        $this->Helper = new BcTextHelper(new View());
-    }
 
     /**
-     * tearDown
-     *
-     * @return void
+     * Fixtures
+     * @var array
      */
-    public function tearDown(): void
+    public $fixtures = [
+        'baser.Default.UserGroup'
+    ];
+
+    public function setUp()
+    {
+        parent::setUp();
+        $this->Helper = new BcTextHelper(new View(null));
+        $this->Helper->BcForm = new BcFormHelper(new View());
+        $this->Helper->BcTime = new BcTimeHelper(new View());
+        $this->Helper->Html = new HtmlHelper(new View());
+    }
+
+    public function tearDown()
     {
         unset($this->Helper);
         parent::tearDown();
@@ -254,7 +259,6 @@ class BcTextHelperTest extends BcTestCase
      */
     public function testDateTimeWareki()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
         // 適当な時間を設定
         $arrDate = [
             'wareki' => true,
@@ -289,6 +293,7 @@ class BcTextHelperTest extends BcTestCase
      */
     public function testMoneyFormat()
     {
+
         // 適当な数値を入力
         $result = $this->Helper->moneyFormat('1234567');
         $expect = '¥1,234,567';
@@ -311,6 +316,7 @@ class BcTextHelperTest extends BcTestCase
      */
     public function testDateTime()
     {
+
         // 適当な時間を設定
         $arrDate = [
             'year' => 2015,
@@ -323,7 +329,15 @@ class BcTextHelperTest extends BcTestCase
 
         // 異常系 文字列を入力
         $result = $this->Helper->dateTime('baser');
-        $this->assertEmpty($result);
+
+        // PHPのバージョンによって結果が違うので分岐する
+        if (empty($result)) {
+            $this->assertNull($result);
+        } else {
+            $expect = 'b/b/b';
+            $this->assertEquals($expect, $result);
+        }
+
 
         // 不正な日付（現在はそのまま出力してしまう仕様となっている）
         $arrDate = [
@@ -334,6 +348,7 @@ class BcTextHelperTest extends BcTestCase
         $result = $this->Helper->dateTime($arrDate);
         $expect = '2015/20/11';
         $this->assertEquals($expect, $result);
+
     }
 
     /**
@@ -341,6 +356,7 @@ class BcTextHelperTest extends BcTestCase
      */
     public function testFormat()
     {
+
         // $valueが1の場合
         $result = $this->Helper->format('valueは%d', 1);
         $expect = 'valueは1';
@@ -368,14 +384,19 @@ class BcTextHelperTest extends BcTestCase
      */
     public function testListValue()
     {
-        $this->loadFixtureScenario(InitAppScenario::class);
+
         // ユーザーモデル
-        $result = $this->Helper->listValue('BaserCore.Users.user_group_id', 1);
-        $this->assertEquals("システム管理", $result);
+        $this->Helper->BcForm->setEntity('User', true);
+        $expect = 'システム管理';
+        $result = $this->Helper->listValue('user_group_id', 1);
+        $this->assertEquals($expect, $result);
 
         // 存在しないモデル
+        $this->Helper->BcForm->setEntity('Baser', true);
+        $expect = false;
         $result = $this->Helper->listValue('user_group_id', 1);
-        $this->assertFalse($result);
+        $this->assertEquals($expect, $result);
+
     }
 
     /**
@@ -383,6 +404,7 @@ class BcTextHelperTest extends BcTestCase
      */
     public function testArrayValue()
     {
+
         // 適当な配列
         $array = ["a", "i", "u", "e", "o"];
 
@@ -409,6 +431,7 @@ class BcTextHelperTest extends BcTestCase
      */
     public function testArrayValues()
     {
+
         // 適当な連想配列とキーのリスト
         $array = ["key1" => "apple", "key2" => "lemon", "key3" => "banana"];
 

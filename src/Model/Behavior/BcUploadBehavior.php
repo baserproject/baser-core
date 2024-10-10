@@ -220,7 +220,7 @@ class BcUploadBehavior extends Behavior
      * @noTodo
      * @unitTest
      */
-    public function beforeDelete(EventInterface $event, EntityInterface $entity, \ArrayObject $options)
+    public function beforeDelete(EventInterface $event, EntityInterface $entity)
     {
         $oldEntity = $this->getOldEntity($entity->id);
         $this->BcFileUploader[$this->table()->getAlias()]->deleteFiles($oldEntity, $entity, true);
@@ -234,6 +234,7 @@ class BcUploadBehavior extends Behavior
      * @return mixed false|array
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function saveTmpFiles($data, $tmpId)
     {

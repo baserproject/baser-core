@@ -105,7 +105,7 @@ class BcAgentTest extends BcTestCase
         }
     }
 
-    public static function findDataProvider(): array
+    public function findDataProvider(): array
     {
         return [
             ['mobile'],
@@ -166,7 +166,7 @@ class BcAgentTest extends BcTestCase
         }
     }
 
-    public static function findCurrentDataProvider(): array
+    public function findCurrentDataProvider(): array
     {
         return [
             ['Googlebot-Mobile', 'mobile'],
@@ -189,7 +189,7 @@ class BcAgentTest extends BcTestCase
         $this->assertEquals($expect, $this->agent->isMatchDecisionKey());
     }
 
-    public static function isMatchDecisionKeyDataProvider(): array
+    public function isMatchDecisionKeyDataProvider(): array
     {
         return [
             [true, 'Mozilla/5.0 (iPhone; CPU iPhone OS 8_0 like Mac OS X) AppleWebKit/600.1.3 (KHTML, like Gecko) Version/8.0 Mobile/12A4345d Safari/600.1.4'],

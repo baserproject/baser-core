@@ -76,7 +76,6 @@ class BcUpdateLog
      * 一時領域のアップデートメッセージを削除する
      * @checked
      * @noTodo
-     * @unitTest
      */
     public static function clear()
     {

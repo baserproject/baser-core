@@ -261,7 +261,7 @@ class PagesTable extends AppTable
         int $newAuthorId,
         int $newSiteId = null)
     {
-        $page = $this->get($id, contain: ['Contents']);
+        $page = $this->get($id, ['contain' => ['Contents']]);
         $oldPage = clone $page;
 
         // EVENT Pages.beforeCopy
@@ -270,19 +270,20 @@ class PagesTable extends AppTable
             'id' => $page->id
         ]);
         if ($event !== false) {
-            $page = $event->getResult() === true ? $event->getData('data') : $event->getResult();
+            $page = $event->getResult() === true? $event->getData('data') : $event->getResult();
             unset($event);
         }
 
         unset($page->created, $page->modified);
         $page->content = new Content([
-            'name' => $page->content->name,
-            'parent_id' => $newParentId,
-            'title' => $newTitle ?? $oldPage->content->title . '_copy',
-            'author_id' => $newAuthorId,
-            'site_id' => $newSiteId,
-            'description' => $page->content->description,
-            'layout_template' => $page->content->layout_tmplate ?? ''
+			'name' => $page->content->name,
+			'parent_id' => $newParentId,
+			'title' => $newTitle ?? $oldPage->content->title . '_copy',
+			'author_id' => $newAuthorId,
+			'site_id' => $newSiteId,
+			'description' => $page->content->description,
+			'eyecatch' => $page->content->eyecatch,
+			'layout_template' => $page->content->layout_tmplate?? ''
         ]);
 
         if (!is_null($newSiteId) && $oldPage->content->site_id !== $newSiteId) {

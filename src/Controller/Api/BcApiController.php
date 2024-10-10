@@ -22,7 +22,6 @@ use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
 use Cake\Http\Exception\ForbiddenException;
 use Cake\Routing\Router;
-use Cake\View\JsonView;
 
 /**
  * Class BcApiController
@@ -30,17 +29,6 @@ use Cake\View\JsonView;
  */
 class BcApiController extends AppController
 {
-
-    /**
-     * View classes
-     * @return string[]
-     * @checked
-     * @noTodo
-     */
-    public function viewClasses(): array
-    {
-        return [JsonView::class];
-    }
 
     /**
      * Before Filter

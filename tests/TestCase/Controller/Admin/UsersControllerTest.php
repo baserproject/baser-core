@@ -11,25 +11,14 @@
 
 namespace BaserCore\Test\TestCase\Controller\Admin;
 
-use BaserCore\Controller\Admin\UsersController;
-use BaserCore\Service\SiteConfigsServiceInterface;
 use BaserCore\Service\UsersServiceInterface;
-use BaserCore\TestSuite\BcTestCase;
-use BaserCore\Test\Scenario\DblogsScenario;
-use BaserCore\Test\Scenario\LoginStoresScenario;
-use BaserCore\Test\Scenario\SiteConfigsScenario;
-use BaserCore\Test\Scenario\SitesScenario;
-use BaserCore\Test\Scenario\UserGroupsPaginationsScenario;
-use BaserCore\Test\Scenario\UserGroupsScenario;
-use BaserCore\Test\Scenario\UsersScenario;
-use BaserCore\Test\Scenario\UsersUserGroupsScenario;
-use BaserCore\Utility\BcContainerTrait;
-use Cake\Core\Configure;
 use Cake\Event\Event;
 use Cake\ORM\TableRegistry;
-use Cake\TestSuite\EmailTrait;
+use BaserCore\TestSuite\BcTestCase;
+use BaserCore\Utility\BcContainerTrait;
 use Cake\TestSuite\IntegrationTestTrait;
-use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
+use BaserCore\Controller\Admin\UsersController;
+use BaserCore\Service\SiteConfigsServiceInterface;
 
 /**
  * BaserCore\Controller\Admin\UsersController Test Case
@@ -42,8 +31,24 @@ class UsersControllerTest extends BcTestCase
      */
     use IntegrationTestTrait;
     use BcContainerTrait;
-    use ScenarioAwareTrait;
-    use EmailTrait;
+
+    /**
+     * Fixtures
+     *
+     * @var array
+     */
+    public $fixtures = [
+        'plugin.BaserCore.Users',
+        'plugin.BaserCore.UsersUserGroups',
+        'plugin.BaserCore.UserGroups',
+        'plugin.BaserCore.LoginStores',
+        'plugin.BaserCore.SiteConfigs',
+        'plugin.BaserCore.Sites',
+        'plugin.BaserCore.Controller/UsersController/UsersPagination',
+        'plugin.BaserCore.Dblogs',
+    ];
+    // TODO loadFixtures を利用すると全体のテストが失敗してしまうためスキップ。対応方法検討要
+//    public $autoFixtures = false;
 
     /**
      * UsersController
@@ -52,29 +57,21 @@ class UsersControllerTest extends BcTestCase
     public $UsersController;
 
     /**
-     * @var TwoFactorAuthenticationsTable
-     */
-    public $TwoFactorAuthentications;
-
-    /**
      * set up
      */
     public function setUp(): void
     {
         parent::setUp();
-        $this->loadFixtureScenario(SitesScenario::class);
-        $this->loadFixtureScenario(SiteConfigsScenario::class);
-        $this->loadFixtureScenario(UserGroupsScenario::class);
-        $this->loadFixtureScenario(UsersUserGroupsScenario::class);
-        $this->loadFixtureScenario(UsersScenario::class);
-        $this->loadFixtureScenario(LoginStoresScenario::class);
-        $this->loadFixtureScenario(DblogsScenario::class);
-        $this->loadFixtureScenario(UserGroupsPaginationsScenario::class);
-
+            // TODO loadFixtures を利用すると全体のテストが失敗してしまうためスキップ。対応方法検討要
+//        $this->loadFixtures('UsersUserGroups', 'UserGroups', 'Dblogs', 'SiteConfigs', 'Sites');
+//        if ($this->getName() == 'testIndex_pagination') {
+//            $this->loadFixtures('Controller\UsersController\UsersPagination');
+//        } else {
+//            $this->loadFixtures('Users', 'LoginStores');
+//        }
         $request = $this->getRequest('/baser/admin/baser-core/users/');
         $request = $this->loginAdmin($request);
         $this->UsersController = new UsersController($request);
-        $this->TwoFactorAuthentications = $this->getTableLocator()->get('BaserCore.TwoFactorAuthentications');
     }
 
     /**
@@ -85,7 +82,6 @@ class UsersControllerTest extends BcTestCase
     public function tearDown(): void
     {
         unset($this->UsersController);
-        unset($this->TwoFactorAuthentications);
         parent::tearDown();
     }
 
@@ -96,7 +92,7 @@ class UsersControllerTest extends BcTestCase
      */
     public function testInitialize()
     {
-        $this->assertEquals($this->UsersController->Authentication->getUnauthenticatedActions(), ['login', 'login_code']);
+        $this->assertEquals($this->UsersController->Authentication->getUnauthenticatedActions(), ['login']);
         $this->assertNotEmpty($this->UsersController->Authentication->getConfig('logoutRedirect'));
     }
 
@@ -144,8 +140,8 @@ class UsersControllerTest extends BcTestCase
         $this->enableCsrfToken();
         $data = [
             'name' => 'Test_test_Man',
-            'password_1' => 'Lorem ipsum dolor sit amet1',
-            'password_2' => 'Lorem ipsum dolor sit amet1',
+            'password_1' => 'Lorem ipsum dolor sit amet',
+            'password_2' => 'Lorem ipsum dolor sit amet',
             'real_name_1' => 'Lorem ipsum dolor sit amet',
             'real_name_2' => 'Lorem ipsum dolor sit amet',
             'email' => 'test@example.com',
@@ -169,8 +165,8 @@ class UsersControllerTest extends BcTestCase
         });
         $data = [
             'name' => 'Test_test_Man2',
-            'password_1' => 'Lorem ipsum dolor sit amet1',
-            'password_2' => 'Lorem ipsum dolor sit amet1',
+            'password_1' => 'Lorem ipsum dolor sit amet',
+            'password_2' => 'Lorem ipsum dolor sit amet',
             'real_name_1' => 'Lorem ipsum dolor sit amet',
             'real_name_2' => 'Lorem ipsum dolor sit amet',
             'email' => 'test2@example.com',
@@ -198,8 +194,8 @@ class UsersControllerTest extends BcTestCase
         });
         $data = [
             'name' => 'Test_test_Man2',
-            'password_1' => 'Lorem ipsum dolor sit amet1',
-            'password_2' => 'Lorem ipsum dolor sit amet1',
+            'password_1' => 'Lorem ipsum dolor sit amet',
+            'password_2' => 'Lorem ipsum dolor sit amet',
             'real_name_1' => 'Lorem ipsum dolor sit amet',
             'real_name_2' => 'Lorem ipsum dolor sit amet',
             'email' => 'test2@example.com',
@@ -262,8 +258,8 @@ class UsersControllerTest extends BcTestCase
         $data = [
             'id' => 1,
             'name' => 'Test_test_Man2',
-            'password_1' => 'Lorem ipsum dolor sit amet1',
-            'password_2' => 'Lorem ipsum dolor sit amet1',
+            'password_1' => 'Lorem ipsum dolor sit amet',
+            'password_2' => 'Lorem ipsum dolor sit amet',
             'real_name_1' => 'Lorem ipsum dolor sit amet',
             'real_name_2' => 'Lorem ipsum dolor sit amet',
             'email' => 'test2@example.com',
@@ -276,26 +272,6 @@ class UsersControllerTest extends BcTestCase
     }
 
     /**
-     * Test edit_password
-     */
-    public function testEdit_password()
-    {
-        $users = $this->getTableLocator()->get('BaserCore.Users');
-        $user = $users->get(1);
-        $beforePassword = $user->password;
-        $this->enableSecurityToken();
-        $this->enableCsrfToken();
-        $data = [
-            'password_1' => 'Testtest1234',
-            'password_2' => 'Testtest1234',
-        ];
-        $this->post('/baser/admin/baser-core/users/edit_password', $data);
-        $this->assertResponseSuccess();
-        $user = $users->get(1);
-        $this->assertNotEquals($beforePassword, $user->password);
-    }
-
-    /**
      * Test delete method
      *
      * @return void
@@ -304,7 +280,7 @@ class UsersControllerTest extends BcTestCase
     {
         $this->enableSecurityToken();
         $this->enableCsrfToken();
-        $this->post('/baser/admin/baser-core/users/delete/2');
+        $this->post('/baser/admin/baser-core/users/delete/1');
         $this->assertResponseSuccess();
         $this->assertRedirect([
             'plugin' => 'BaserCore',
@@ -323,57 +299,6 @@ class UsersControllerTest extends BcTestCase
         $this->enableCsrfToken();
         $this->post('/baser/admin/baser-core/users/login');
         $this->assertResponseSuccess();
-        $this->assertRedirect('/baser/admin');
-    }
-
-    /**
-     * [ADMIN] 二段階認証コード入力
-     */
-    public function testLoginCode()
-    {
-        $this->enableSecurityToken();
-        $this->enableCsrfToken();
-
-        $sessionKey = Configure::read('BcPrefixAuth.Admin.sessionKey');
-
-        // 認証セッション削除
-        $this->session([$sessionKey => null]);
-
-        // コード入力画面: 二段階認証用のセッションがない場合はログイン画面にリダイレクト
-        $this->post('/baser/admin/baser-core/users/login_code');
-        $this->assertRedirect('/baser/admin/baser-core/users/login');
-
-        // ログイン画面: 二段階認証無効時はログイン成功
-        $this->post('/baser/admin/baser-core/users/login',
-            ['email' => 'testuser1@example.com', 'password' => 'password']);
-        $this->assertRedirect('/baser/admin');
-        $this->assertSessionHasKey($sessionKey);
-
-        // ログイン画面: 二段階認証有効時は認証コード入力画面にリダイレクト
-        $siteConfigsService = $this->getService(SiteConfigsServiceInterface::class);
-        $siteConfigsService->setValue('use_two_factor_authentication', 1);
-        $siteConfigsService->setValue('email', 'from@example.com');
-
-        $this->post('/baser/admin/baser-core/users/login',
-            ['email' => 'testuser1@example.com', 'password' => 'password']);
-        $this->assertRedirect('/baser/admin/baser-core/users/login_code');
-        $this->assertSessionNotHasKey($sessionKey);
-        $this->session($this->getSession()->read());
-
-        // コード入力画面: 再送信
-        $this->post('/baser/admin/baser-core/users/login_code', ['resend' => 1]);
-        $this->assertMailSentTo('testuser1@example.com');
-        $this->assertMailContainsText('認証コード');
-
-        // コード入力画面: 認証コード検証 失敗
-        $this->post('/baser/admin/baser-core/users/login_code', ['code' => 1234]);
-        $this->assertResponseOk();
-
-        // コード入力画面: 認証コード検証 成功
-        $twoFactorAuthentication = $this->TwoFactorAuthentications->find()
-            ->orderDesc('modified')
-            ->first();
-        $this->post('/baser/admin/baser-core/users/login_code', ['code' => $twoFactorAuthentication->code]);
         $this->assertRedirect('/baser/admin');
     }
 

@@ -27,7 +27,6 @@ use BaserCore\Annotation\Note;
  * @property BcBaserHelper $BcBaser
  * @uses BcAuthHelper
  */
-#[\AllowDynamicProperties]
 class BcAuthHelper extends Helper
 {
     /**
@@ -39,9 +38,7 @@ class BcAuthHelper extends Helper
      * Helper
      * @var array
      */
-    public array $helpers = [
-        'BaserCore.BcBaser'
-    ];
+    public $helpers = ['BaserCore.BcBaser'];
 
     /**
      * 現在認証プレフィックスを取得する
@@ -249,7 +246,6 @@ class BcAuthHelper extends Helper
      * @return boolean
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function isSuperUser(): bool
     {
@@ -262,7 +258,6 @@ class BcAuthHelper extends Helper
      * @return boolean
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function isAdminUser(): bool
     {

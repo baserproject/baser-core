@@ -16,24 +16,15 @@ use BaserCore\Service\SitesService;
 use BaserCore\Test\Factory\PermissionFactory;
 use BaserCore\Test\Factory\PluginFactory;
 use BaserCore\Test\Factory\UserFactory;
-use BaserCore\Test\Scenario\ContentFoldersScenario;
-use BaserCore\Test\Scenario\ContentsScenario;
-use BaserCore\Test\Scenario\PluginsScenario;
-use BaserCore\Test\Scenario\SiteConfigsScenario;
-use BaserCore\Test\Scenario\SitesScenario;
-use BaserCore\Test\Scenario\UserGroupsScenario;
-use BaserCore\Test\Scenario\UserScenario;
-use BaserCore\Test\Scenario\UsersUserGroupsScenario;
 use BaserCore\TestSuite\BcTestCase;
-use BaserCore\Utility\BcFile;
-use BaserCore\Utility\BcFolder;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\Plugin;
 use Cake\Datasource\ConnectionManager;
+use Cake\Filesystem\File;
+use Cake\Filesystem\Folder;
 use Cake\ORM\TableRegistry;
 use Cake\Routing\Router;
 use Cake\TestSuite\IntegrationTestTrait;
-use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * Class BcPluginTest
@@ -41,12 +32,31 @@ use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 class BcPluginTest extends BcTestCase
 {
 
-    use ScenarioAwareTrait;
+    /**
+     * Trait
+     */
+    use IntegrationTestTrait;
 
     /**
      * @var BcPlugin
      */
     public $BcPlugin;
+
+    /**
+     * Fixtures
+     *
+     * @var array
+     */
+    protected $fixtures = [
+        'plugin.BaserCore.Plugins',
+        'plugin.BaserCore.Users',
+        'plugin.BaserCore.UsersUserGroups',
+        'plugin.BaserCore.UserGroups',
+        'plugin.BaserCore.SiteConfigs',
+        'plugin.BaserCore.Sites',
+        'plugin.BaserCore.Contents',
+        'plugin.BaserCore.ContentFolders',
+    ];
 
     /**
      * Set Up
@@ -56,14 +66,6 @@ class BcPluginTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
-        $this->loadFixtureScenario(UserScenario::class);
-        $this->loadFixtureScenario(UserGroupsScenario::class);
-        $this->loadFixtureScenario(UsersUserGroupsScenario::class);
-        $this->loadFixtureScenario(ContentsScenario::class);
-        $this->loadFixtureScenario(SitesScenario::class);
-        $this->loadFixtureScenario(SiteConfigsScenario::class);
-        $this->loadFixtureScenario(ContentFoldersScenario::class);
-        $this->loadFixtureScenario(PluginsScenario::class);
         $this->BcPlugin = new BcPlugin(['name' => 'BcBlog']);
     }
 
@@ -102,15 +104,22 @@ class BcPluginTest extends BcTestCase
         // アンインストール
         $from = BcUtil::getPluginPath('BcBlog');
         $pluginDir = dirname($from);
-        $folder = new BcFolder($from);
+        $folder = new Folder();
         $to = $pluginDir . DS . 'BcBlogBak';
-        $folder->copy($to);
-        $folder->create();
+        $folder->copy($to, [
+            'from' => $from,
+            'mode' => 0777
+        ]);
+        $folder->create($from, 0777);
         $this->BcPlugin->uninstall(['connection' => 'test']);
         $this->assertFalse(is_dir($from));
         $plugins = $this->getTableLocator()->get('BaserCore.Plugins')->find()->where(['name' => 'BcBlog'])->first();
         $this->assertNull($plugins);
-        $folder->move( $to);
+        $folder->move($from, [
+            'from' => $to,
+            'mode' => 0777,
+            'schema' => Folder::OVERWRITE
+        ]);
         $this->BcPlugin->install(['connection' => 'test']);
     }
 
@@ -201,41 +210,39 @@ class BcPluginTest extends BcTestCase
         $pluginPath = ROOT . DS . 'plugins' . DS . $name . DS;
         $updatePath = $pluginPath . 'config' . DS . 'update' . DS;
         PluginFactory::make(['name' => $name, 'title' => 'サンプル', 'version' => '1.0.0'])->persist();
-        $folder = new BcFolder($pluginPath);
+        $folder = new Folder();
 
         // 新バージョン
-        $folder->create();
-        $file = new BcFile($pluginPath . 'VERSION.txt');
-        $file->create();
+        $folder->create($pluginPath);
+        $file = new File($pluginPath . 'VERSION.txt');
         $file->write('1.0.3');
+        $file->close();
         // アップデートスクリプト 0.0.1
-        $folder = new BcFolder($updatePath . '0.0.1');
-        $folder->create();
-        $file = new BcFile($updatePath . '0.0.1' . DS . 'config.php');
-        $file->create();
+        $folder->create($updatePath . '0.0.1');
+        $file = new File($updatePath . '0.0.1' . DS . 'config.php');
         $file->write('<?php return [\'updateMessage\' => \'test0\'];');
+        $file->close();
         // アップデートスクリプト 1.0.1
-        $folder = new BcFolder($updatePath . '1.0.1');
-        $folder->create();
-        $file = new BcFile($updatePath . '1.0.1' . DS . 'config.php');
-        $file->create();
+        $folder->create($updatePath . '1.0.1');
+        $file = new File($updatePath . '1.0.1' . DS . 'config.php');
         $file->write('<?php return [\'updateMessage\' => \'test1\'];');
-        $file = new BcFile($updatePath . '1.0.1' . DS . 'updater.php');
+        $file->close();
+        $file = new File($updatePath . '1.0.1' . DS . 'updater.php');
         $file->create();
+        $file->close();
         // アップデートスクリプト 1.0.2
-        $folder = new BcFolder($updatePath . '1.0.2');
-        $folder->create();
-        $file = new BcFile($updatePath . '1.0.2' . DS . 'config.php');
-        $file->create();
+        $folder->create($updatePath . '1.0.2');
+        $file = new File($updatePath . '1.0.2' . DS . 'config.php');
         $file->write('<?php return [\'updateMessage\' => \'test2\'];');
-        $file = new BcFile($updatePath . '1.0.2' . DS . 'updater.php');
+        $file->close();
+        $file = new File($updatePath . '1.0.2' . DS . 'updater.php');
         $file->create();
+        $file->close();
         // アップデートスクリプト 1.0.4
-        $folder = new BcFolder($updatePath . '1.0.4');
-        $folder->create();
-        $file = new BcFile($updatePath . '1.0.4' . DS . 'config.php');
-        $file->create();
+        $folder->create($updatePath . '1.0.4');
+        $file = new File($updatePath . '1.0.4' . DS . 'config.php');
         $file->write('<?php return [\'updateMessage\' => \'test3\'];');
+        $file->close();
 
         $this->assertEquals(
             ['Sample-1.0.1' => 'test1', 'Sample-1.0.2' => 'test2'],
@@ -245,40 +252,7 @@ class BcPluginTest extends BcTestCase
             ['Sample-1.0.1' => 1000001000, 'Sample-1.0.2' => 1000002000],
             $this->BcPlugin->getUpdaters($name)
         );
-        $folder = new BcFolder($pluginPath);
-        $folder->delete();
-    }
-
-    /**
-     * test getUpdateScriptMessages And getUpdaters On Update Tmp
-     */
-    public function test_getUpdateScriptMessagesAndGetUpdatersOnUpdateTmp()
-    {
-        $name = 'Sample';
-        $pluginPath = TMP . 'update' . DS . 'vendor' . DS . 'baserproject' . DS . $name . DS;
-        $updatePath = $pluginPath . 'config' . DS . 'update' . DS;
-        PluginFactory::make(['name' => $name, 'title' => 'サンプル', 'version' => '1.0.0'])->persist();
-
-        // 新バージョン
-        (new BcFolder($pluginPath))->create();
-        $file = new BcFile($pluginPath . 'VERSION.txt');
-        $file->write('1.0.3');
-        // アップデートスクリプト 1.0.1
-        (new BcFolder($updatePath . '1.0.1'))->create();
-        $file = new BcFile($updatePath . '1.0.1' . DS . 'config.php');
-        $file->write('<?php return [\'updateMessage\' => \'test1\'];');
-        $file = new BcFile($updatePath . '1.0.1' . DS . 'updater.php');
-        $file->create();
-
-        $this->assertEquals(
-            ['Sample-1.0.1' => 'test1'],
-            $this->BcPlugin->getUpdateScriptMessages($name, true)
-        );
-        $this->assertEquals(
-            ['Sample-1.0.1' => 1000001000],
-            $this->BcPlugin->getUpdaters($name, true)
-        );
-        (new BcFolder(TMP . 'update'))->delete();
+        $folder->delete($pluginPath);
     }
 
     /**
@@ -297,27 +271,27 @@ class BcPluginTest extends BcTestCase
         $this->assertTrue($this->BcPlugin->execScript($version));
         // 有効スクリプトあり
         UserFactory::make(['id' => 1, 'name' => 'test'])->persist();
-        $folder = new BcFolder($versionPath);
-        $folder->create();
-        $file = new BcFile($versionPath . DS . 'updater.php');
-        $file->create();
+        $folder = new Folder();
+        $folder->create($versionPath);
+        $file = new File($versionPath . DS . 'updater.php');
         $file->write('<?php
 use Cake\ORM\TableRegistry;
 $users = TableRegistry::getTableLocator()->get(\'BaserCore.Users\');
 $user = $users->find()->where([\'id\' => 1])->first();
 $user->name = \'hoge\';
 $users->save($user);');
+        $file->close();
         $this->BcPlugin->execScript($version);
         $users = $this->getTableLocator()->get('BaserCore.Users');
         $user = $users->find()->where(['id' => 1])->first();
         $this->assertEquals('hoge', $user->name);
         // 無効スクリプトあり
-        $file = new BcFile($versionPath . DS . 'updater.php');
-        $file->create();
+        $file = new File($versionPath . DS . 'updater.php');
         $file->write('<?php
 $this->log(\'test\');');
+        $file->close();
         $this->BcPlugin->execScript($version);
-        $file = new BcFile(LOGS . 'cli-error.log');
+        $file = new File(LOGS . 'cli-error.log');
         $log = $file->read();
         $this->assertStringContainsString('test', $log);
         // 初期化
@@ -340,20 +314,17 @@ $this->log(\'test\');');
     public function test_migrate()
     {
         $pluginPath = ROOT . DS . 'plugins' . DS . 'BcTest' . DS;
-        $folder = new BcFolder($pluginPath);
+        $folder = new Folder();
 
         // プラグインフォルダを初期化
-        $folder->delete();
+        $folder->delete($pluginPath);
         $configPath = $pluginPath . 'config' . DS;
         $migrationPath = $configPath . 'Migrations' . DS;
         $seedPath = $configPath . 'Seeds' . DS;
         $srcPath = $pluginPath . 'src' . DS;
-        $folder = new BcFolder($srcPath);
-        $folder->create();
-        $folder = new BcFolder($migrationPath);
-        $folder->create();
-        $folder = new BcFolder($seedPath);
-        $folder->create();
+        $folder->create($srcPath);
+        $folder->create($migrationPath);
+        $folder->create($seedPath);
 
         // VERSION.txt
         $this->createVersionFile($pluginPath, '0.0.1');
@@ -396,9 +367,8 @@ $this->log(\'test\');');
      */
     public function createPluginFile($srcPath)
     {
-        $file = new BcFile($srcPath . 'Plugin.php');
-        $file->create();
-        $file->write('<?php
+        $file = new File($srcPath . 'Plugin.php');
+                $file->write('<?php
         namespace BcTest;
         use BaserCore\BcPlugin;
         class Plugin extends BcPlugin {}');
@@ -411,8 +381,7 @@ $this->log(\'test\');');
      */
     public function createAlterMigrationFile($migrationPath)
     {
-        $file = new BcFile($migrationPath . '20220627000000_AlterBcTest.php', 'w');
-        $file->create();
+        $file = new File($migrationPath . '20220627000000_AlterBcTest.php', 'w');
         $file->write('<?php
 use Migrations\AbstractMigration;
 class AlterBcTest extends AbstractMigration
@@ -433,8 +402,7 @@ class AlterBcTest extends AbstractMigration
      */
     public function createInitialMigrationFile($migrationPath)
     {
-        $file = new BcFile($migrationPath . '20220626000000_InitialBcTest.php', 'w');
-        $file->create();
+        $file = new File($migrationPath . '20220626000000_InitialBcTest.php', 'w');
         $file->write('<?php
 use Migrations\AbstractMigration;
 class InitialBcTest extends AbstractMigration
@@ -464,8 +432,7 @@ class InitialBcTest extends AbstractMigration
      */
     public function createVersionFile($pluginPath, $version)
     {
-        $file = new BcFile($pluginPath . 'VERSION.txt');
-        $file->create();
+        $file = new File($pluginPath . 'VERSION.txt');
         $file->write($version);
     }
 
@@ -476,8 +443,7 @@ class InitialBcTest extends AbstractMigration
      */
     public function createUpdater($updaterPath)
     {
-        $file = new BcFile($updaterPath . 'updater.php', 'w');
-        $file->create();
+        $file = new File($updaterPath . 'updater.php', 'w');
         $file->write('<?php
 use Cake\ORM\Entity;
 use Cake\ORM\TableRegistry;
@@ -491,20 +457,17 @@ $table->save(new Entity([\'name\' => \'2022-06-26\']));');
     public function test_execUpdater()
     {
         $pluginPath = ROOT . DS . 'plugins' . DS . 'BcTest' . DS;
-        $folder = new BcFolder($pluginPath);
+        $folder = new Folder();
 
         // プラグインフォルダを初期化
-        $folder->delete();
+        $folder->delete($pluginPath);
         $configPath = $pluginPath . 'config' . DS;
         $migrationPath = $configPath . 'Migrations' . DS;
         $seedPath = $configPath . 'Seeds' . DS;
         $srcPath = $pluginPath . 'src' . DS;
-        $folder = new BcFolder($srcPath);
-        $folder->create();
-        $folder = new BcFolder($migrationPath);
-        $folder->create();
-        $folder = new BcFolder($seedPath);
-        $folder->create();
+        $folder->create($srcPath);
+        $folder->create($migrationPath);
+        $folder->create($seedPath);
 
         // VERSION.txt
         $this->createVersionFile($pluginPath, '0.0.1');
@@ -524,8 +487,7 @@ $table->save(new Entity([\'name\' => \'2022-06-26\']));');
 
         // config/update/0.0.2/updater.php
         $updaterPath = $configPath . 'update' . DS . '0.0.2' . DS;
-        $folder = new BcFolder($updaterPath);
-        $folder->create();
+        $folder->create($updaterPath);
         $this->createUpdater($updaterPath);
 
         // アップデート実行
@@ -535,8 +497,7 @@ $table->save(new Entity([\'name\' => \'2022-06-26\']));');
         $this->assertEquals('2022-06-26', (string) $entity->name);
 
         // 初期化
-        $folder = new BcFolder($pluginPath);
-        $folder->delete();
+        $folder->delete($pluginPath);
         $this->dropTable('bc_test');
         $this->dropTable('bc_test_phinxlog');
     }

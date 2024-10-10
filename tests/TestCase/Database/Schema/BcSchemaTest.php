@@ -13,7 +13,7 @@ namespace BaserCore\Test\TestCase\Database\Schema;
 
 use BaserCore\Database\Schema\BcSchema;
 use BaserCore\TestSuite\BcTestCase;
-use BaserCore\Utility\BcFile;
+use Cake\Filesystem\File;
 
 /**
  * Class BcSchemaTest
@@ -32,9 +32,9 @@ class BcSchemaTest extends BcTestCase
     /**
      * スキームファイル
      *
-     * @var BcFile
+     * @var File
      */
-    private BcFile $schemaFile;
+    private $schemaFile;
 
     /**
      * set up
@@ -47,8 +47,7 @@ class BcSchemaTest extends BcTestCase
         $path = TMP . 'schema' . DS;
         $schemaName = 'UserActionsSchema';
         $schemaFilePath = $path . $schemaName . '.php';
-        $this->schemaFile = new BcFile($schemaFilePath);
-        $this->schemaFile->create();
+        $this->schemaFile = new File($schemaFilePath, true);
         $table = 'user_actions';
         // スキーマファイルを生成
         $this->schemaFile->write("<?php
@@ -91,15 +90,6 @@ class UserActionsSchema extends BcSchema
         // fields プロパティに値が設定される事を確認
         $this->assertEquals('integer', $this->schema->fields['id']['type']);
         $this->assertEquals('text', $this->schema->fields['contents']['type']);
-    }
-
-    /**
-     * test setTable
-     */
-    public function testSetTable()
-    {
-        $this->schema->setTable('table_test');
-        $this->assertEquals('table_test', $this->schema->name());
     }
 
     /**

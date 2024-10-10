@@ -51,7 +51,6 @@ class BcEventDispatcherTraitTest extends BcTestCase
      */
     public function testDispatchLayerEvent()
     {
-        $this->markTestIncomplete('こちらのテストはまだ未確認です');
         $listener = $this->getMockBuilder(BcControllerEventListener::class)
             ->onlyMethods(['implementedEvents'])
             ->addMethods(['testTest'])

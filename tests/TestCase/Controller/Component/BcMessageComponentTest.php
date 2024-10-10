@@ -12,12 +12,10 @@
 namespace BaserCore\Test\TestCase\Controller\Component;
 
 use BaserCore\Model\Table\DblogsTable;
-use BaserCore\Test\Scenario\DblogsScenario;
 use BaserCore\TestSuite\BcTestCase;
 use Cake\Controller\Controller;
 use Cake\Controller\ComponentRegistry;
 use BaserCore\Controller\Component\BcMessageComponent;
-use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * Class BcMessageTestController
@@ -39,10 +37,15 @@ class BcMessageTestController extends Controller
  */
 class BcMessageComponentTest extends BcTestCase
 {
+
     /**
-     * Trait
+     * Fixtures
+     *
+     * @var array
      */
-    use ScenarioAwareTrait;
+    protected $fixtures = [
+        'plugin.BaserCore.Dblogs',
+    ];
 
     /**
      * set up
@@ -50,7 +53,6 @@ class BcMessageComponentTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
-        $this->loadFixtureScenario(DblogsScenario::class);
         $this->getRequest();
         $this->Controller = new BcMessageTestController($this->getRequest());
         $this->ComponentRegistry = new ComponentRegistry($this->Controller);

@@ -12,7 +12,6 @@
 namespace BaserCore\Command;
 
 use BaserCore\Utility\BcComposer;
-use BaserCore\Utility\BcFile;
 use Cake\Command\Command;
 use Cake\Console\Arguments;
 use Cake\Console\ConsoleIo;
@@ -43,16 +42,8 @@ class ComposerCommand extends Command
             'required' => true
         ]);
         $parser->addOption('php', [
-            'help' => __d('baser_core', 'PHPのパス'),
+            'help' => __d('baser_core', 'データベース接続名'),
             'default' => 'php'
-        ]);
-        $parser->addOption('dir', [
-            'help' => __d('baser_core', '実行対象ディレクトリ'),
-            'default' => ''
-        ]);
-        $parser->addOption('force', [
-            'help' => __d('baser_core', '指定したバージョンを設定せず composer.json の内容で update する'),
-            'default' => ''
         ]);
         return $parser;
     }
@@ -69,36 +60,23 @@ class ComposerCommand extends Command
     public function execute(Arguments $args, ConsoleIo $io)
     {
         try {
-            BcComposer::setup($args->getOption('php'), $args->getOption('dir'));
+            BcComposer::setup($args->getOption('php'));
         } catch (\Throwable $e) {
             $message = __d('baser_core', 'Composer によるアップデートが失敗しました。');
             $this->log($message, LogLevel::ERROR, 'update');
             $this->log($e->getMessage(), LogLevel::ERROR, 'update');
-            $io->error($message);
-            $this->abort();
+            $io->out($message);
+            exit(1);
         }
-
-        BcComposer::clearCache();
-
-        $version = $args->getArgument('version');
-        if($args->getOption('force')) {
-            if (!preg_match('/-dev$/', $version)) {
-                $version = preg_replace('/^(\d+\.\d+\.)(\d+)$/', '$1x-dev', $version);
-            }
-            BcComposer::changeMinimumStabilityToDev();
-            BcComposer::deleteReplace();
-        }
-
-        $result = BcComposer::require('baser-core', $version);
-
+        $result = BcComposer::require('baser-core', $args->getArgument('version'));
         if($result['code'] === 0) {
             $io->out(__d('baser_core', 'Composer によるアップデートが完了しました。'));
         } else {
             $message = __d('baser_core', 'Composer によるアップデートが失敗しました。update ログを確認してください。');
             $this->log($message, LogLevel::ERROR, 'update');
             $this->log(implode("\n", $result['out']), LogLevel::ERROR, 'update');
-            $io->error($message);
-            $this->abort();
+            $io->out($message);
+            exit(1);
         }
     }
 
