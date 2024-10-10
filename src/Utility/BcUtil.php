@@ -483,18 +483,13 @@ class BcUtil
             if (!$pluginPath) {
                 return false;
             }
-            $name = Inflector::camelize($name, '-');
-            if(file_exists($pluginPath . 'src' . DS . 'Plugin.php')) {
-                $pluginClassPath = $pluginPath . 'src' . DS . 'Plugin.php';
-            } elseif(file_exists($pluginPath . 'src' . DS . $name . 'Plugin.php')) {
-                $pluginClassPath = $pluginPath . 'src' . DS . $name . 'Plugin.php';
-            } else {
-                return false;
+            $pluginClassPath = $pluginPath . 'src' . DS . 'Plugin.php';
+            if (file_exists($pluginClassPath)) {
+                $loader = require ROOT . DS . 'vendor/autoload.php';
+                $loader->addPsr4($name . '\\', $pluginPath . 'src');
+                $loader->addPsr4($name . '\\Test\\', $pluginPath . 'tests');
+                require_once $pluginClassPath;
             }
-            $loader = require ROOT . DS . 'vendor/autoload.php';
-            $loader->addPsr4($name . '\\', $pluginPath . 'src');
-            $loader->addPsr4($name . '\\Test\\', $pluginPath . 'tests');
-            require_once $pluginClassPath;
         }
         return true;
     }
@@ -1093,7 +1088,7 @@ class BcUtil
      */
     public static function isInstalled()
     {
-        return (bool)Configure::read('BcEnv.isInstalled');
+        return (bool)Configure::read('BcRequest.isInstalled');
     }
 
     /**
@@ -1446,8 +1441,6 @@ class BcUtil
      *
      * @param mixed $url
      * @return mixed
-     * @checked
-     * @noTodo
      */
     public static function addSessionId($url, $force = false)
     {
@@ -1459,10 +1452,12 @@ class BcUtil
             return $url;
         }
 
-        $currentUrl = \Cake\Routing\Router::getRequest()->getPath();
-        $sites = \Cake\ORM\TableRegistry::getTableLocator()->get('BaserCore.Sites');
-        $site = $sites->findByUrl($currentUrl);
-
+        $site = null;
+        if (!Configure::read('BcRequest.isUpdater')) {
+            $currentUrl = \Cake\Routing\Router::getRequest()->getPath();
+            $sites = \Cake\ORM\TableRegistry::getTableLocator()->get('BaserCore.Sites');
+            $site = $sites->findByUrl($currentUrl);
+        }
         // use_trans_sid が有効になっている場合、２重で付加されてしまう
         if ($site && $site->device == 'mobile' && Configure::read('BcAgent.mobile.sessionId') && (!ini_get('session.use_trans_sid') || $force)) {
             if (is_array($url)) {
@@ -1728,51 +1723,13 @@ class BcUtil
     {
         $pluginPath = BcUtil::getPluginPath($newPlugin);
         if (!$pluginPath) return false;
-        if(file_exists($pluginPath . 'src' . DS . 'Plugin.php')) {
-            $pluginClassPath = $pluginPath . 'src' . DS . 'Plugin.php';
-        } elseif(file_exists($pluginPath . 'src' . DS . $newPlugin . 'Plugin.php')) {
-            $pluginClassPath = $pluginPath . 'src' . DS . $newPlugin . 'Plugin.php';
-        } else {
-            return false;
-        }
-        $file = new File($pluginClassPath);
+        $file = new File($pluginPath . 'src' . DS . 'Plugin.php');
         $data = $file->read();
         $file->write(preg_replace('/namespace .+?;/', 'namespace ' . $newPlugin . ';', $data));
         $file->close();
         return true;
     }
 
-    /**
-     * Plugin クラスのクラス名を変更する
-     *
-     * 古い形式の場合は新しい形式に変更する
-     * `Plugin` -> `{PluginName}Plugin`
-     * @param string $oldPlugin
-     * @param string $newPlugin
-     * @return bool
-     */
-    public static function changePluginClassName(string $oldPlugin, string $newPlugin)
-    {
-        $pluginPath = BcUtil::getPluginPath($newPlugin);
-        if (!$pluginPath) return false;
-        $oldTypePath = $pluginPath . 'src' . DS . 'Plugin.php';
-        $oldPath = $pluginPath . 'src' . DS . $oldPlugin . 'Plugin.php';
-        $newPath = $pluginPath . 'src' . DS . $newPlugin . 'Plugin.php';
-        if(!file_exists($newPath)) {
-            if(file_exists($oldTypePath)) {
-                rename($oldTypePath, $newPath);
-            } elseif(file_exists($oldPath)) {
-                rename($oldPath, $newPath);
-            } else {
-                return false;
-            }
-        }
-        $file = new File($newPath);
-        $data = $file->read();
-        $file->write(preg_replace('/class\s+.*?Plugin/', 'class ' . $newPlugin . 'Plugin', $data));
-        $file->close();
-        return true;
-    }
 
     /**
      * httpからのフルURLを取得する

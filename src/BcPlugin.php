@@ -621,11 +621,7 @@ class BcPlugin extends BasePlugin
         $options = array_merge([
             'connection' => 'default'
         ], $options);
-        $tableOptions = [];
-        if($options['connection'] && $options['connection'] !== 'default') {
-            $tableOptions = ['connectionName' => $options['connection']];
-        }
-        $table = TableRegistry::getTableLocator()->get($table, $tableOptions);
+        $table = TableRegistry::getTableLocator()->get($table, ['connectionName' => $options['connection']]);
         $beforeSaveEvents = BcUtil::offEvent($table->getEventManager(), 'Model.beforeSave');
         $afterSaveEvents = BcUtil::offEvent($table->getEventManager(), 'Model.afterSave');
 

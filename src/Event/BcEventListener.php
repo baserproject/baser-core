@@ -11,7 +11,6 @@
 
 namespace BaserCore\Event;
 
-use BaserCore\Error\BcException;
 use Cake\Event\EventListenerInterface;
 use Cake\Routing\Router;
 use Cake\Utility\Inflector;
@@ -93,12 +92,6 @@ class BcEventListener implements EventListenerInterface
                 if (strpos($registerEvent, '.') !== false) {
                     $aryRegisterEvent = explode('.', $registerEvent);
                     $registerEvent = Inflector::variable(implode('_', $aryRegisterEvent));
-                }
-                if(!method_exists($this, $registerEvent)) {
-                    throw new BcException(__d('baser_core', '{0} に、メソッド {1} が定義されていません。',
-                        get_class($this),
-                        $registerEvent
-                    ));
                 }
                 if ($options) {
                     $options = array_merge(['callable' => $registerEvent], $options);

@@ -130,6 +130,7 @@ class BcToolbarHelper extends Helper
         if (BcUtil::loginUser()) return false;
         if ($this->_View->getName() === 'Installations') return false;
         if ($this->isLoginUrl()) return false;
+        if (Configure::read('BcRequest.isUpdater')) return false;
         return true;
     }
 
@@ -285,14 +286,11 @@ class BcToolbarHelper extends Helper
      */
     public function getLogoType(): string
     {
-        if ($this->getView()->getName() === 'Installations') {
+        if ($this->_View->getName() === 'Installations') {
             return 'install';
-        } elseif ($this->getView()->getRequest()->getParam('controller') === 'Plugins'
-            && $this->getView()->getRequest()->getParam('action') === 'update'
-            && empty($this->getView()->getRequest()->getParam('pass'))
-        ) {
+        } elseif (Configure::read('BcRequest.isUpdater')) {
             return 'update';
-        } elseif ($this->getView()->getRequest()->getParam('prefix') === "Admin" || $this->isLoginUrl()) {
+        } elseif ($this->_View->getRequest()->getParam('prefix') === "Admin" || $this->isLoginUrl()) {
             return 'normal';
         } else {
             if ($this->BcAuth->isCurrentUserAdminAvailable()) {

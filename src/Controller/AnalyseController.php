@@ -11,6 +11,7 @@
 
 namespace BaserCore\Controller;
 
+use Cake\Core\Plugin;
 use Cake\Filesystem\File;
 use Cake\Filesystem\Folder;
 use Doctrine\Common\Annotations\AnnotationReader;
@@ -57,7 +58,7 @@ class AnalyseController extends AppController
     {
         $basePath = ROOT . DS . 'plugins' . DS;
 
-        $plugin = new \BcCustomContent\BcCustomContentPlugin();
+        $plugin = new \BcCustomContent\Plugin();
         $plugin->loadPlugin();
 
         if ($pluginName) {
