@@ -11,6 +11,7 @@
 
 namespace BaserCore\Model\Table;
 
+use BaserCore\Event\BcEventDispatcherTrait;
 use BaserCore\Model\Entity\UserGroup;
 use Cake\Core\Configure;
 use Cake\ORM\Association\BelongsToMany;
@@ -43,6 +44,12 @@ use BaserCore\Annotation\Checked;
  */
 class UserGroupsTable extends AppTable
 {
+
+    /**
+     * Trait
+     */
+    use BcEventDispatcherTrait;
+
     /**
      * Initialize method
      *

@@ -159,7 +159,7 @@ class BcUploadBehavior extends Behavior
     public function afterSave(EventInterface $event, EntityInterface $entity)
     {
         if ($entity->id && !empty($this->oldEntity[$this->table()->getAlias()])) {
-            $this->BcFileUploader[$this->table()->getAlias()]->deleteExistingFiles($this->oldEntity[$this->table()->getAlias()]);
+            $this->BcFileUploader[$this->table()->getAlias()]->deleteExistingFiles($entity);
         }
         $this->BcFileUploader[$this->table()->getAlias()]->saveFiles($entity);
         if ($entity->id && !empty($this->oldEntity[$this->table()->getAlias()])) {
@@ -289,7 +289,7 @@ class BcUploadBehavior extends Behavior
     public function getOldEntity($id)
     {
         $table = $this->table();
-        $query = $table->find()->where([$table->getAlias() . '.id' => $id]);
+        $query = $table->find()->where(['id' => $id]);
         if ($table instanceof \BaserCore\Model\Table\ContentsTable) {
             $oldEntity = $query->applyOptions(['withDeleted'])->first();
         } else {

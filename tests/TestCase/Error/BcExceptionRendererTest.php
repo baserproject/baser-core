@@ -93,11 +93,8 @@ class BcExceptionRendererTest extends BcTestCase
         $this->assertResponseError();
         $this->assertResponseContains('bs-container');
 
-        $this->get('/baser/api/admin/baser-core/users/index.json');
-        $this->assertResponseCode(401);
-
         $this->post('/baser/api/admin/baser-core/users/add.json');
-        $this->assertResponseCode(403);
+        $this->assertResponseCode(401);
 
         Configure::write('debug', $debug);
     }

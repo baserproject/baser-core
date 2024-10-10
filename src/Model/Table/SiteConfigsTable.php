@@ -11,6 +11,7 @@
 
 namespace BaserCore\Model\Table;
 
+use BaserCore\Event\BcEventDispatcherTrait;
 use BaserCore\Model\Behavior\BcKeyValueBehavior;
 use BaserCore\Model\Entity\SiteConfig;
 use Cake\Validation\Validator;
@@ -29,6 +30,12 @@ use BaserCore\Utility\BcUtil;
  */
 class SiteConfigsTable extends AppTable
 {
+
+    /**
+     * Trait
+     */
+    use BcEventDispatcherTrait;
+
     /**
      * Initialize
      *

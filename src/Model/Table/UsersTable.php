@@ -24,6 +24,7 @@ use BaserCore\View\BcAdminAppView;
 use Cake\ORM\Association\BelongsTo;
 use Cake\Datasource\EntityInterface;
 use Cake\ORM\Behavior\TimestampBehavior;
+use BaserCore\Event\BcEventDispatcherTrait;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
 use BaserCore\Annotation\UnitTest;
@@ -42,6 +43,12 @@ use BaserCore\Annotation\UnitTest;
  */
 class UsersTable extends AppTable
 {
+
+    /**
+     * Trait
+     */
+    use BcEventDispatcherTrait;
+
     /**
      * Initialize
      *

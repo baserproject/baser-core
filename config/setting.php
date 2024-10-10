@@ -349,9 +349,9 @@ return [
         'systemMessageLangFromSiteSetting' => true,
 
         /**
-         * POST送信において CSRF をスキップするURL
+         * Web API のPOST送信において CSRF をスキップするURL
          */
-        'skipCsrfUrl' => [
+        'skipCsrfUrlInPostApi' => [
             ['plugin' => 'BaserCore', 'controller' => 'Users', 'action' => 'login', '_ext' => 'json'],
             ['plugin' => 'BaserCore', 'controller' => 'Users', 'action' => 'refresh_token', '_ext' => 'json'],
         ],

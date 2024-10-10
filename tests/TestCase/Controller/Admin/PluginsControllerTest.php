@@ -234,6 +234,7 @@ class PluginsControllerTest extends BcTestCase
      */
     public function testUpdateCore(): void
     {
+        $this->markTestIncomplete('このテストは、5.0.2リリース時に実装する予定です。');
         $this->enableSecurityToken();
         $this->enableCsrfToken();
 

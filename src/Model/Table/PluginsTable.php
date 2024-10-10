@@ -11,6 +11,7 @@
 
 namespace BaserCore\Model\Table;
 
+use BaserCore\Event\BcEventDispatcherTrait;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\Configure;
 use Cake\ORM\TableRegistry;
@@ -26,6 +27,12 @@ use Cake\Validation\Validator;
  */
 class PluginsTable extends AppTable
 {
+
+    /**
+     * Trait
+     */
+    use BcEventDispatcherTrait;
+
     /**
      * Initialize
      *
