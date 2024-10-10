@@ -72,6 +72,16 @@ class PagesControllerTest extends BcTestCase
     {
         $this->assertNotEmpty($this->PagesController->BcAdminContents);
     }
+    /**
+     * beforeFilter
+     */
+    public function testBeforeFilter()
+    {
+        $event = new Event('Controller.beforeFilter', $this->PagesController);
+        $this->PagesController->beforeFilter($event);
+        $helpers = $this->PagesController->viewBuilder()->getHelpers();
+        $this->assertCount(1, $helpers);
+    }
 
     /**
      * 固定ページ情報登録

@@ -29,6 +29,7 @@ class PagesController extends BcFrontAppController
 
     /**
      * Trait
+     * NOTE: BcAppControllerにもあるので、移行時に取り除く
      */
     use BcContainerTrait;
 

@@ -72,11 +72,9 @@ class BcPlugin extends BasePlugin
     /**
      * bootstrap
      *
-     * @param PluginApplicationInterface $app
-     * @checked
-     * @noTodo
+     * @param PluginApplicationInterface $application
      */
-    public function bootstrap(PluginApplicationInterface $app): void
+    public function bootstrap(PluginApplicationInterface $application): void
     {
         $pluginPath = BcUtil::getPluginPath($this->name);
         if (file_exists($pluginPath . 'config' . DS . 'setting.php')) {
@@ -88,7 +86,7 @@ class BcPlugin extends BasePlugin
         }
         // 親の bootstrap は、setting の読み込みの後でなければならない
         // bootstrap 内で、setting の値を参照する場合があるため
-        parent::bootstrap($app);
+        parent::bootstrap($application);
     }
 
     /**
@@ -151,8 +149,6 @@ class BcPlugin extends BasePlugin
      * マイグレーションを実行する
      *
      * @param array $options
-     * @checked
-     * @noTodo
      */
     public function migrate($options = [])
     {
@@ -167,8 +163,6 @@ class BcPlugin extends BasePlugin
 
     /**
      * アップデートプログラムを実行する
-     * @checked
-     * @noTodo
      */
     public function execUpdater()
     {
@@ -443,8 +437,6 @@ class BcPlugin extends BasePlugin
      * @param RouteBuilder $routes
      * @param string $plugin
      * @return RouteBuilder
-     * @checked
-     * @noTodo
      */
     public function contentsRoutingForReverse(RouteBuilder $routes, string $plugin)
     {
@@ -471,8 +463,6 @@ class BcPlugin extends BasePlugin
      * @param RouteBuilder $routes
      * @param string $plugin
      * @return RouteBuilder
-     * @checked
-     * @noTodo
      */
     public function frontPageRouting(RouteBuilder $routes, string $plugin)
     {
@@ -498,8 +488,6 @@ class BcPlugin extends BasePlugin
      * @param RouteBuilder $routes
      * @param string $plugin
      * @return RouteBuilder
-     * @checked
-     * @noTodo
      */
     public function prefixRouting(RouteBuilder $routes, string $plugin)
     {
@@ -547,8 +535,6 @@ class BcPlugin extends BasePlugin
      * @param RouteBuilder $routes
      * @param string $plugin
      * @return RouteBuilder
-     * @checked
-     * @noTodo
      */
     public function siteRouting(RouteBuilder $routes, string $plugin)
     {

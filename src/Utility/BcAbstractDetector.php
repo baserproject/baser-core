@@ -12,9 +12,6 @@
 namespace BaserCore\Utility;
 
 use Cake\Core\Configure;
-use BaserCore\Annotation\NoTodo;
-use BaserCore\Annotation\Checked;
-use BaserCore\Annotation\UnitTest;
 
 /**
  * Class BcAbstractDetector
@@ -60,8 +57,6 @@ abstract class BcAbstractDetector
      *
      * @param string $name 名前
      * @param array $config 設定の配列
-     * @checked
-     * @noTodo
      */
     public function __construct($name, array $config)
     {
@@ -75,8 +70,6 @@ abstract class BcAbstractDetector
      *
      * @param string $name 名前
      * @return BcAbstractDetector|null
-     * @checked
-     * @noTodo
      */
     public static function find($name)
     {
@@ -91,8 +84,6 @@ abstract class BcAbstractDetector
      * 設定ファイルに存在する全てのインスタンスを返す
      *
      * @return BcAbstractDetector[]
-     * @checked
-     * @noTodo
      */
     public static function findAll()
     {
@@ -114,8 +105,6 @@ abstract class BcAbstractDetector
      * 現在の環境の判定キーの値に合致するインスタンスを返す
      *
      * @return BcAbstractDetector|null
-     * @checked
-     * @noTodo
      */
     public static function findCurrent()
     {
@@ -132,9 +121,6 @@ abstract class BcAbstractDetector
      * デフォルトの設定値を取得
      *
      * @return array
-     * @checked
-     * @noTodo
-     * @unitTest
      */
     abstract protected function _getDefaultConfig();
 
@@ -143,9 +129,6 @@ abstract class BcAbstractDetector
      *
      * @param array $config 設定の配列
      * @return void
-     * @checked
-     * @noTodo
-     * @unitTest
      */
     abstract protected function _setConfig(array $config);
 
@@ -153,9 +136,6 @@ abstract class BcAbstractDetector
      * キーがキーワードを含むかどうかを判定
      *
      * @return bool
-     * @checked
-     * @noTodo
-     * @unitTest
      */
     abstract public function isMatchDecisionKey();
 

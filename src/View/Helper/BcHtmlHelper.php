@@ -12,17 +12,14 @@
 namespace BaserCore\View\Helper;
 
 use BaserCore\Event\BcEventDispatcherTrait;
-use Cake\View\Helper\BreadcrumbsHelper;
 use Cake\View\Helper\HtmlHelper;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
-use Cake\View\Helper\UrlHelper;
 
 /**
  * Htmlヘルパーの拡張クラス
- * @property UrlHelper $Url
- * @property BreadcrumbsHelper $Breadcrumbs
+ *
  */
 class BcHtmlHelper extends HtmlHelper
 {
@@ -40,18 +37,15 @@ class BcHtmlHelper extends HtmlHelper
      *
      * @var array
      */
-    public $helpers = ['Url', 'Breadcrumbs'];
+    public $helpers = ['Url'];
 
     /**
      * タグにラッピングされていないパンくずデータを取得する
      * @return array
-     * @checked
-     * @noTodo
-     * @unitTest ラッパーのためテスト不要
      */
     public function getStripCrumbs()
     {
-        return $this->Breadcrumbs->getCrumbs();
+        return $this->_crumbs;
     }
 
     /**
@@ -107,8 +101,6 @@ class BcHtmlHelper extends HtmlHelper
      *
      * @param array $value 値（連想配列）
      *  - `inline` : インラインに出力するかどうか。（初期値 : false）
-     * @checked
-     * @noTodo
      */
     public function i18nScript($data, $options = [])
     {

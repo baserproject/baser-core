@@ -118,14 +118,9 @@ class BcUploadBehaviorTest extends BcTestCase
      */
     public function testBeforeMarshal()
     {
-        $data = new ArrayObject($this->uploadedData);
-        $this->table->dispatchEvent('Model.beforeMarshal', ['data' => $data, 'options' => new ArrayObject()]);
+        $this->table->dispatchEvent('Model.beforeMarshal', ['data' => new ArrayObject($this->uploadedData), 'options' => new ArrayObject()]);
         // setupRequestDataが実行されてるか確認
-        $this->assertNotNull(
-            $this->BcUploadBehavior
-                ->BcFileUploader[$this->table->getAlias()]
-                ->getUploadingFiles($data['_bc_upload_id'])
-        );
+        $this->assertNotNull($this->BcUploadBehavior->BcFileUploader[$this->table->getAlias()]->getUploadingFiles());
     }
 
     /**
@@ -150,11 +145,10 @@ class BcUploadBehaviorTest extends BcTestCase
                 'uploadable' => true
             ]
         ];
-        $bcUploadId = 1;
-        $this->BcUploadBehavior->BcFileUploader[$this->table->getAlias()]->setUploadingFiles($uploadedFile, $bcUploadId);
+        $this->BcUploadBehavior->BcFileUploader[$this->table->getAlias()]->setUploadingFiles($uploadedFile);
         $this->BcUploadBehavior->BcFileUploader[$this->table->getAlias()]->settings['fields']['eyecatch'] = $this->eyecatchField;
         // 新規保存の場合
-        $entity = new Entity(['id' => 6, 'eyecatch' => 'baser.power.gif', '_bc_upload_id' => $bcUploadId]);
+        $entity = new Entity(['id' => 6, 'eyecatch' => 'baser.power.gif']);
         $this->table->dispatchEvent('Model.afterSave', ['entity' => $entity, 'options' => new ArrayObject()]);
         $this->assertFileExists($this->savePath . 'baser.power.gif');
         // 削除の場合
@@ -255,9 +249,8 @@ class BcUploadBehaviorTest extends BcTestCase
         // 初期化
         $entity = $this->table->get(1);
         $entity->eyecatch = $filename;
-        $entity->_bc_upload_id = 1;
         $uploader = $this->BcUploadBehavior->getFileUploader();
-        $uploader->setUploadingFiles(['eyecatch' => ['name' => $filename, 'ext' => 'txt']], $entity->_bc_upload_id);
+        $uploader->setUploadingFiles(['eyecatch' => ['name' => $filename, 'ext' => 'txt']]);
 
         // ダミーファイルの生成
         touch($this->savePath . $filename);

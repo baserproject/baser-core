@@ -319,7 +319,7 @@ class BcToolbarHelperTest extends BcTestCase
     public function testGetLogoText()
     {
         // フロントで管理画面利用不可
-        $this->assertEquals('メインサイト', $this->BcToolbar->getLogoText());
+        $this->assertEquals('baserCMS', $this->BcToolbar->getLogoText());
         // フロントで管理画面利用可能
         $this->loginAdmin($this->getRequest('/baser/admin'));
         $this->assertEquals('ダッシュボード', $this->BcToolbar->getLogoText());
@@ -342,7 +342,7 @@ class BcToolbarHelperTest extends BcTestCase
     {
         // フロントで管理画面利用不可
         $this->assertEquals([
-            'title' => 'メインサイト',
+            'title' => 'baserCMS',
             'class' => 'bca-toolbar__logo-link',
             'escapeTitle' => false
         ], $this->BcToolbar->getLogoLinkOptions());

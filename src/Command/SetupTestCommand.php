@@ -16,9 +16,6 @@ use BaserCore\Utility\BcContainerTrait;
 use Cake\Command\Command;
 use Cake\Console\Arguments;
 use Cake\Console\ConsoleIo;
-use BaserCore\Annotation\UnitTest;
-use BaserCore\Annotation\NoTodo;
-use BaserCore\Annotation\Checked;
 
 /**
  * SetupTestCommand
@@ -37,8 +34,6 @@ class SetupTestCommand extends Command
      * @param Arguments $args
      * @param ConsoleIo $io
      * @return int|void|null
-     * @checked
-     * @noTodo
      */
     public function execute(Arguments $args, ConsoleIo $io)
     {

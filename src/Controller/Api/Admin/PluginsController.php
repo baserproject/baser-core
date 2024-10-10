@@ -368,8 +368,6 @@ class PluginsController extends BcAdminApiController
      * 取得可能なコアのバージョン情報を取得
      *
      * @param PluginsServiceInterface $service
-     * @checked
-     * @noTodo
      */
     public function get_available_core_version_info(PluginsServiceInterface $service)
     {

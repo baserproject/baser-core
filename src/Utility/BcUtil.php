@@ -139,7 +139,7 @@ class BcUtil
         $prefix = BcUtil::getRequestPrefix($request);
 
         $authenticator = $request->getAttribute('authentication');
-        if ($authenticator) {
+        if($authenticator) {
             /** @var Result $result */
             $result = $authenticator->getResult();
             if (!empty($result) && $result->isValid()) {
@@ -147,7 +147,7 @@ class BcUtil
                 $user = $result->getData();
                 if (is_null($user->user_groups)) {
                     $userModel = Configure::read("BcPrefixAuth.{$prefix}.userModel");
-                    if ($userModel === 'BaserCore.Users') {
+                    if($userModel === 'BaserCore.Users') {
                         $userTable = TableRegistry::getTableLocator()->get('BaserCore.Users');
                         $user = $userTable->get($user->id, ['contain' => ['UserGroups']]);
                     }
@@ -157,7 +157,7 @@ class BcUtil
         }
 
         $user = false;
-        if ($prefix === 'Front') {
+        if($prefix === 'Front') {
             $user = BcUtil::loginUserFromSession($prefix);
             if (!$user) {
                 $users = self::getLoggedInUsers(false);
@@ -180,11 +180,11 @@ class BcUtil
     {
         $users = [];
         $prefixSettings = array_reverse(Configure::read('BcPrefixAuth'));
-        foreach($prefixSettings as $key => $prefixSetting) {
-            if (!empty($prefixSetting['disabled'])) continue;
+        foreacH($prefixSettings as $key => $prefixSetting) {
+            if(!empty($prefixSetting['disabled'])) continue;
             $user = BcUtil::loginUserFromSession($key);
-            if ($user) {
-                if ($assoc) {
+            if($user) {
+                if($assoc) {
                     $users[$key] = $user;
                 } else {
                     $users[] = $user;
@@ -437,8 +437,6 @@ class BcUtil
      * 現在のDB接続の設定を取得する
      *
      * @return array
-     * @checked
-     * @noTodo
      */
     public static function getCurrentDbConfig()
     {
@@ -449,8 +447,6 @@ class BcUtil
      * 現在のDB接続を取得する
      *
      * @return \Cake\Database\Connection
-     * @checked
-     * @noTodo
      */
     public static function getCurrentDb()
     {
@@ -691,9 +687,6 @@ class BcUtil
      *
      * @param mixed $value 対象文字列
      * @return mixed
-     * @checked
-     * @noTodo
-     * @unitTest
      */
     public static function unserialize($value)
     {
@@ -701,10 +694,10 @@ class BcUtil
         $value = @unserialize(base64_decode($value));
         // 下位互換のため、しばらくの間、失敗した場合の再変換を行う v.3.0.2
         if ($value === false) {
-            $value = @unserialize($_value);
-            if ($value === false) {
-                return '';
-            }
+			$value = @unserialize($_value);
+			if($value === false) {
+				return '';
+			}
         }
         return $value;
     }
@@ -749,8 +742,6 @@ class BcUtil
      * ユニットテストかどうか
      *
      * @return bool
-     * @checked
-     * @noTodo
      */
     public static function isTest()
     {
@@ -821,8 +812,6 @@ class BcUtil
      *
      * @param $siteId
      * @return []|array
-     * @checked
-     * @noTodo
      */
     public static function getFrontTemplatePaths($siteId, $plugin)
     {
@@ -931,8 +920,6 @@ class BcUtil
      * サブドメインを取得する
      *
      * @return string
-     * @checked
-     * @noTodo
      */
     public static function getSubDomain($host = null)
     {
@@ -1011,8 +998,6 @@ class BcUtil
      *
      * @param $pluginName
      * @return string|false
-     * @checked
-     * @noTodo
      */
     public static function getPluginPath($pluginName): string
     {
@@ -1032,8 +1017,6 @@ class BcUtil
      * プラグインのディレクトリ名を取得する
      * @param $pluginName
      * @return false|mixed
-     * @checked
-     * @noTodo
      */
     public static function getPluginDir($pluginName)
     {
@@ -1163,8 +1146,6 @@ class BcUtil
      * 現在のビューディレクトリのパスを取得する
      *
      * @return string
-     * @checked
-     * @noTodo
      */
     public static function getViewPath()
     {
@@ -1194,16 +1175,10 @@ class BcUtil
         $theme = Inflector::camelize(Inflector::underscore(Configure::read('BcApp.coreFrontTheme')));
         if (!BcUtil::isInstalled()) return $theme;
         $request = Router::getRequest();
-
-        if (is_null($request))
-            $site = null;
-        else {
-            /** @var Site $site */
-            $site = $request->getAttribute('currentSite');
-        }
-
+        /** @var Site $site */
+        $site = $request->getAttribute('currentSite');
         if ($site) {
-            if ($site->theme) {
+            if($site->theme) {
                 return $site->theme;
             } else {
                 $sitesService = BcContainer::get()->get(SitesServiceInterface::class);
@@ -1235,8 +1210,6 @@ class BcUtil
      * 現在の管理画面のテーマ名を取得する
      * キャメルケースが前提
      * @return mixed|string
-     * @checked
-     * @noTodo
      */
     public static function getCurrentAdminTheme()
     {
@@ -1253,8 +1226,6 @@ class BcUtil
      * @param string $str
      * @param string $suffix
      * @return string
-     * @checked
-     * @noTodo
      */
     public static function mbBasename($str, $suffix = null)
     {
@@ -1321,10 +1292,7 @@ class BcUtil
      *
      * index.phpは含まない
      *
-     * @return string
-     * @checked
-     * @noTodo
-     * @unitTest
+     * @return    string
      */
     public static function siteUrl()
     {
@@ -1346,9 +1314,6 @@ class BcUtil
      * ※ プログラムフォルダ内の画像やCSSの読み込み時もbootstrap.php で呼び出されるのでサーバーキャッシュは利用しない
      *
      * @return string ベースURL
-     * @checked
-     * @noTodo
-     * @unitTest
      */
     public static function baseUrl()
     {
@@ -1382,10 +1347,7 @@ class BcUtil
      * サブドメインの場合など、$_SERVER['DOCUMENT_ROOT'] が正常に取得できない場合に利用する
      * UserDir に対応
      *
-     * @return string ドキュメントルートの絶対パス
-     * @checked
-     * @noTodo
-     * @unitTest
+     * @return string   ドキュメントルートの絶対パス
      */
     public static function docRoot()
     {
@@ -1414,9 +1376,6 @@ class BcUtil
      * 実行環境のOSがWindowsであるかどうかを返す
      *
      * @return bool
-     * @checked
-     * @noTodo
-     * @unitTest
      */
     public static function isWindows()
     {
@@ -1523,11 +1482,11 @@ class BcUtil
     /**
      * ファイルポインタから行を取得し、CSVフィールドを処理する
      *
-     * @param resource $handle
-     * @param int $length
-     * @param string $d delimiter
-     * @param string $e enclosure
-     * @return mixed ファイルの終端に達した場合を含み、エラー時にFALSEを返します。
+     * @param stream    handle
+     * @param int        length
+     * @param string    delimiter
+     * @param string    enclosure
+     * @return    mixed    ファイルの終端に達した場合を含み、エラー時にFALSEを返します。
      * @checked
      * @noTodo
      * @unitTest
@@ -1680,9 +1639,6 @@ class BcUtil
     /**
      * 必要な一時フォルダが存在するかチェックし、
      * なければ生成する
-     * @checked
-     * @noTodo
-     * @unitTest
      */
     public static function checkTmpFolders()
     {
@@ -1721,10 +1677,7 @@ class BcUtil
      * httpからのフルURLを取得する
      *
      * @param mixed $url
-     * @return string
-     * @checked
-     * @noTodo
-     * @unitTest
+     * @return    string
      */
     public static function fullUrl($url)
     {
@@ -1757,8 +1710,6 @@ class BcUtil
      * @param string $path
      * @param string $type
      * @return false|string
-     * @checked
-     * @noTodo
      */
     public static function getExistsTemplateDir(string $theme, string $plugin, string $path, string $type = '')
     {
@@ -1813,8 +1764,6 @@ class BcUtil
      * @param string $path
      * @param string $type
      * @return false|string
-     * @checked
-     * @noTodo
      */
     public static function getExistsWebrootDir(string $theme, string $plugin, string $path, string $type = '')
     {
@@ -1870,8 +1819,6 @@ class BcUtil
      * `array('a'=>'b')`
      *
      * @return array Associative array
-     * @checked
-     * @noTodo
      */
     public static function pairToAssoc()
     {
@@ -1900,8 +1847,6 @@ class BcUtil
      * @param int $interval 試行の間隔（ミリ秒）
      * @return mixed
      * @throws Exception
-     * @checked
-     * @noTodo
      */
     public static function retry($times, callable $callback, $interval = 0)
     {
@@ -1957,8 +1902,8 @@ class BcUtil
     {
         $authPrefixes = [];
         foreach(Configure::read('BcPrefixAuth') as $key => $authPrefix) {
-            if ($key === 'Api') continue;
-            if (!empty($authPrefix['disabled'])) continue;
+            if($key === 'Api') continue;
+            if(!empty($authPrefix['disabled'])) continue;
             $authPrefixes[$key] = $authPrefix['name'];
         }
         return $authPrefixes;
@@ -1983,8 +1928,6 @@ class BcUtil
      * デバッグモードかどうか
      *
      * @return bool
-     * @checked
-     * @noTodo
      */
     public static function isDebug(): bool
     {
@@ -1998,9 +1941,8 @@ class BcUtil
      * @param $min
      * @param $sec
      * @return bool
-     * @checked
-     * @noTodo
      */
+
     public static function checkTime($hour, $min, $sec = null): bool
     {
         $hour = (int)$hour;
@@ -2025,8 +1967,6 @@ class BcUtil
      *
      * @param string $val 対象文字列
      * @return string
-     * @checked
-     * @noTodo
      */
     public static function base64UrlSafeDecode($val): string
     {
@@ -2045,10 +1985,8 @@ class BcUtil
      *
      * @param string $val 対象文字列
      * @return string
-     * @checked
-     * @noTodo
      */
-    public static function base64UrlSafeEncode($val): string
+    public static function base64UrlsafeEncode($val): string
     {
         $val = base64_encode($val);
         return str_replace(['+', '/', '='], ['_', '-', '.'], $val);

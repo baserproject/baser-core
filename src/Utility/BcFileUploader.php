@@ -102,13 +102,6 @@ class BcFileUploader
     private $uploadingFiles = [];
 
     /**
-     * 同一テーブルのデータを複数扱う場合の競合対策のための固有ID
-     *
-     * @var int
-     */
-    private $bcUploadId = 1;
-
-    /**
      * Initialize
      * @param array $config
      * @param Table $table
@@ -220,8 +213,7 @@ class BcFileUploader
             }
             $files[$name] = $file;
         }
-        $data['_bc_upload_id'] = $this->bcUploadId++;
-        $this->setUploadingFiles($files, $data['_bc_upload_id']);
+        $this->setUploadingFiles($files);
         return $data;
     }
 
@@ -238,7 +230,7 @@ class BcFileUploader
         foreach($this->settings['fields'] as $setting) {
             $name = $setting['name'];
             if (isset($data[$name . '_tmp']) && $this->moveFileSessionToTmp($data, $name)) {
-                $data[$setting['name']] = $this->getUploadingFiles($data['_bc_upload_id'])[$setting['name']];
+                $data[$setting['name']] = $this->getUploadingFiles()[$setting['name']];
                 // セッションに一時ファイルが保存されている場合は復元する
                 unset($data[$setting['name'] . '_tmp']);
             }
@@ -289,7 +281,7 @@ class BcFileUploader
      */
     public function saveFiles($entity)
     {
-        $files = $this->getUploadingFiles($entity->_bc_upload_id);
+        $files = $this->getUploadingFiles();
         $this->uploaded = false;
         foreach($this->settings['fields'] as $setting) {
             $file = $files[$setting['name']] ?? [];
@@ -301,7 +293,7 @@ class BcFileUploader
                 }
             }
         }
-        $this->setUploadingFiles($files, $entity->_bc_upload_id);
+        $this->setUploadingFiles($files);
     }
 
     /**
@@ -359,12 +351,6 @@ class BcFileUploader
     	if(empty($file['tmp_name'])) return false;
         $fileName = $this->getSaveFileName($setting, $file);
         $filePath = $this->savePath . $fileName;
-
-        // .htaccessは保存させない
-        if (preg_match('/\.htaccess$/is', $fileName)) {
-            return false;
-        }
-
         $this->rotateImage($file['tmp_name']);
         if (copy($file['tmp_name'], $filePath)) {
             chmod($filePath, 0666);
@@ -384,7 +370,7 @@ class BcFileUploader
      */
     public function deleteFiles($oldEntity, $newEntity, $force = false)
     {
-        $files = $this->getUploadingFiles($newEntity->_bc_upload_id);
+        $files = $this->getUploadingFiles();
         foreach($this->settings['fields'] as $setting) {
             $file = $files[$setting['name']] ?? [];
             $newEntity = $this->deleteFileWhileChecking($setting, $file, $newEntity, $oldEntity, $force);
@@ -493,7 +479,7 @@ class BcFileUploader
         $uploadInfo['uploadable'] = true;
         $uploadInfo['ext'] = BcUtil::decodeContent($fileType, $fileName);
         $uploadedFile[$fieldName] = $uploadInfo;
-        $this->setUploadingFiles($uploadedFile, $data['_bc_upload_id']);
+        $this->setUploadingFiles($uploadedFile);
         return true;
     }
 
@@ -679,7 +665,7 @@ class BcFileUploader
     public function renameToBasenameFields($entity, $copy = false)
     {
         if (!$copy) {
-            $files = $this->getUploadingFiles($entity->_bc_upload_id);
+            $files = $this->getUploadingFiles();
         }
         foreach($this->settings['fields'] as $setting) {
 			if ($copy) {
@@ -923,20 +909,17 @@ class BcFileUploader
      * 保存先のフォルダを設定し、取得する
      * @param bool $isTheme
      * @param bool $limited
-     * @return string|bool
+     * @return string
      * @checked
      * @noTodo
      * @unitTest
      */
-    public function getSaveDir(bool $isTheme = false, bool $limited = false): bool|string
+    public function getSaveDir(bool $isTheme = false, bool $limited = false): string
     {
         if (!$isTheme) {
             $basePath = WWW_ROOT . 'files' . DS;
         } else {
             $request = Router::getRequest();
-
-            if (is_null($request)) return false;
-
             $site = $request->getAttribute('currentSite');
             if ($site && $site->theme) {
                 $basePath = ROOT . DS . 'plugins' . DS . $site->theme . DS . 'webroot' . DS . 'files' . DS;
@@ -991,7 +974,7 @@ class BcFileUploader
     public function deleteExistingFiles($oldEntity, $force = false): void
     {
         if (!$oldEntity) return;
-        $files = $this->getUploadingFiles($oldEntity->_bc_upload_id);
+        $files = $this->getUploadingFiles();
         if (!$files) return;
         foreach($files as $name => $file) {
             if(!empty($file['uploadable']) || $force) {
@@ -1044,9 +1027,9 @@ class BcFileUploader
      * @noTodo
      * @unitTest
      */
-    public function setUploadingFiles(array $files, $bcUploadId): void
+    public function setUploadingFiles(array $files): void
     {
-        $this->uploadingFiles[$bcUploadId] = $files;
+        $this->uploadingFiles = $files;
     }
 
     /**
@@ -1055,9 +1038,9 @@ class BcFileUploader
      * @noTodo
      * @unitTest
      */
-    public function getUploadingFiles($bcUploadId): array
+    public function getUploadingFiles(): array
     {
-        return $this->uploadingFiles[$bcUploadId] ?? [];
+        return $this->uploadingFiles ?? [];
     }
 
     /**
@@ -1076,7 +1059,7 @@ class BcFileUploader
         $this->Session->delete('Upload');
         $this->tmpId = $tmpId;
         $data = $this->setupRequestData($data);
-        $files = $this->getUploadingFiles($data['_bc_upload_id']);
+        $files = $this->getUploadingFiles();
         $entity = new Entity($data);
         foreach($this->settings['fields'] as $setting) {
             $fileName = $this->saveTmpFile($setting, $files[$setting['name']], $entity);
@@ -1093,7 +1076,7 @@ class BcFileUploader
 				unset($entity[$field]);
 			}
 		}
-        $this->setUploadingFiles($files, $data['_bc_upload_id']);
+        $this->setUploadingFiles($files);
         return $entity;
     }
 
@@ -1177,8 +1160,6 @@ class BcFileUploader
      * ファイルアップロード対象のデータを元に戻す
      *
      * @param EntityInterface $entity
-     * @checked
-     * @noTodo
      */
     public function rollbackFile(EntityInterface $entity)
     {

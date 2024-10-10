@@ -66,8 +66,6 @@ class BcListTableHelper extends Helper
      * リスト見出し発火
      *
      * @return string
-     * @checked
-     * @noTodo
      */
     public function dispatchShowHead()
     {
@@ -92,8 +90,6 @@ class BcListTableHelper extends Helper
      *
      * @param $data
      * @return string
-     * @checked
-     * @noTodo
      */
     public function dispatchShowRow($data)
     {

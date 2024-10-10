@@ -12,11 +12,7 @@
 namespace BaserCore\View\Helper;
 
 use BaserCore\Event\BcEventDispatcherTrait;
-use Cake\Core\Configure;
 use Cake\View\Helper;
-use BaserCore\Annotation\Checked;
-use BaserCore\Annotation\NoTodo;
-use BaserCore\Annotation\UnitTest;
 
 /**
  * XMLヘルパー拡張
@@ -49,8 +45,6 @@ class BcXmlHelper extends Helper
      *
      * @param array $attrib
      * @return string XML宣言
-     * @checked
-     * @noTodo
      */
     public function header($attrib = [])
     {
@@ -59,25 +53,28 @@ class BcXmlHelper extends Helper
             if (Configure::read('App.encoding') !== null) {
                 $this->encoding = Configure::read('App.encoding');
             }
+
             if (is_array($attrib)) {
                 $attrib = array_merge(['encoding' => $this->encoding], $attrib);
             }
             if (is_string($attrib) && strpos($attrib, 'xml') !== 0) {
                 $attrib = 'xml ' . $attrib;
             }
+
             $header = 'xml';
             if (is_string($attrib)) {
                 $header = $attrib;
             } else {
+
                 $attrib = array_merge(['version' => $this->version, 'encoding' => $this->encoding], $attrib);
                 foreach($attrib as $key => $val) {
                     $header .= ' ' . $key . '="' . $val . '"';
                 }
             }
             $out = '<' . '?' . $header . ' ?' . '>';
+
             return $out;
         }
-        return '';
     }
 
 }

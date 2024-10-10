@@ -119,8 +119,6 @@ class ContentsController extends BcAdminApiController
      *
      * @param ContentsService $service
      * @return void
-     * @checked
-     * @noTodo
      */
     public function index_trash(ContentsServiceInterface $service)
     {

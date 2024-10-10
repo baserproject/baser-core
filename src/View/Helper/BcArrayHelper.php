@@ -13,9 +13,6 @@ namespace BaserCore\View\Helper;
 
 use BaserCore\Event\BcEventDispatcherTrait;
 use Cake\View\Helper;
-use BaserCore\Annotation\UnitTest;
-use BaserCore\Annotation\NoTodo;
-use BaserCore\Annotation\Checked;
 
 /**
  * BcArrayHelper
@@ -35,8 +32,6 @@ class BcArrayHelper extends Helper
      * @param array $array 配列
      * @param mixed $key 現在のキー
      * @return boolean
-     * @checked
-     * @noTodo
      */
     public function first($array, $key)
     {
@@ -55,8 +50,6 @@ class BcArrayHelper extends Helper
      * @param array $array 配列
      * @param mixed $key 現在のキー
      * @return boolean
-     * @checked
-     * @noTodo
      */
     public function last($array, $key)
     {
@@ -75,9 +68,8 @@ class BcArrayHelper extends Helper
      * @param array $array
      * @param string $prefix
      * @param string $suffix
-     * @return array
-     * @checked
-     * @noTodo
+     * @return    array
+     * @access    public
      */
     public function addText($array, $prefix = '', $suffix = '')
     {
@@ -93,8 +85,7 @@ class BcArrayHelper extends Helper
      * @param string $value
      * @param string $key
      * @param string $add
-     * @checked
-     * @noTodo
+     * @access    private
      */
     private function __addText(&$value, $key, $add)
     {

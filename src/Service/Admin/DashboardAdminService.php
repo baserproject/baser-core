@@ -52,8 +52,6 @@ class DashboardAdminService implements DashboardAdminServiceInterface
     /**
      * パネルを取得する
      * @return array
-     * @checked
-     * @noTodo
      */
     public function getPanels()
     {
@@ -62,11 +60,9 @@ class DashboardAdminService implements DashboardAdminServiceInterface
         $corePlugins = array_merge(Configure::read('BcApp.core'),  Configure::read('BcApp.corePlugins'));
 
         foreach($corePlugins as $corePlugin) {
+            $panels[$corePlugin] = BcUtil::getTemplateList('Admin/element/Dashboard', $corePlugin);
             $key = array_search($corePlugin, $plugins);
-            if($key !== false) {
-                unset($plugins[$key]);
-                $panels[$corePlugin] = BcUtil::getTemplateList('Admin/element/Dashboard', $corePlugin);
-            }
+            if($key !== false) unset($plugins[$key]);
         }
 
         if ($plugins) {

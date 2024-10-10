@@ -15,6 +15,7 @@ use BaserCore\Utility\BcAgent;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\Configure;
 use Cake\Http\Response;
+use Cake\Http\ServerRequest;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
@@ -49,15 +50,6 @@ class BcRequestFilterMiddleware implements MiddlewareInterface
         if ($this->isAsset($request)) {
             Configure::write('BcRequest.asset', true);
             return new Response();
-        }
-
-        /**
-         * CGIモード等PHPでJWT認証で必要なAuthorizationヘッダーが取得出来ないできない場合、REDIRECT_HTTP_AUTHORIZATION環境変数より取得する
-         * .htaccess等に下記を記載することで動作可能とする
-         * SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
-         */
-        if (empty($request->getHeader('Authorization')) && $request->getEnv('REDIRECT_HTTP_AUTHORIZATION')) {
-            $request = $request->withHeader('Authorization', $request->getEnv('REDIRECT_HTTP_AUTHORIZATION'));
         }
 
         if(BcUtil::isInstalled()) $this->redirectIfIsDeviceFile($request, $handler);
@@ -124,12 +116,12 @@ class BcRequestFilterMiddleware implements MiddlewareInterface
     /**
      * リクエスト検出器を追加する
      *
-     * @param ServerRequestInterface $request リクエスト
+     * @param ServerRequest $request リクエスト
      * @checked
      * @noTodo
      * @unitTest
      */
-    public function addDetectors(ServerRequestInterface $request): ServerRequestInterface
+    public function addDetectors(ServerRequest $request): ServerRequest
     {
         foreach($this->getDetectorConfigs() as $name => $callback) {
             $request->addDetector($name, $callback);

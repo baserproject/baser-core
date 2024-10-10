@@ -13,9 +13,6 @@ namespace BaserCore\View\Helper;
 
 use BaserCore\Event\BcEventDispatcherTrait;
 use Cake\View\Helper;
-use BaserCore\Annotation\UnitTest;
-use BaserCore\Annotation\NoTodo;
-use BaserCore\Annotation\Checked;
 
 /**
  * CSVヘルパー
@@ -58,26 +55,23 @@ class BcCsvHelper extends Helper
 
     /**
      * 出力データテンポラリファイルポインタ
-     * @private resource|null
+     * @private string
      */
-    private $_csvTmpDataFp;
+    private $_csvTmpDataFp = null;
+
 
     /**
      * テンポラリファイルを生成する
-     * @checked
-     * @noTodo
      */
     private function _createTmpFp()
     {
-        if (!$this->_csvTmpDataFp) {
+        if ($this->_csvTmpDataFp === null) {
             $this->_csvTmpDataFp = tmpfile();
         }
     }
 
     /**
      * 一時ファイルのポインタを取得
-     * @checked
-     * @noTodo
      */
     public function getCsvTmpDataFp()
     {
@@ -91,8 +85,6 @@ class BcCsvHelper extends Helper
      * @param string $modelName
      * @param array $data
      * @return bool
-     * @checked
-     * @noTodo
      */
     public function addModelData($modelName, $data)
     {
@@ -108,6 +100,8 @@ class BcCsvHelper extends Helper
             $this->csvHead = $this->_perseKey($data[$modelName]);
         }
         fputs($this->_csvTmpDataFp, $this->_perseValue($data[$modelName]));
+
+        // echo memory_get_usage() / (1024 * 1024)."MB\n";
         return true;
     }
 
@@ -117,8 +111,6 @@ class BcCsvHelper extends Helper
      * @param string $modelName
      * @param array $datas
      * @return $csv
-     * @checked
-     * @noTodo
      */
     public function addModelDatas($modelName, $datas)
     {
@@ -128,6 +120,7 @@ class BcCsvHelper extends Helper
         if (!isset($datas[0][$modelName])) {
             return false;
         }
+
         foreach($datas as $data) {
             $this->addModelData($modelName, $data);
         }
@@ -139,8 +132,6 @@ class BcCsvHelper extends Helper
      *
      * @param array $data
      * @return string|false $head
-     * @checked
-     * @noTodo
      */
     protected function _perseKey($data)
     {
@@ -165,8 +156,6 @@ class BcCsvHelper extends Helper
      *
      * @param array $data
      * @return string $body
-     * @checked
-     * @noTodo
      */
     protected function _perseValue($data)
     {
@@ -197,8 +186,6 @@ class BcCsvHelper extends Helper
      * @param string $fileName
      * @param boolean $debug
      * @return void|string
-     * @checked
-     * @noTodo
      */
     public function download($fileName, $debug = false)
     {
@@ -241,8 +228,6 @@ class BcCsvHelper extends Helper
      *
      * @param $fileName
      * @return void
-     * @checked
-     * @noTodo
      */
     public function save($fileName)
     {

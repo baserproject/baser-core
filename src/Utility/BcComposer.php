@@ -19,8 +19,7 @@ use BaserCore\Annotation\Checked;
 /**
  * BcComposer
  */
-class BcComposer
-{
+class BcComposer {
 
     /**
      * cd コマンド
@@ -55,8 +54,6 @@ class BcComposer
      *
      * @param string $php
      * @throws Exception
-     * @checked
-     * @noTodo
      */
     public static function setup(string $php = '')
     {
@@ -76,14 +73,12 @@ class BcComposer
      * Composer がインストールされているかチェックする
      *
      * @throws Exception
-     * @checked
-     * @noTodo
      */
     public static function checkComposer()
     {
-        if (!file_exists(self::$composerDir . 'composer.phar')) {
+        if(!file_exists(self::$composerDir . 'composer.phar')) {
             $result = self::installComposer();
-            if (!file_exists(self::$composerDir . 'composer.phar')) {
+            if(!file_exists(self::$composerDir . 'composer.phar')) {
                 throw new Exception(__d('baser_core', 'composer がインストールできません。{0}', implode("\n", $result['out'])));
             }
             self::selfUpdate();
@@ -94,8 +89,6 @@ class BcComposer
      * 環境チェック
      *
      * @throws Exception
-     * @checked
-     * @noTodo
      */
     public static function checkEnv()
     {
@@ -115,7 +108,7 @@ class BcComposer
         if (!is_writable(ROOT . DS . 'logs')) {
             $error = __d('baser_core', '/logs に書き込み権限がありません。書き込み権限を与えてください。');
         }
-        if ($error) {
+        if($error) {
             throw new Exception(implode('\n', $error));
         }
     }
@@ -157,8 +150,6 @@ class BcComposer
      * composer install 実行
      *
      * @return array
-     * @checked
-     * @noTodo
      */
     public static function install()
     {
@@ -169,8 +160,6 @@ class BcComposer
      * composer self-update 実行
      *
      * @return array
-     * @checked
-     * @noTodo
      */
     public static function selfUpdate()
     {
@@ -182,8 +171,6 @@ class BcComposer
      *
      * @param string $command
      * @return array
-     * @checked
-     * @noTodo
      */
     public static function execCommand(string $command)
     {
@@ -200,12 +187,10 @@ class BcComposer
      *
      * @param string $command
      * @return string
-     * @checked
-     * @noTodo
      */
     public static function createCommand(string $command)
     {
-        return self::$cd . ' ' . self::$export . ' echo y | ' . self::$php . ' ' . self::$composerDir . 'composer.phar ' . $command . ' 2>&1';
+        return  self::$cd . ' ' . self::$export . ' echo y | ' . self::$php . ' ' . self::$composerDir . 'composer.phar ' . $command . ' 2>&1';
     }
 
 }

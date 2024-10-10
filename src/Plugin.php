@@ -27,7 +27,7 @@ use BaserCore\Event\BcModelEventDispatcher;
 use BaserCore\Event\BcViewEventDispatcher;
 use BaserCore\Middleware\BcAdminMiddleware;
 use BaserCore\Middleware\BcFrontMiddleware;
-use BaserCore\Middleware\BcRedirectSubSiteMiddleware;
+use BaserCore\Middleware\BcRedirectSubSiteFilter;
 use BaserCore\Middleware\BcRequestFilterMiddleware;
 use BaserCore\ServiceProvider\BcServiceProvider;
 use BaserCore\Utility\BcEvent;
@@ -39,6 +39,7 @@ use Cake\Core\ContainerInterface;
 use Cake\Core\Exception\MissingPluginException;
 use Cake\Core\PluginApplicationInterface;
 use Cake\Event\EventManager;
+use Cake\Http\Exception\ForbiddenException;
 use Cake\Http\Middleware\CsrfProtectionMiddleware;
 use Cake\Http\MiddlewareQueue;
 use Cake\Http\ServerRequestFactory;
@@ -66,13 +67,13 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
     /**
      * bootstrap
      *
-     * @param PluginApplicationInterface $app
+     * @param PluginApplicationInterface $application
      *
      * @checked
      * @unitTest
      * @noTodo
      */
-    public function bootstrap(PluginApplicationInterface $app): void
+    public function bootstrap(PluginApplicationInterface $application): void
     {
         /**
          * composer インストール対応
@@ -115,14 +116,14 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
         if (BcUtil::isInstalled()) {
             BcUtil::checkTmpFolders();
         } else {
-            $app->addPlugin('BcInstaller');
+            $application->addPlugin('BcInstaller');
             Configure::load('BcInstaller.setting');
         }
 
         /**
          * プラグインごとの設定ファイル読み込み
          */
-        parent::bootstrap($app);
+        parent::bootstrap($application);
 
         /**
          * 文字コードの検出順を指定
@@ -149,11 +150,11 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
         /**
          * プラグインロード
          */
-        if (BcUtil::isTest()) $app->addPlugin('CakephpFixtureFactories');
-        $app->addPlugin('Authentication');
-        $app->addPlugin('Migrations');
+        if (BcUtil::isTest()) $application->addPlugin('CakephpFixtureFactories');
+        $application->addPlugin('Authentication');
+        $application->addPlugin('Migrations');
 
-        $this->addTheme($app);
+        $this->addTheme($application);
 
         if (!filter_var(env('USE_DEBUG_KIT', true), FILTER_VALIDATE_BOOLEAN)) {
             // 明示的に指定がない場合、DebugKitは重すぎるのでデバッグモードでも利用しない
@@ -163,7 +164,7 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
         if ($plugins) {
             foreach($plugins as $plugin) {
                 if (BcUtil::includePluginClass($plugin->name)) {
-                    $this->loadPlugin($app, $plugin->name, $plugin->priority);
+                    $this->loadPlugin($application, $plugin->name, $plugin->priority);
                 }
             }
         }
@@ -278,11 +279,11 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
     public function middleware(MiddlewareQueue $middlewareQueue): MiddlewareQueue
     {
         $middlewareQueue
-            ->prepend(new BcRequestFilterMiddleware())
             ->insertBefore(CsrfProtectionMiddleware::class, new AuthenticationMiddleware($this))
             ->add(new BcAdminMiddleware())
             ->add(new BcFrontMiddleware())
-            ->add(new BcRedirectSubSiteMiddleware());
+            ->add(new BcRequestFilterMiddleware())
+            ->add(new BcRedirectSubSiteFilter());
 
         // APIへのアクセスの場合、セッションによる認証以外は、CSRFを利用しない設定とする
         $ref = new ReflectionClass($middlewareQueue);
@@ -385,8 +386,6 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
      *
      * @param array $authSetting
      * @return bool
-     * @checked
-     * @noTodo
      */
     public function isRequiredAuthentication(array $authSetting)
     {
@@ -402,8 +401,6 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
      * @param AuthenticationService $service
      * @param array $authSetting
      * @return AuthenticationService
-     * @checked
-     * @noTodo
      */
     public function setupSessionAuth(AuthenticationService $service, array $authSetting)
     {
@@ -441,8 +438,6 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
      * @param AuthenticationService $service
      * @param array $authSetting
      * @return AuthenticationService
-     * @checked
-     * @noTodo
      */
     public function setupJwtAuth(AuthenticationService $service, array $authSetting, string $prefix)
     {
@@ -613,8 +608,6 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
      *
      * @param CommandCollection $commands
      * @return CommandCollection
-     * @checked
-     * @checked
      */
     public function console(CommandCollection $commands): CommandCollection
     {

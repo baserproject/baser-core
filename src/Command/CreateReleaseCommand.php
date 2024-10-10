@@ -33,8 +33,6 @@ class CreateReleaseCommand extends Command
      *
      * @param \Cake\Console\ConsoleOptionParser $parser
      * @return \Cake\Console\ConsoleOptionParser
-     * @checked
-     * @noTodo
      */
     protected function buildOptionParser(\Cake\Console\ConsoleOptionParser $parser): \Cake\Console\ConsoleOptionParser
     {
@@ -52,8 +50,6 @@ class CreateReleaseCommand extends Command
      * @param Arguments $args
      * @param ConsoleIo $io
      * @return int|void|null
-     * @checked
-     * @noTodo
      */
     public function execute(Arguments $args, ConsoleIo $io)
     {
@@ -93,8 +89,6 @@ class CreateReleaseCommand extends Command
      * composer.json を配布用にセットアップする
      *
      * @param string $packagePath
-     * @checked
-     * @noTodo
      */
     public function setupComposer(string $packagePath)
     {
@@ -114,8 +108,6 @@ class CreateReleaseCommand extends Command
      * パッケージを GitHub よりクローンする
      *
      * @param string $packagePath
-     * @checked
-     * @noTodo
      */
     public function clonePackage(string $packagePath, string $branch)
     {
@@ -130,8 +122,6 @@ class CreateReleaseCommand extends Command
      *
      * インストール時、　composer で vendor に配置するため
      * @param string $packagePath
-     * @checked
-     * @noTodo
      */
     public function deletePlugins(string $packagePath)
     {
@@ -149,8 +139,6 @@ class CreateReleaseCommand extends Command
      * Zip ファイルに固める
      *
      * @param string $packagePath
-     * @checked
-     * @noTodo
      */
     public function createZip(string $packagePath)
     {
@@ -166,8 +154,6 @@ class CreateReleaseCommand extends Command
      * 配布用に不要なファイルを削除する
      *
      * @param string $packagePath
-     * @checked
-     * @noTodo
      */
     public function deleteExcludeFiles(string $packagePath)
     {

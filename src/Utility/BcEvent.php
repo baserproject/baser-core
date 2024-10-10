@@ -27,8 +27,6 @@ class BcEvent
      *
      * @param string $plugin
      * @param int $priority
-     * @checked
-     * @noTodo
      */
     public static function registerPluginEvent(string $plugin, int $priority = 100)
     {

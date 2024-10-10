@@ -210,8 +210,6 @@ class PagesService implements PagesServiceInterface
      * @param Query $query
      * @param array $options
      * @return Query
-     * @checked
-     * @noTodo
      */
     protected function createIndexConditions(Query $query, $options = [])
     {

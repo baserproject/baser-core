@@ -83,8 +83,6 @@ class BcContentsHelper extends Helper
 
     /**
      * セットアップ
-     * @checked
-     * @noTodo
      */
     public function setup()
     {
@@ -266,8 +264,6 @@ class BcContentsHelper extends Helper
     /**
      * コンテンツ設定を Json 形式で取得する
      * @return string
-     * @checked
-     * @noTodo
      */
     public function getJsonItems()
     {
@@ -280,9 +276,6 @@ class BcContentsHelper extends Helper
      * @param string $url
      * @param int $siteId
      * @return mixed
-     * @checked
-     * @noTodo
-     * @unitTest ラッパーメソッドのためテスト不要
      */
     public function getPureUrl($url, $siteId)
     {
@@ -319,8 +312,6 @@ class BcContentsHelper extends Helper
      * @param int $id カテゴリID
      * @param int $level 関連データの階層
      * @param array $options
-     * @checked
-     * @noTodo
      */
     public function getTree($id = 1, $level = null, $options = [])
     {
@@ -364,8 +355,6 @@ class BcContentsHelper extends Helper
      * @param null $id
      * @param bool $direct 直接の親かどうか
      * @return EntityInterface|array|false
-     * @checked
-     * @noTodo
      */
     public function getParent($id = null, $direct = true)
     {
@@ -480,8 +469,6 @@ class BcContentsHelper extends Helper
      * @param int $siteId
      * @param array $options
      * @return array|bool
-     * @checked
-     * @noTodo
      */
     public function getContentFolderList($siteId = null, $options = [])
     {
@@ -534,8 +521,6 @@ class BcContentsHelper extends Helper
      *  'name','url','title'など　初期値：Null
      *  省略した場合配列を取得
      * @return array|string|bool
-     * @checked
-     * @noTodo
      */
     public function getContentByEntityId($id, $contentType, $field = null)
     {
@@ -593,8 +578,6 @@ class BcContentsHelper extends Helper
      * @param int $id コンテンツ自身のID
      * @param int $parentId 親として判定するID
      * @return bool
-     * @checked
-     * @noTodo
      */
     public function isParentId($id, $parentId)
     {
@@ -612,15 +595,13 @@ class BcContentsHelper extends Helper
     /**
      * フォルダかどうか確認する
      * @return bool
-     * @checked
-     * @noTodo
      */
     public function isFolder()
     {
-        if (BcUtil::isAdminSystem() || !$this->getView()->getRequest()->getAttribute('currentContent')->type) {
+        if (BcUtil::isAdminSystem() || !$this->request->getAttribute('currentContent')->type) {
             return false;
         }
-        return ($this->getView()->getRequest()->getAttribute('currentContent')->type === 'ContentFolder');
+        return ($this->request->getAttribute('currentContent')->type === 'ContentFolder');
     }
 
     /**
@@ -628,8 +609,6 @@ class BcContentsHelper extends Helper
      *
      * @param int $siteId
      * @return Content
-     * @checked
-     * @noTodo
      */
     public function getSiteRoot($siteId)
     {
@@ -666,9 +645,6 @@ class BcContentsHelper extends Helper
      * @param bool $useSubDomain サブドメインを利用しているかどうか
      * @param bool $base $full が false の場合、ベースとなるURLを含めるかどうか
      * @return string URL
-     * @checked
-     * @noTodo
-     * @unitTest ラッパーメソッドのためテスト不要
      */
     public function getUrl($url, $full = false, $useSubDomain = false, $base = false)
     {
@@ -680,9 +656,6 @@ class BcContentsHelper extends Helper
      *
      * @param int $id コンテンツID
      * @return mixed
-     * @checked
-     * @noTodo
-     * @unitTest ラッパーメソッドのためテスト不要
      */
     public function getUrlById($id, $full = false)
     {
@@ -702,16 +675,16 @@ class BcContentsHelper extends Helper
      */
     public function getFolderLinkedUrl(EntityInterface $content)
     {
-        if ($content->url) {
-            $urlArray = explode('/', preg_replace('/(^\/|\/$)/', '', $content->url));
-            unset($urlArray[count($urlArray) - 1]);
-        } elseif ($content->parent_id) {
-            $parent = $this->ContentsService->get($content->parent_id);
-            $urlArray = explode('/', preg_replace('/(^\/|\/$)/', '', $parent->url));
-        }
-        if (count($urlArray) === 1 && !$urlArray[0]) {
-            $urlArray = [];
-        }
+		if($content->url) {
+			$urlArray = explode('/', preg_replace('/(^\/|\/$)/', '', $content->url));
+			unset($urlArray[count($urlArray) - 1]);
+		} elseif($content->parent_id) {
+			$parent = $this->ContentsService->get($content->parent_id);
+			$urlArray = explode('/', preg_replace('/(^\/|\/$)/', '', $parent->url));
+		}
+		if(count($urlArray) === 1 && !$urlArray[0]) {
+			$urlArray = [];
+		}
 
         if ($content->site->same_main_url) {
             $sites = TableRegistry::getTableLocator()->get('BaserCore.Sites');
@@ -756,9 +729,6 @@ class BcContentsHelper extends Helper
      * @param array $data コンテンツデータ
      * @param bool $self コンテンツ自身の公開状態かどうか
      * @return mixed
-     * @checked
-     * @noTodo
-     * @unitTest ラッパーメソッドのためテスト不要
      */
     public function isAllowPublish($data, $self = false)
     {
@@ -932,9 +902,6 @@ class BcContentsHelper extends Helper
      * 公開状態のサイトを全て取得する
      *
      * @return \Cake\Datasource\ResultSetInterface
-     * @checked
-     * @noTodo
-     * @unitTest ラッパーメソッドのためテスト不要
      */
     public function getPublishedSites()
     {
@@ -952,7 +919,7 @@ class BcContentsHelper extends Helper
      */
     public function getCurrentSite()
     {
-        if (BcUtil::isAdminSystem()) return false;
+        if(BcUtil::isAdminSystem()) return false;
         return $this->getView()->getRequest()->getAttribute('currentSite');
     }
 
@@ -965,7 +932,7 @@ class BcContentsHelper extends Helper
      */
     public function getCurrentContent()
     {
-        if (BcUtil::isAdminSystem()) return false;
+        if(BcUtil::isAdminSystem()) return false;
         return $this->getView()->getRequest()->getAttribute('currentContent');
     }
 

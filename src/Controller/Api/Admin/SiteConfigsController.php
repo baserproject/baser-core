@@ -42,8 +42,6 @@ class SiteConfigsController extends BcAdminApiController
     /**
      * システム基本設定を編集する
      * @param SiteConfigsServiceInterface $service
-     * @checked
-     * @noTodo
      */
     public function edit(SiteConfigsServiceInterface $service)
     {

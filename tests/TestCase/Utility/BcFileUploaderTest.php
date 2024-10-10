@@ -209,12 +209,12 @@ class BcFileUploaderTest extends BcTestCase
                 'error' => 0
                 ]
         ]);
-        $data = $this->BcFileUploader->setupRequestData($data);
-        $uploaded = $this->BcFileUploader->getUploadingFiles($data['_bc_upload_id']);
+        $this->BcFileUploader->setupRequestData($data);
+        $uploaded = $this->BcFileUploader->getUploadingFiles();
         $this->assertFalse($uploaded['eyecatch']['uploadable']);
         // upload=trueの場合のテスト
-        $uploadedData = $this->BcFileUploader->setupRequestData($this->uploadedData);
-        $uploaded = $this->BcFileUploader->getUploadingFiles($uploadedData['_bc_upload_id']);
+        $this->BcFileUploader->setupRequestData($this->uploadedData);
+        $uploaded = $this->BcFileUploader->getUploadingFiles();
         $this->assertTrue($uploaded['eyecatch']['uploadable']);
         $this->assertEquals("png", $uploaded['eyecatch']['ext']);
         //  新しいデータが送信されず、既存データを引き継ぐ場合
@@ -225,8 +225,8 @@ class BcFileUploaderTest extends BcTestCase
             ],
             'eyecatch_' => 'test.png',
         ]);
-        $data = $this->BcFileUploader->setupRequestData($data);
-        $uploaded = $this->BcFileUploader->getUploadingFiles($data['_bc_upload_id']);
+        $this->BcFileUploader->setupRequestData($data);
+        $uploaded = $this->BcFileUploader->getUploadingFiles();
         $this->assertFalse($uploaded['eyecatch']['uploadable']);
         $this->assertEquals("test.png", $data['eyecatch']);
     }
@@ -277,7 +277,6 @@ class BcFileUploaderTest extends BcTestCase
         copy(ROOT . '/plugins/bc-admin-third/webroot/img/baser.power.gif', $this->uploadedData['eyecatch']['tmp_name']);
         $this->BcFileUploader->saveTmpFiles($this->uploadedData, 1);
         $this->uploadedData['eyecatch_tmp'] = '00000001_eyecatch_png';
-        $this->uploadedData['_bc_upload_id'] = 1;
         $file = new ArrayObject($this->uploadedData);
         $this->BcFileUploader->setupTmpData($file);
         $this->assertFalse(isset($file['eyecatch_tmp']));
@@ -300,14 +299,13 @@ class BcFileUploaderTest extends BcTestCase
                 '_' => '00000006_eyecatch.gif'
             ]
         ];
-        $bcUploadId = 1;
-        $this->BcFileUploader->setUploadingFiles($file, $bcUploadId);
+        $this->BcFileUploader->setUploadingFiles($file);
         $targetPath = $this->savePath . $fileName;
         touch($targetPath);
-        $this->BcFileUploader->deleteFiles($this->ContentsService->get(6), new Content(['_bc_upload_id' => $bcUploadId]));
+        $this->BcFileUploader->deleteFiles($this->ContentsService->get(6), new Content());
         $this->assertFileDoesNotExist($targetPath);
         touch($targetPath);
-        $this->BcFileUploader->deleteFiles(new Content(), new Content(['_bc_upload_id' => $bcUploadId]));
+        $this->BcFileUploader->deleteFiles(new Content(), new Content());
         $this->assertFileExists($targetPath);
         @unlink($targetPath);
     }
@@ -353,9 +351,8 @@ class BcFileUploaderTest extends BcTestCase
         $filePath = $this->savePath . $this->uploadedData['eyecatch']['name'];
         $tmp = $this->uploadedData['eyecatch']['tmp_name'];
         touch($tmp);
-        $bcUploadId = 1;
-        $this->BcFileUploader->setUploadingFiles($this->uploadedData, $bcUploadId);
-        $this->BcFileUploader->saveFiles(new Content(['_bc_upload_id' => $bcUploadId]));
+        $this->BcFileUploader->setUploadingFiles($this->uploadedData);
+        $this->BcFileUploader->saveFiles(new Content());
         $this->assertFileExists($filePath);
         unlink($filePath);
     }
@@ -525,17 +522,15 @@ class BcFileUploaderTest extends BcTestCase
         $targetName = $entity->eyecatch_tmp;
         $targetPath = $this->savePath . str_replace(['.', '/'], ['_', '_'], $targetName);
 
-        $bcUploadId = 1;
         $data = new ArrayObject([
             "{$fieldName}_tmp" => $entity->eyecatch_tmp,
-            '_bc_upload_id' => $bcUploadId,
         ]);
         // セッションからファイルを保存
         $this->BcFileUploader->moveFileSessionToTmp($data, $fieldName);
 
         // 判定
         $this->assertFileExists($targetPath, 'セッションに保存されたファイルデータをファイルとして保存できません');
-        $result = $this->BcFileUploader->getUploadingFiles($bcUploadId)[$fieldName];
+        $result = $this->BcFileUploader->getUploadingFiles()[$fieldName];
         $expected = [
             'error' => 0,
             'name' => $targetName,
@@ -722,16 +717,14 @@ class BcFileUploaderTest extends BcTestCase
         // copyのダミーファイルを生成
         if (is_array($this->eyecatchField['imagecopy'])) {
             copy(ROOT . '/plugins/bc-admin-third/webroot/img/baser.power.gif', $tmpPath . $fileName . '.' . $ext);
-            $bcUploadId = 1;
             $uploaded = [
                 'dummy' => [
                     'name' => $fileName . '.' . $ext,
                     'tmp_name' => $tmpPath . $fileName . '.' . $ext,
-                    'ext' => $ext,
-                    '_bc_upload_id' => $bcUploadId,
-                ],
+                    'ext' => $ext
+                ]
             ];
-            $this->BcFileUploader->setUploadingFiles($uploaded, $bcUploadId);
+            $this->BcFileUploader->setUploadingFiles($uploaded);
             foreach($this->eyecatchField['imagecopy'] as $copy) {
                 $copy['name'] = $fileName;
                 $copy['ext'] = $this->eyecatchField['ext'];
@@ -790,8 +783,7 @@ class BcFileUploaderTest extends BcTestCase
         $entity = $this->table->get(1);
         $oldName = $oldName . '.' . $ext;
         $entity->eyecatch = $oldName;
-        $entity->_bc_upload_id = 1;
-        $this->BcFileUploader->setUploadingFiles(['eyecatch' => ['name' => $oldName, 'ext' => $ext]], $entity->_bc_upload_id);
+        $this->BcFileUploader->setUploadingFiles(['eyecatch' => ['name' => $oldName, 'ext' => $ext]]);
         $setting = $this->BcFileUploader->settings['fields']['eyecatch'];
 
         if ($imagecopy) {
@@ -1080,7 +1072,7 @@ class BcFileUploaderTest extends BcTestCase
         // ダミーのファイルを生成
         touch($targetPath);
         // アップロードされていなければ、returnで終了
-        $this->BcFileUploader->setUploadingFiles([], 1);
+        $this->BcFileUploader->setUploadingFiles([]);
         $this->BcFileUploader->deleteExistingFiles($this->ContentsService->get(6));
         $this->assertFileExists($targetPath);
         // アップロードされていれば削除処理
@@ -1089,12 +1081,9 @@ class BcFileUploaderTest extends BcTestCase
             'tmp_name' => TMP . $fileName . '.' . $this->eyecatchField['ext'],
             'uploadable' => true
         ];
-        $bcUploadId = 1;
-        $this->BcFileUploader->setUploadingFiles(['eyecatch' => $uploaded], $bcUploadId);
+        $this->BcFileUploader->setUploadingFiles(['eyecatch' => $uploaded]);
         $this->BcFileUploader->settings['fields']['eyecatch'] = $this->eyecatchField;
-        $content = $this->ContentsService->get(6);
-        $content->_bc_upload_id = $bcUploadId;
-        $this->BcFileUploader->deleteExistingFiles($content);
+        $this->BcFileUploader->deleteExistingFiles($this->ContentsService->get(6));
         $this->assertFileDoesNotExist($targetPath);
         @unlink($targetPath);
     }
@@ -1166,8 +1155,8 @@ class BcFileUploaderTest extends BcTestCase
      */
     public function testSetAndGetUploadedFile()
     {
-        $this->BcFileUploader->setUploadingFiles($this->uploadedData, 1);
-        $this->assertEquals($this->uploadedData, $this->BcFileUploader->getUploadingFiles(1));
+        $this->BcFileUploader->setUploadingFiles($this->uploadedData);
+        $this->assertEquals($this->uploadedData, $this->BcFileUploader->getUploadingFiles());
     }
 
     /**

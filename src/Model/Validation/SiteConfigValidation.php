@@ -26,8 +26,6 @@ class SiteConfigValidation extends Validation
      * SSL用のURLが設定されているかチェックする
      * @param mixed $check
      * @return boolean
-     * @checked
-     * @noTodo
      */
     public static function sslUrlExists($adminSsl, $context)
     {
