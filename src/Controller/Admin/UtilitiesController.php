@@ -18,7 +18,6 @@ use BaserCore\Utility\BcUtil;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
-use BaserCore\BcPlugin;
 
 /**
  * Class UtilitiesController
@@ -51,22 +50,6 @@ class UtilitiesController extends BcAdminAppController
         BcUtil::clearAllCache();
         $this->BcMessage->setInfo(__d('baser_core', 'サーバーキャッシュを削除しました。'));
         $this->redirect($this->referer());
-    }
-
-    /**
-     * テーマへのシンボリックリンクを再作成
-     * @checked
-     * @unitTest
-     * @noTodo
-     */
-    public function assets_symlink()
-    {
-        if ((new BcPlugin())->createAssetsSymlink()) {
-            $this->BcMessage->setInfo(__d('baser_core', 'プラグインアセットのシンボリックリンクを作成しました。'));
-        } else {
-            $this->BcMessage->setError(__d('baser_core', 'プラグインアセットのシンボリックリンクの作成に失敗しました。'), true);
-        }
-        $this->redirect(['action' => 'index']);
     }
 
     /**

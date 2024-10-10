@@ -37,12 +37,9 @@ class PluginsAdminService extends PluginsService implements PluginsAdminServiceI
      */
     public function getViewVarsForInstall(EntityInterface $plugin): array
     {
-        /** @var \BaserCore\Model\Entity\Plugin $plugin */
-        $installStatusMessage = $this->getInstallStatusMessage($plugin->name);
         return [
             'plugin' => $plugin,
-            'installStatusMessage' => $installStatusMessage,
-            'installMessage' => (!$installStatusMessage)? $plugin->installMessage : '',
+            'installStatusMessage' => $this->getInstallStatusMessage($plugin->name)
         ];
     }
 

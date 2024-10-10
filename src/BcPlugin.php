@@ -197,11 +197,10 @@ class BcPlugin extends BasePlugin
      * @noTodo
      * @unitTest
      */
-    public function createAssetsSymlink(): bool
+    public function createAssetsSymlink(): void
     {
         $command = ROOT . DS . 'bin' . DS . 'cake plugin assets symlink';
-        exec($command, $out, $code);
-        return ($code === 0);
+        exec($command);
     }
 
     /**

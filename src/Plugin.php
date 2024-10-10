@@ -203,14 +203,10 @@ class Plugin extends BcPlugin implements AuthenticationServiceProviderInterface
         foreach($sites as $site) {
             if ($site->theme) {
                 BcUtil::includePluginClass($site->theme);
-                try {
-                    $application->addPlugin($site->theme);
-                    $pluginPath = CorePlugin::path($site->theme) . 'plugins' . DS;
-                    if (!is_dir($pluginPath)) continue;
-                    $path[] = $pluginPath;
-                } catch (MissingPluginException $e) {
-                    $this->log($e->getMessage());
-                }
+                $application->addPlugin($site->theme);
+                $pluginPath = CorePlugin::path($site->theme) . 'plugins' . DS;
+                if(!is_dir($pluginPath)) continue;
+                $path[] = $pluginPath;
             }
         }
         // テーマプラグインを追加
