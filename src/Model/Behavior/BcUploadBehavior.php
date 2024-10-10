@@ -13,7 +13,6 @@ namespace BaserCore\Model\Behavior;
 
 use ArrayObject;
 use BaserCore\Utility\BcFileUploader;
-use BaserCore\Utility\BcUtil;
 use Cake\ORM\Behavior;
 use Cake\Event\EventInterface;
 use Cake\Datasource\EntityInterface;
@@ -201,13 +200,21 @@ class BcUploadBehavior extends Behavior
         }
         // 保存時にbeforeSaveとafterSaveのループを防ぐ
         $eventManager = $this->table()->getEventManager();
-        $beforeSaveListeners = BcUtil::offEvent($eventManager, 'Model.beforeSave');
-        $afterSaveListeners = BcUtil::offEvent($eventManager, 'Model.afterSave');
-
+        $beforeSaveListeners = $eventManager->listeners('Model.beforeSave');
+        $afterSaveListeners = $eventManager->listeners('Model.afterSave');
+        $eventManager->off('Model.beforeSave');
+        $eventManager->off('Model.afterSave');
         $this->table()->save($entity, ['validate' => false]);
-
-        BcUtil::onEvent($eventManager, 'Model.beforeSave', $beforeSaveListeners);
-        BcUtil::onEvent($eventManager, 'Model.afterSave', $afterSaveListeners);
+        foreach($beforeSaveListeners as $listener) {
+            if (get_class($listener['callable'][0]) !== 'BaserCore\Event\BcModelEventDispatcher') {
+                $eventManager->on('Model.beforeSave', [], $listener['callable']);
+            }
+        }
+        foreach($afterSaveListeners as $listener) {
+            if (get_class($listener['callable'][0]) !== 'BaserCore\Event\BcModelEventDispatcher') {
+                $eventManager->on('Model.afterSave', [], $listener['callable']);
+            }
+        }
     }
 
     /**
