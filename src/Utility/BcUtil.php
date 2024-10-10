@@ -836,11 +836,9 @@ class BcUtil
         $sitesTable = TableRegistry::getTableLocator()->get('BaserCore.Sites');
         $site = $sitesTable->get($siteId);
 
-        $themes = $site->theme? [$site->theme] : [];
+        $themes = [$site->theme];
         $rootTheme = BcUtil::getRootTheme();
-        if (!$themes || $rootTheme !== $themes[0]) {
-            $themes[] = $rootTheme;
-        }
+        if ($rootTheme !== $themes[0]) $themes[] = $rootTheme;
         $defaultTheme = Configure::read('BcApp.coreFrontTheme');
         if (!in_array($defaultTheme, $themes)) $themes[] = $defaultTheme;
 

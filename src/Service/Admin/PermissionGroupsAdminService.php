@@ -42,7 +42,7 @@ class PermissionGroupsAdminService extends PermissionGroupsService implements Pe
         return [
             'entities' => $this->getIndex($userGroupId, array_merge(
                 ['permission_amount' => true],
-                $request->getData()
+                $request->getQueryParams()
             )),
             'userGroupId' => $currentUserGroup->id ?? "0"
         ];

@@ -135,7 +135,7 @@ class ContentsController extends BcAdminApiController
     /**
      * コンテンツ情報削除(論理削除)
      * ※ 子要素があれば、子要素も削除する
-     * @param ContentsServiceInterface|ContentsService $service
+     * @param ContentsServiceInterface $service
      * @checked
      * @noTodo
      * @unitTest

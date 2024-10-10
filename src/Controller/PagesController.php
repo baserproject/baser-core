@@ -59,7 +59,7 @@ class PagesController extends BcFrontAppController
 	    /* @var \BaserCore\Service\PagesService $service */
         $page = $service->get(
             $this->request->getAttribute('currentContent')->entity_id,
-            ['status' => 'publish', 'draft' => false]
+            ['status' => 'publish']
         );
         $this->set($service->getViewVarsForView($page, $this->getRequest()));
         $this->render($service->getPageTemplate($page));
