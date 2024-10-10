@@ -112,7 +112,7 @@ class BcPlugin extends BasePlugin
         ], $options);
         $pluginName = $options['plugin'];
         $permission = $options['permission'];
-        unset($options['permission'], $options['db_init']);
+        unset($options['permission']);
         BcUtil::clearAllCache();
         $pluginPath = BcUtil::getPluginPath($options['plugin']);
         try {

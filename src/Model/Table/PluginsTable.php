@@ -141,7 +141,6 @@ class PluginsTable extends AppTable
                 'core' => $core,
                 'permission' => 1,
                 'registered' => false,
-                'db_init' => false,
                 'screenshot' => $hasScreenshot
             ]);
         }

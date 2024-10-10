@@ -157,10 +157,6 @@ class BcUploadHelper  extends Helper
             $basePath = '/baser-core/uploads/tmp/';
         }
 
-        if (is_array($value)) {
-            return false;
-        }
-
         /* ファイルのパスを取得 */
         /* 画像の場合はサイズを指定する */
         if (isset($settings['saveDir'])) {

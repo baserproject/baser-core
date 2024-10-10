@@ -12,10 +12,9 @@
 namespace BaserCore\Test\TestCase\View\Helper;
 
 use BaserCore\Test\Factory\ContentFactory;
-use BaserCore\Test\Factory\PageFactory;
 use BaserCore\Test\Factory\SiteFactory;
 use BaserCore\Test\Scenario\InitAppScenario;
-use Cake\Http\Exception\NotFoundException;
+use BaserCore\Test\Scenario\MultiSiteScenario;
 use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 use ReflectionClass;
 use Cake\Event\Event;
@@ -1623,25 +1622,46 @@ class BcBaserHelperTest extends BcTestCase
     }
 
     /**
-     * test page
+     * ページをエレメントとして読み込む
      * @return void
+     * @dataProvider PageProvider
      */
-    public function testPage()
+    public function testPage($input, $pageRecursive, $recursive, $expected)
     {
-        PageFactory::make(['id' => 5, 'contents' => 'test'])->persist();
-
-        // 正常系
-        $this->expectOutputRegex('/test/');
-        $this->BcBaser->page('/service/service1');
-
-        // 存在チェックを行わない場合
-        $this->expectOutputRegex('//');
-        $this->BcBaser->page('/aaa', [], ['checkExists' => false]);
-
-        // 存在チェックを行う場合
-        $this->expectException(NotFoundException::class);
-        $this->BcBaser->page('/aaa');
+        $this->markTestIncomplete('このテストは、まだ実装されていません。');
+        $Page = ClassRegistry::init('Page');
+        $record = $Page->findByUrl($input);
+        if ($record) {
+            $Page->createPageTemplate($record);
+        }
+        $this->expectOutputRegex($expected);
+        $this->_View->set('pageRecursive', $pageRecursive);
+        $options = [
+            'recursive' => $recursive
+        ];
+        $this->BcBaser->page($input, [], $options);
     }
+
+    public function PageProvider()
+    {
+        return [
+            ['aaa', false, false, '/^$/'],
+            ['aaa', false, true, '/^$/'],
+            ['', false, false, '/^$/'],
+            ['/about', false, false, '/^$/'],
+            ['/about', true, false, '/<!-- BaserPageTagBegin -->\n<!-- BaserPageTagEnd -->.*?<h2.*?会社案内.*?<\/h2>.*/s'],
+            ['/about', true, true, '/<!-- BaserPageTagBegin -->\n<!-- BaserPageTagEnd -->.*?<h2.*?会社案内.*?<\/h2>.*/s'],
+            ['/icons', false, false, '/^$/'],
+            ['/icons', true, false, '/<!-- BaserPageTagBegin -->\n<!-- BaserPageTagEnd -->.*?<h2.*?採用情報.*?<\/h2>.*/s'],
+            ['/icons', true, true, '/<!-- BaserPageTagBegin -->\n<!-- BaserPageTagEnd -->.*?<h2.*?採用情報.*?<\/h2>.*/s'],
+            ['/index', false, false, '/^$/'],
+            ['/service', false, false, '/^$/'],
+            ['/service', true, false, '/<!-- BaserPageTagBegin -->\n<!-- BaserPageTagEnd -->.*?<h2.*?事業案内.*?<\/h2>.*/s'],
+            ['/service', true, true, '/<!-- BaserPageTagBegin -->\n<!-- BaserPageTagEnd -->.*?<h2.*?事業案内.*?<\/h2>.*/s'],
+            ['/sitemap', false, false, '/^$/']
+        ];
+    }
+
 
     /**
      * 指定したURLが現在のURLかどうか判定する

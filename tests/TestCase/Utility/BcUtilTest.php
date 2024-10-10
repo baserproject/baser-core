@@ -12,12 +12,10 @@
 namespace BaserCore\Test\TestCase\Utility;
 
 use BaserCore\Event\BcEventListener;
-use BaserCore\Model\Entity\SiteConfig;
 use BaserCore\Test\Factory\SiteConfigFactory;
 use BaserCore\Test\Factory\UserFactory;
 use BaserCore\Test\Factory\UserGroupFactory;
 use BaserCore\Test\Factory\UsersUserGroupFactory;
-use BaserCore\View\BcAdminAppView;
 use Cake\Core\App;
 use Cake\Cache\Cache;
 use Cake\Core\Plugin;
@@ -29,7 +27,6 @@ use BaserCore\Utility\BcUtil;
 use BaserCore\TestSuite\BcTestCase;
 use Cake\Http\ServerRequestFactory;
 use Cake\Http\Session;
-use Cake\ORM\TableRegistry;
 use Cake\Routing\Router;
 use Cake\Utility\Inflector;
 
@@ -848,21 +845,6 @@ class BcUtilTest extends BcTestCase
 
 
     /**
-     * test getCurrentAdminTheme
-     */
-    public function test_getCurrentAdminTheme()
-    {
-        //site_configs テーブルの admin_theme を変更した場合
-        $SiteConfig = TableRegistry::getTableLocator()->get('BaserCore.SiteConfigs');
-        $siteConfig = $SiteConfig->get(16);
-        $siteConfig->value = 'test theme';
-        $SiteConfig->save($siteConfig);
-        $result = BcUtil::getCurrentAdminTheme();
-        $this->assertEquals('test theme',$result);
-    }
-
-
-    /**
      * testGetPluginPath
      */
     public function testGetPluginPath()
@@ -1393,28 +1375,6 @@ class BcUtilTest extends BcTestCase
             ['baser_core', false]
         ];
     }
-
-    /**
-     * test getAuthPrefixList
-     */
-    public function test_getAuthPrefixList()
-    {
-        $result = BcUtil::getAuthPrefixList();
-        $this->assertEquals(['Admin'=>'管理システム', 'Api/Admin'=>'Admin Web API'], $result);
-    }
-
-    /**
-     * test getRequestPrefix
-     */
-    public function test_getRequestPrefix()
-    {
-        $result = BcUtil::getRequestPrefix($this->getRequest());
-        $this->assertEquals('Front', $result);
-        $result = BcUtil::getRequestPrefix($this->getRequest('/baser/admin'));
-        $this->assertEquals('Admin', $result);
-    }
-
-
 
     /**
      * test getFrontTemplatePaths

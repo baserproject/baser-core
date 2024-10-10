@@ -316,8 +316,7 @@ class ContentFoldersServiceTest extends BcTestCase
         $sites = TableRegistry::getTableLocator()->get('BaserCore.Sites');
         // 初期サイトIDの場合はfalse
         $site = $sites->get(1);
-        $contentFolder = $this->ContentFoldersService->saveSiteRoot($site, true);
-        $this->assertEmpty($contentFolder->content->name);
+        $this->assertFalse($this->ContentFoldersService->saveSiteRoot($site, true));
         // サイト新規作成の場合
         $site = $sites->get(3);
         $site->setNew(true);

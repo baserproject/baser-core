@@ -513,7 +513,7 @@ class PermissionsService implements PermissionsServiceInterface
      */
     public function isAuthorized(int $permissionType, string $url, string $method, array $groupPermission)
     {
-        [$url] = explode('?', $url);
+        list($url) = explode('?', $url);
         $ret = ($permissionType === 2);
         foreach($groupPermission as $permission) {
             $pattern = $this->convertRegexUrl($permission->url);
@@ -545,10 +545,6 @@ class PermissionsService implements PermissionsServiceInterface
         if(strpos($url, '{loginUserId}') !== false) {
             $user = BcUtil::loginUser();
             $url = str_replace('{loginUserId}', $user->id, $url);
-        }
-        $prefix = BcUtil::getPrefix();
-        if($prefix !== '/baser/admin') {
-            $url = preg_replace('/^\/baser\/admin/', BcUtil::getPrefix(), $url);
         }
         $pattern = preg_quote($url, '/');
         $pattern = str_replace('\*', '.*?', $pattern);

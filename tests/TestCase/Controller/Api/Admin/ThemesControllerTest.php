@@ -13,7 +13,6 @@ namespace BaserCore\Test\TestCase\Controller\Api\Admin;
 
 use BaserCore\Service\ThemesService;
 use BaserCore\Test\Scenario\InitAppScenario;
-use BaserCore\Test\Scenario\SmallSetContentFoldersScenario;
 use BaserCore\TestSuite\BcTestCase;
 use Cake\Filesystem\Folder;
 use Cake\TestSuite\IntegrationTestTrait;
@@ -83,8 +82,8 @@ class ThemesControllerTest extends BcTestCase
         $result = json_decode((string)$this->_response->getBody());
 
         $this->assertCount(3, $result->themes);
-        $this->assertEquals('BcColumn', $result->themes[0]->name);
-        $this->assertEquals('BcThemeSample', $result->themes[1]->name);
+        $this->assertEquals('BcThemeSample', $result->themes[0]->name);
+        $this->assertEquals('BcColumn', $result->themes[1]->name);
     }
 
     /**
@@ -168,7 +167,6 @@ class ThemesControllerTest extends BcTestCase
         $this->enableSecurityToken();
         $this->enableCsrfToken();
         $theme = 'BcColumn';
-        $this->loadFixtureScenario(SmallSetContentFoldersScenario::class);
         $this->post('/baser/api/admin/baser-core/themes/apply/1/'. $theme . '.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());

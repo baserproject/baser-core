@@ -66,11 +66,7 @@ class BcFrontAppView extends AppView
         if (empty($files[1])) return;
 
         foreach($files[1] as $file) {
-            try {
-                $this->loadHelper(Inflector::camelize($theme, '-') . '.' . basename($file, 'Helper.php'));
-            } catch (\Exception) {
-                // ヘルパーが読み込めない場合は無視する
-            }
+            $this->loadHelper(Inflector::camelize($theme, '-') . '.' . basename($file, 'Helper.php'));
         }
     }
 

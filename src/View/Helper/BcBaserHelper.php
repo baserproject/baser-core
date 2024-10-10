@@ -14,8 +14,6 @@ namespace BaserCore\View\Helper;
 use BaserCore\Model\Entity\Content;
 use BaserCore\Model\Entity\Site;
 use BaserCore\Model\Table\SitesTable;
-use BaserCore\Service\PagesService;
-use BaserCore\Service\PagesServiceInterface;
 use BaserCore\Utility\BcSiteConfig;
 use BcBlog\Model\Entity\BlogPost;
 use BcCustomContent\Model\Entity\CustomContent;
@@ -25,9 +23,7 @@ use BcMail\Model\Entity\MailField;
 use BcMail\View\Helper\MailformHelper;
 use Cake\Core\Plugin;
 use Cake\Datasource\EntityInterface;
-use Cake\Datasource\Exception\RecordNotFoundException;
 use Cake\Event\Event;
-use Cake\Http\Exception\NotFoundException;
 use Cake\Http\ServerRequest;
 use Cake\ORM\ResultSet;
 use Cake\ORM\TableRegistry;
@@ -2035,10 +2031,7 @@ class BcBaserHelper extends Helper
      */
     public function page($url, $params = [], $options = [])
     {
-        if(
-            in_array('pageRecursive', $this->getView()->getVars())
-            && !$this->getView()->get('pageRecursive')
-        ) {
+        if (!empty($this->_View->get('pageRecursive')) && !$this->_View->get('pageRecursive')) {
             return;
         }
 
@@ -2048,34 +2041,43 @@ class BcBaserHelper extends Helper
             'checkExists' => true
         ], $options);
 
-        $this->getView()->set('pageRecursive', $options['recursive']);
+        $subDir = $options['subDir'];
+        $recursive = $options['recursive'];
 
-        $content = $this->BcContents->getContentByUrl($url, 'Page');
+        $this->_View->set('pageRecursive', $recursive);
+
+        // 現在のページの情報を退避
+        $editLink = null;
+        $description = $this->getDescription();
+        $title = $this->getContentsTitle();
+        if (!empty($this->_View->get('editLink'))) {
+            $editLink = $this->_View->get('editLink');
+        }
+
         // 該当URLページの存在確認
-        if (!$content) {
-            if($options['checkExists']) {
-                throw new NotFoundException('ページ「' . $url . '」が存在しません。');
-            } else {
+        if ($options['checkExists']) {
+            $page = $this->BcContents->getContentByUrl($url, 'Page');
+            if (!$page) {
+                trigger_error('ページ「' . $url . '」が存在しません。', E_USER_NOTICE);
                 return;
             }
         }
 
-        $pagesService = $this->getService(PagesServiceInterface::class);
-        try {
-            $page = $pagesService->get($content->entity_id);
-        } catch (RecordNotFoundException) {
-            return;
+        // urlを取得
+        if (empty($this->_View->subDir)) {
+            $url = '/../Pages' . $url;
+        } else {
+            $url = '../Pages' . $url;
         }
 
-        // urlを取得
-        if (empty($this->getView()->subDir)) {
-            $url = '/../Pages/' . $page->page_template;
-        } else {
-            $url = '../Pages/' . $page->page_template;
+        $this->element($url, $params, ['subDir' => $subDir]);
+
+        // 現在のページの情報に戻す
+        $this->setDescription($description);
+        $this->setTitle($title);
+        if ($editLink) {
+            $this->_View->set('editLink', $editLink);
         }
-        $page->content = $content;
-        $params['page'] = $page;
-        $this->element($url, $params, ['subDir' => $options['subDir']]);
     }
 
     /**

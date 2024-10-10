@@ -305,7 +305,6 @@ class ContentsService implements ContentsServiceInterface
             $query = $query->limit($queryParams['limit']);
         }
 
-        unset($queryParams['limit'], $queryParams['withTrash'], $queryParams['contain']);
         return $this->setConditions($query, $queryParams);
     }
 
@@ -418,8 +417,8 @@ class ContentsService implements ContentsServiceInterface
         if (empty($postData['parent_id']) && !empty($postData['url'])) {
             $postData['parent_id'] = $this->Contents->copyContentFolderPath($postData['url'], $postData['site_id']);
         }
-        $data = array_merge($this->get($postData['alias_id'], ['contain' => []])->toArray(), $postData);
-        unset($data['id'], $data['lft'], $data['rght'], $data['level'], $data['pubish_begin'], $data['publish_end'], $data['created_date'], $data['created'], $data['modified'], $data['site']);
+        $data = array_merge($this->get($postData['alias_id'])->toArray(), $postData);
+        unset($data['id'], $data['lft'], $data['rght'], $data['level'], $data['pubish_begin'], $data['publish_end'], $data['created_date'], $data['created'], $data['modified']);
         $alias = $this->Contents->newEntity($data);
         $alias->name = $postData['name'] ?? $postData['title'];
         $alias->created_date = FrozenTime::now();
@@ -850,17 +849,18 @@ class ContentsService implements ContentsServiceInterface
     /**
      * コンテンツ情報を更新する
      *
-     * @param EntityInterface $target
-     * @param array $postData
+     * @param EntityInterface $content
+     * @param array $contentData
      * @param array $options
-     * @return EntityInterface|null
+     * @return EntityInterface
+     * @throws \Cake\ORM\Exception\PersistenceFailedException
      * @checked
      * @unitTest
      * @noTodo
      */
-    public function update(EntityInterface $target, array $postData, array $options = []): ?EntityInterface
+    public function update($content, $contentData, $options = []): ?EntityInterface
     {
-        $content = $this->Contents->patchEntity($target, $postData, $options);
+        $content = $this->Contents->patchEntity($content, $contentData, $options);
         return $this->Contents->saveOrFail($content, ['atomic' => false]);
     }
 

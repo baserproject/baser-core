@@ -25,7 +25,6 @@ use Cake\Core\Configure;
 use Cake\Event\EventListenerInterface;
 use Cake\Event\EventManagerInterface;
 use Cake\Http\ServerRequest;
-use Cake\Routing\Exception\MissingRouteException;
 use Cake\Routing\Router;
 use Cake\Filesystem\File;
 use Cake\Filesystem\Folder;
@@ -1245,7 +1244,6 @@ class BcUtil
      * @return mixed|string
      * @checked
      * @noTodo
-     * @unitTest
      */
     public static function getCurrentAdminTheme()
     {
@@ -1650,13 +1648,11 @@ class BcUtil
         $defaultConfig = array_merge($defaultConfig, $config);
         $request = new ServerRequest($defaultConfig);
 
-        $params = [];
         try {
             Router::setRequest($request);
             $params = Router::parseRequest($request);
-        } catch (MissingRouteException) {
-        } catch (\Throwable $e) {
-            throw $e;
+        } catch (\Exception $e) {
+            return $request;
         }
 
         if (!empty($params['?'])) {
@@ -1667,7 +1663,7 @@ class BcUtil
         if ($request->getParam('prefix') === 'Admin') {
             $bcAdmin = new BcAdminMiddleware();
             $request = $bcAdmin->setCurrentSite($request);
-        } elseif($params) {
+        } else {
             $bcAdmin = new BcFrontMiddleware();
             $request = $bcAdmin->setCurrent($request);
         }
@@ -1966,7 +1962,6 @@ class BcUtil
      * @return array
      * @checked
      * @noTodo
-     * @unitTest
      */
     public static function getAuthPrefixList()
     {
@@ -1986,7 +1981,6 @@ class BcUtil
      * @return string
      * @checked
      * @noTodo
-     * @unitTest
      */
     public static function getRequestPrefix(ServerRequestInterface $request)
     {

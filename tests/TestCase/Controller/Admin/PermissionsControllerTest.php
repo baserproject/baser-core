@@ -100,7 +100,7 @@ class PermissionsControllerTest extends BcTestCase
         $this->enableCsrfToken();
         $data = [
             'name' => 'テストルール名',
-            'url' => '/baser/admin/baser-core/users/index',
+            'url' => '/baser/admin/baser-core/users/index/?test',
             'method' => '*',
             'status' => 1,
         ];
