@@ -28,16 +28,15 @@ class SiteTest extends BcTestCase
     protected $fixtures = [
         'plugin.BaserCore.Sites',
         'plugin.BaserCore.Contents',
-//        'plugin.BaserCore.Model/Entity/Site/ContentShouldRedirects',
-//        'plugin.BaserCore.Model/Entity/Site/SiteShouldRedirects'
+        'plugin.BaserCore.Model/Entity/Site/ContentShouldRedirects',
+        'plugin.BaserCore.Model/Entity/Site/SiteShouldRedirects'
     ];
 
     /**
      * autoFixtures
      * @var bool
      */
-    // TODO loadFixtures を利用すると全体のテストが失敗してしまうためスキップ。対応方法検討要
-//    public $autoFixtures = false;
+    public $autoFixtures = false;
 
     /**
      * @var Site
@@ -53,6 +52,12 @@ class SiteTest extends BcTestCase
     {
         parent::setUp();
         $this->Sites = $this->getTableLocator()->get('BaserCore.Sites');
+        if (!preg_match('/^testShouldRedirects/', $this->getName())) {
+            $this->loadFixtures(
+                'Sites',
+                'Contents'
+            );
+        }
     }
 
     /**
@@ -192,7 +197,6 @@ class SiteTest extends BcTestCase
      */
     public function testShouldRedirects($expect, $url, array $query = [])
     {
-        $this->markTestIncomplete('loadFixtures を利用すると全体のテストが失敗してしまうためスキップ。対応方法検討要');
         $this->loadFixtures(
             'Model\Entity\Site\ContentShouldRedirects',
             'Model\Entity\Site\SiteShouldRedirects'

@@ -45,14 +45,11 @@ class PagesController extends BcAdminAppController
     }
 
 	/**
-     * 固定ページ新規追加
-     *
-     * @param int $parentContentId 親コンテンツID
-     * @return void|ResponseInterface
-     * @checked
-     * @noTodo
-     * @unitTest
-     */
+	 * 固定ページ新規追加
+	 *
+	 * @param int $parentContentId 親コンテンツID
+	 * @return void|ResponseInterface
+	 */
 	public function add(
 	    PagesAdminServiceInterface $service,
         ContentsServiceInterface $contentsService,
@@ -63,10 +60,10 @@ class PagesController extends BcAdminAppController
 
             // EVENT Pages.beforeAdd
             $event = $this->dispatchLayerEvent('beforeAdd', [
-                'data' => $this->request->getData()
+                'request' => $this->request,
             ]);
             if ($event !== false) {
-                $this->request = $this->request->withParsedBody(($event->getResult() === null || $event->getResult() === true) ? $event->getData('data') : $event->getResult());
+                $this->request = ($event->getResult() === null || $event->getResult() === true)? $event->getData('request') : $event->getResult();
             }
 
             try {
@@ -74,7 +71,7 @@ class PagesController extends BcAdminAppController
 
                 // EVENT Pages.afterAdd
                 $this->dispatchLayerEvent('afterAdd', [
-                    'data' => $page
+                    'request' => $this->request,
                 ]);
 
                 // site を取得するため page を再取得

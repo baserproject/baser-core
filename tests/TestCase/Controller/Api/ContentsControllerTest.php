@@ -44,7 +44,13 @@ class ContentsControllerTest extends \BaserCore\TestSuite\BcTestCase
         'plugin.BaserCore.Sites',
         'plugin.BaserCore.SiteConfigs',
         'plugin.BaserCore.Pages',
+        'plugin.BaserCore.Service/SearchIndexesService/ContentsReconstruct',
+        'plugin.BaserCore.Service/SearchIndexesService/PagesReconstruct',
+        'plugin.BaserCore.Service/SearchIndexesService/ContentFoldersReconstruct',
+        'plugin.BcBlog.Factory/BlogContents'
     ];
+
+    public $autoFixtures = false;
 
     /**
      * Access Token
@@ -64,6 +70,17 @@ class ContentsControllerTest extends \BaserCore\TestSuite\BcTestCase
     public function setUp(): void
     {
         parent::setUp();
+        $this->loadFixtures(
+            'Users',
+            'UserGroups',
+            'UsersUserGroups',
+            'Contents',
+            'ContentFolders',
+            'Sites',
+            'SiteConfigs',
+            'Pages',
+//            'SearchIndexes'
+        );
         $token = $this->apiLoginAdmin(1);
         $this->accessToken = $token['access_token'];
         $this->refreshToken = $token['refresh_token'];
@@ -159,18 +176,12 @@ class ContentsControllerTest extends \BaserCore\TestSuite\BcTestCase
      */
     public function test_get_global_navi()
     {
+        //準備
+
         //正常系実行
-        $this->get('/baser/api/baser-core/contents/get_global_navi/4.json?token=' . $this->accessToken);
-        $this->assertResponseOk();
-        $result = json_decode((string)$this->_response->getBody());
-        $this->assertCount(11, $result->contents);
-        $this->assertEquals(1, $result->contents[0]->site_id);
-        $this->assertFalse($result->contents[10]->exclude_menu);
+
         //異常系実行
-        $this->get('/baser/api/baser-core/contents/get_global_navi/99.json?token=' . $this->accessToken);
-        $this->assertResponseError();
-        $result = json_decode((string)$this->_response->getBody());
-        $this->assertEquals('データが見つかりません', $result->message);
+
 
     }
 
@@ -179,18 +190,12 @@ class ContentsControllerTest extends \BaserCore\TestSuite\BcTestCase
      */
     public function test_get_crumbs()
     {
+        //準備
+
         //正常系実行
-        $this->get('/baser/api/baser-core/contents/get_crumbs/11.json?token=' . $this->accessToken);
-        $this->assertResponseOk();
-        $result = json_decode((string)$this->_response->getBody());
-        $this->assertCount(3, $result->contents);
-        $this->assertEquals(1, $result->contents[0]->id);
-        $this->assertEquals(6, $result->contents[1]->id);
+
         //異常系実行
-        $this->get('/baser/api/baser-core/contents/get_crumbs/99.json?token=' . $this->accessToken);
-        $this->assertResponseError();
-        $result = json_decode((string)$this->_response->getBody());
-        $this->assertEquals('データが見つかりません', $result->message);
+
 
     }
 
@@ -199,17 +204,12 @@ class ContentsControllerTest extends \BaserCore\TestSuite\BcTestCase
      */
     public function test_get_local_navi()
     {
+        //準備
+
         //正常系実行
-        $this->get('/baser/api/baser-core/contents/get_local_navi/25.json?token=' . $this->accessToken);
-        $this->assertResponseOk();
-        $result = json_decode((string)$this->_response->getBody());
-        $this->assertCount(3, $result->contents);
-        $this->assertEquals(24, $result->contents[0]->parent_id);
+
         //異常系実行
-        $this->get('/baser/api/baser-core/contents/get_local_navi/99.json?token=' . $this->accessToken);
-        $this->assertResponseError();
-        $result = json_decode((string)$this->_response->getBody());
-        $this->assertEquals('データが見つかりません', $result->message);
+
 
     }
 

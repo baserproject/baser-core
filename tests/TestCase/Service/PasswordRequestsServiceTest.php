@@ -31,6 +31,18 @@ use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 class PasswordRequestsServiceTest extends BcTestCase
 {
 
+    public $fixtures = [
+        'plugin.BaserCore.Factory/Sites',
+        'plugin.BaserCore.Factory/Users',
+        'plugin.BaserCore.Factory/UsersUserGroups',
+        'plugin.BaserCore.Factory/UserGroups',
+        'plugin.BaserCore.Factory/PasswordRequests',
+        'plugin.BaserCore.Factory/SiteConfigs',
+        'plugin.BaserCore.Factory/Contents',
+        'plugin.BaserCore.Factory/ContentFolders',
+        'plugin.BaserCore.Factory/Pages',
+    ];
+
     /**
      * Trait
      */
@@ -42,6 +54,7 @@ class PasswordRequestsServiceTest extends BcTestCase
      */
     public function setUp(): void
     {
+        $this->setFixtureTruncate();
         parent::setUp();
         $this->service = $this->getService(PasswordRequestsServiceInterface::class);
     }

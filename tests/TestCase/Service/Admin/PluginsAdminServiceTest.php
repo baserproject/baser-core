@@ -48,6 +48,7 @@ class PluginsAdminServiceTest extends BcTestCase
      */
     public function setUp(): void
     {
+        $this->setFixtureTruncate();
         parent::setUp();
         $this->PluginsAdmin = $this->getService(PluginsAdminServiceInterface::class);
     }

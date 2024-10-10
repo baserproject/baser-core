@@ -22,6 +22,19 @@ use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
  */
 class ThemesAdminServiceTest extends \BaserCore\TestSuite\BcTestCase
 {
+
+    /**
+     * Fixtures
+     *
+     * @var array
+     */
+    public $fixtures = [
+        'plugin.BaserCore.Factory/Users',
+        'plugin.BaserCore.Factory/Sites',
+        'plugin.BaserCore.Factory/UserGroups',
+        'plugin.BaserCore.Factory/UsersUserGroups',
+    ];
+
     /**
      * Trait
      */

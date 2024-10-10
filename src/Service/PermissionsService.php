@@ -324,11 +324,7 @@ class PermissionsService implements PermissionsServiceInterface
     }
 
     /**
-     * URLとメソッドに対してのアクセス権限チェックを行う
-     *
-     * ユーザーが複数のグループに所属する前提として、
-     * 各所属グループごとにURLとメソッドに対してのアクセス権限を確認し、
-     * 一つでもアクセス可であれば、対象URLとメソッドについてアクセス権限があるとみなす
+     * 権限チェックを行う
      *
      * @param string $url
      * @param array $userGroupId

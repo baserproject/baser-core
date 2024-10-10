@@ -33,6 +33,12 @@ class ContentsFixtureTest extends BcTestCase
     ];
 
     /**
+     * Auto Fixtures
+     * @var bool
+     */
+    public $autoFixtures = false;
+
+    /**
      * set up
      *
      * @return void
@@ -40,6 +46,7 @@ class ContentsFixtureTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
+        $this->loadFixtures('Contents', 'Sites', 'Users', 'UserGroups', 'UsersUserGroups', 'Pages', 'ContentFolders');
         $this->Contents = $this->getTableLocator()->get('Contents');
         $this->contents = $this->Contents->find()->applyOptions(['withDeleted'])->all()->toArray();
     }

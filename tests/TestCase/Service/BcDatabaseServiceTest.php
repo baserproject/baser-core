@@ -52,12 +52,28 @@ class BcDatabaseServiceTest extends BcTestCase
     use IntegrationTestTrait;
 
     /**
+     * Fixtures
+     *
+     * @var array
+     */
+    public $fixtures = [
+        'plugin.BaserCore.Factory/Sites',
+        'plugin.BaserCore.Factory/Users',
+        'plugin.BaserCore.Factory/Contents',
+        'plugin.BaserCore.Factory/ContentFolders',
+        'plugin.BaserCore.Factory/Pages',
+        'plugin.BaserCore.Factory/SiteConfigs',
+        'plugin.BaserCore.Factory/SearchIndexes',
+    ];
+
+    /**
      * Set Up
      *
      * @return void
      */
     public function setUp(): void
     {
+        $this->setFixtureTruncate();
         parent::setUp();
         $this->BcDatabaseService = $this->getService(BcDatabaseServiceInterface::class);
     }
@@ -725,13 +741,12 @@ class UserActionsSchema extends BcSchema
     /**
      * Test getDataSource (MissingDatasourceExceptionの場合)
      */
-    // TODO このテストを利用すると全体のテストが失敗してしまうためスキップ。対応方法検討要
-//    public function test_getDataSourceMissingDatasourceException()
-//    {
-//        // 指定されたデータソースが存在しない場合はエラー
-//        $this->expectException('\Cake\Datasource\Exception\MissingDatasourceException');
-//        $conn = $this->BcDatabaseService->getDataSource('test_config', ['datasource' => 'mysql']);
-//    }
+    public function test_getDataSourceMissingDatasourceException()
+    {
+        // 指定されたデータソースが存在しない場合はエラー
+        $this->expectException('\Cake\Datasource\Exception\MissingDatasourceException');
+        $conn = $this->BcDatabaseService->getDataSource('test_config', ['datasource' => 'mysql']);
+    }
 
     /**
      * Test deleteTables
@@ -826,7 +841,6 @@ class UserActionsSchema extends BcSchema
      */
     public function test_testConnectDb()
     {
-        $this->loadPlugins(['BcInstaller']);
         // 接続情報を設定 MYSQL
         $config = [
             "datasource" => "MySQL",
@@ -847,7 +861,7 @@ class UserActionsSchema extends BcSchema
         $this->expectException("PDOException");
         $this->expectExceptionMessage('データベースへの接続でエラーが発生しました。データベース設定を見直してください。
 サーバー上に指定されたデータベースが存在しない可能性が高いです。
-SQLSTATE[HY000] [2002] php_network_getaddresses: getaddrinfo for test failed: ');
+SQLSTATE[HY000] [2002] php_network_getaddresses: getaddrinfo for test failed: Temporary failure in name resolution');
 
         $this->BcDatabaseService->testConnectDb($config);
     }

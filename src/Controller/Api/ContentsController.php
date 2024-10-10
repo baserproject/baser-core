@@ -175,7 +175,6 @@ class ContentsController extends BcApiController
      * @return void
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function get_global_navi(ContentsServiceInterface $service, int $id)
     {
@@ -208,7 +207,6 @@ class ContentsController extends BcApiController
      * @return void
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function get_crumbs(ContentsServiceInterface $service, int $id)
     {
@@ -241,7 +239,6 @@ class ContentsController extends BcApiController
      * @return void
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function get_local_navi(ContentsServiceInterface $service, int $id)
     {

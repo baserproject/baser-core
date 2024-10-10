@@ -29,6 +29,16 @@ class ThemesControllerTest extends BcTestCase
     use IntegrationTestTrait;
 
     /**
+     * Fixtures
+     *
+     * @var array
+     */
+    public $fixtures = [
+        'plugin.BaserCore.Factory/Users',
+        'plugin.BaserCore.Factory/Sites',
+    ];
+
+    /**
      * Access Token
      * @var string
      */
