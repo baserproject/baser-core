@@ -15,13 +15,23 @@ use BaserCore\Test\Factory\ContentFactory;
 use BaserCore\Test\Factory\PageFactory;
 use BaserCore\Test\Factory\SearchIndexesFactory;
 use BaserCore\Test\Factory\SiteFactory;
+use BaserCore\Test\Scenario\ContentFoldersScenario;
+use BaserCore\Test\Scenario\ContentsScenario;
+use BaserCore\Test\Scenario\MailContentsScenario;
+use BaserCore\Test\Scenario\SiteConfigsScenario;
+use BaserCore\Test\Scenario\SitesScenario;
+use BaserCore\Test\Scenario\UserGroupsScenario;
+use BaserCore\Test\Scenario\UserScenario;
+use BaserCore\Test\Scenario\UsersUserGroupsScenario;
 use BcBlog\Test\Factory\BlogContentFactory;
 use Cake\Core\Configure;
 use Cake\Datasource\Exception\RecordNotFoundException;
+use Cake\ORM\TableRegistry;
 use Cake\Routing\Router;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Service\ContentsService;
 use BaserCore\Service\ContentFoldersService;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * BaserCore\Model\Table\ContentsTable Test Case
@@ -37,24 +47,10 @@ class ContentsServiceTest extends BcTestCase
      * @var ContentsService
      */
     public $Contents;
-
     /**
-     * Fixtures
-     *
-     * @var array
+     * ScenarioAwareTrait
      */
-    protected $fixtures = [
-        'plugin.BaserCore.Sites',
-        'plugin.BaserCore.Contents',
-        'plugin.BaserCore.ContentFolders',
-        'plugin.BaserCore.Users',
-        'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.UsersUserGroups',
-        'plugin.BaserCore.SiteConfigs',
-        'plugin.BaserCore.MailContents',
-        'plugin.BaserCore.Factory/Pages',
-        'plugin.BcBlog.Factory/BlogContents',
-    ];
+    use ScenarioAwareTrait;
 
     /**
      * Set Up
@@ -64,6 +60,13 @@ class ContentsServiceTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
+        $this->loadFixtureScenario(UserScenario::class);
+        $this->loadFixtureScenario(UserGroupsScenario::class);
+        $this->loadFixtureScenario(UsersUserGroupsScenario::class);
+        $this->loadFixtureScenario(SitesScenario::class);
+        $this->loadFixtureScenario(SiteConfigsScenario::class);
+        $this->loadFixtureScenario(ContentsScenario::class);
+        $this->loadFixtureScenario(ContentFoldersScenario::class);
         $this->ContentsService = new ContentsService();
         $this->ContentFoldersService = new ContentFoldersService();
     }
@@ -127,7 +130,7 @@ class ContentsServiceTest extends BcTestCase
         $this->assertEquals($expected, $result->count());
     }
 
-    public function getTableIndexDataProvider()
+    public static function getTableIndexDataProvider()
     {
         return [
             [[
@@ -178,15 +181,15 @@ class ContentsServiceTest extends BcTestCase
         // softDeleteの場合
         $request = $this->getRequest('/?status=publish');
         $contents = $this->ContentsService->getIndex($request->getQueryParams());
-        $this->assertEquals(19, $contents->all()->count());
+        $this->assertEquals(20, $contents->all()->count());
         // ゴミ箱を含むの場合
         $request = $this->getRequest('/?status=publish&withTrash=true');
         $contents = $this->ContentsService->getIndex($request->getQueryParams());
-        $this->assertEquals(22, $contents->all()->count());
+        $this->assertEquals(24, $contents->all()->count());
         // 否定の場合
         $request = $this->getRequest('/?status=publish&type!=Page');
         $contents = $this->ContentsService->getIndex($request->getQueryParams());
-        $this->assertEquals(11, $contents->all()->count());
+        $this->assertEquals(12, $contents->all()->count());
         // フォルダIDを指定する場合
         $request = $this->getRequest('/?status=publish&folder_id=6');
         $contents = $this->ContentsService->getIndex($request->getQueryParams());
@@ -274,14 +277,17 @@ class ContentsServiceTest extends BcTestCase
     {
         // treeBehavior falseの場合
         $this->assertTrue($this->ContentsService->hardDelete(15));
-        $this->expectException('Cake\Datasource\Exception\RecordNotFoundException');
-        $this->ContentsService->getTrash(15);
+        try {
+            $this->ContentsService->getTrash(15);
+            $this->fail();
+        } catch (RecordNotFoundException $e) {}
+
         // treeBehavior trueの場合
         $this->assertTrue($this->ContentsService->hardDelete(16, true));
-        $this->expectException('Cake\Datasource\Exception\RecordNotFoundException');
-        $this->ContentsService->getTrash(16); // 親要素
-        $this->expectException('Cake\Datasource\Exception\RecordNotFoundException');
-        $this->ContentsService->getTrash(17); // 子要素
+        try {
+            $this->ContentsService->getTrash(16); // 親要素
+            $this->fail();
+        } catch (RecordNotFoundException $e) {}
     }
 
     /**
@@ -424,7 +430,7 @@ class ContentsServiceTest extends BcTestCase
         Configure::write('BcEnv.siteUrl', $siteUrl);
     }
 
-    public function getUrlByIdDataProvider()
+    public static function getUrlByIdDataProvider()
     {
         return [
             // ノーマルURL
@@ -462,7 +468,7 @@ class ContentsServiceTest extends BcTestCase
         Configure::write('BcEnv.siteUrl', $siteUrl);
     }
 
-    public function getUrlDataProvider()
+    public static function getUrlDataProvider()
     {
         return [
             //NOTE: another.comがそもそもSiteに無いため一旦コメントアウト
@@ -514,7 +520,7 @@ class ContentsServiceTest extends BcTestCase
         $this->assertEquals($result, $expects);
     }
 
-    public function getUrlBaseDataProvider()
+    public static function getUrlBaseDataProvider()
     {
         return [
             ['/news/archives/1', '', true, '/news/archives/1'],
@@ -553,7 +559,7 @@ class ContentsServiceTest extends BcTestCase
         $this->assertEquals($result['author_id'], $newAuthorId);
     }
 
-    public function copyDataProvider()
+    public static function copyDataProvider()
     {
         return [
             [1, 2, 'hoge', 3, 4, 'hoge'],
@@ -591,6 +597,7 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testPublish()
     {
+        $this->loadFixtureScenario(MailContentsScenario::class);
         PageFactory::make([
             ['id' => 2],
             ['id' => 16],
@@ -620,6 +627,7 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testUnpublish()
     {
+        $this->loadFixtureScenario(MailContentsScenario::class);
         PageFactory::make([
             ['id' => 2],
             ['id' => 16],
@@ -738,7 +746,7 @@ class ContentsServiceTest extends BcTestCase
         $this->assertEquals($expects, $result);
     }
 
-    public function getSiteRootDataProvider()
+    public static function getSiteRootDataProvider()
     {
         return [
             [1, 1],
@@ -764,7 +772,7 @@ class ContentsServiceTest extends BcTestCase
         $this->assertEquals($expected, $this->ContentsService->isChangedStatus($id, $newData));
     }
 
-    public function isChangedStatusDataProvider()
+    public static function isChangedStatusDataProvider()
     {
         return [
             // idが存在しない場合はtrueを返す
@@ -843,7 +851,7 @@ class ContentsServiceTest extends BcTestCase
         $this->assertEquals($expected, $result["path"]);
     }
 
-    public function encodeParsedUrlDataProvider()
+    public static function encodeParsedUrlDataProvider()
     {
         // サブサイトはすべて同じpathに変換されているかテスト
         return [
@@ -900,12 +908,49 @@ class ContentsServiceTest extends BcTestCase
     }
 
     /**
+     * test getParent
+     */
+    public function test_getParent()
+    {
+        //正常系実行
+        $result = $this->ContentsService->getParent(4);
+        $this->assertEquals(1, $result->id);
+        //正常系実行: false返す
+        $result = $this->ContentsService->getParent(1);
+        $this->assertFalse($result);
+        //異常系実行
+        $this->expectException('Cake\Datasource\Exception\RecordNotFoundException');
+        $this->ContentsService->getLocalNavi(999)->toArray();
+    }
+
+
+    /**
      * test create
      */
     public function test_create()
     {
         $this->assertNull($this->ContentsService->create([]));
     }
+
+    /**
+     * test getLocalNavi
+     */
+    public function test_getLocalNavi()
+    {
+        //正常系実行
+        $result = $this->ContentsService->getLocalNavi(4)->toArray();
+        $this->assertCount(13, $result);
+        $this->assertEquals(1, $result[0]->parent_id);
+        $this->assertEquals(21, $result[10]->id);
+        //正常系実行: null返す
+        $result = $this->ContentsService->getLocalNavi(1);
+        $this->assertNull($result);
+        //異常系実行
+        $this->expectException('Cake\Datasource\Exception\RecordNotFoundException');
+        $this->ContentsService->getLocalNavi(999)->toArray();
+
+    }
+
 
     /**
      * test batch
@@ -938,6 +983,23 @@ class ContentsServiceTest extends BcTestCase
     }
 
     /**
+     * test getGlobalNavi
+     */
+    public function test_getGlobalNavi()
+    {
+        //正常系実行
+        $result = $this->ContentsService->getGlobalNavi(26)->toArray();
+        $this->assertCount(3, $result);
+        $this->assertEquals(3, $result[0]->site_id);
+        $this->assertFalse($result[2]->exclude_menu);
+        //異常系実行
+        $this->expectException('Cake\Datasource\Exception\RecordNotFoundException');
+        $this->ContentsService->getGlobalNavi(999)->toArray();
+
+    }
+
+
+    /**
      * test rename
      */
     public function testRename()
@@ -964,4 +1026,75 @@ class ContentsServiceTest extends BcTestCase
         // DBの search_indexes の変更を確認（BcSearchIndexプラグインの有効化が必要）
         $this->assertEquals($countBefore + 1, SearchIndexesFactory::count());
     }
+
+    /**
+     * test getNext
+     */
+    public function test_getNext()
+    {
+        //正常系実行
+        $result = $this->ContentsService->getNext(9);
+        $this->assertEquals(18, $result->id);
+        //正常系実行: null返す
+        $result = $this->ContentsService->getNext(1);
+        $this->assertNull($result);
+        //異常系実行
+        $this->expectException('Cake\Datasource\Exception\RecordNotFoundException');
+        $this->ContentsService->getPrev(999);
+    }
+
+
+    /**
+     * test setCurrentToRequest
+     */
+    public function testSetCurrentToRequest()
+    {
+        ContentFactory::make(
+            [
+                'id' => 111,
+                'plugin' => 'BaserCore',
+                'type' => 'Nghiem',
+                'entity_id' => 1,
+                'site_id' => 1,
+                'lft' => 1,
+                'rght' => 2,
+            ], 1)->persist();
+        ContentFactory::make(
+            [
+                'id' => 222,
+                'plugin' => 'BaserCore',
+                'type' => 'Page',
+                'entity_id' => 1,
+                'site_id' => 1,
+                'lft' => 3,
+                'rght' => 4,
+            ], 1)->persist();
+        $request = $this->getRequest();
+        $result = $this->ContentsService->setCurrentToRequest('Page', 1, $request);
+        $this->assertEquals(222, $result->getAttribute('currentContent')->id);
+
+        $result = $this->ContentsService->setCurrentToRequest('Nghiem', 1, $request);
+        $this->assertEquals(111, $result->getAttribute('currentContent')->id);
+
+        $result = $this->ContentsService->setCurrentToRequest('Test', 1, $request);
+        $this->assertEquals(false, $result);
+    }
+
+    /**
+     * test getPrev
+     */
+    public function test_getPrev()
+    {
+        //正常系実行
+        $result = $this->ContentsService->getPrev(9);
+        $this->assertEquals(6, $result->id);
+        //正常系実行: null返す
+        $result = $this->ContentsService->getPrev(1);
+        $this->assertNull($result);
+        //異常系実行
+        $this->expectException('Cake\Datasource\Exception\RecordNotFoundException');
+        $this->ContentsService->getPrev(1111);
+
+    }
+
 }

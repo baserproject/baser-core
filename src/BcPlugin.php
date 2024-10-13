@@ -18,6 +18,8 @@ use BaserCore\Service\BcDatabaseServiceInterface;
 use BaserCore\Service\PermissionGroupsService;
 use BaserCore\Service\PermissionGroupsServiceInterface;
 use BaserCore\Utility\BcContainerTrait;
+use BaserCore\Utility\BcFolder;
+use BaserCore\Utility\BcPluginUtil;
 use BaserCore\Utility\BcUpdateLog;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\BasePlugin;
@@ -25,7 +27,6 @@ use Cake\Core\Configure;
 use Cake\Core\Configure\Engine\PhpConfig;
 use Cake\Core\PluginApplicationInterface;
 use Cake\Datasource\ConnectionManager;
-use Cake\Filesystem\Folder;
 use Cake\Http\ServerRequestFactory;
 use Cake\I18n\FrozenTime;
 use Cake\Log\LogTrait;
@@ -58,6 +59,13 @@ class BcPlugin extends BasePlugin
     public $migrations;
 
     /**
+     * 現在のサイト
+     * キャッシュ用
+     * @var null
+     */
+    public static $currentSite = null;
+
+    /**
      * Initialize
      * @checked
      * @unitTest
@@ -72,9 +80,11 @@ class BcPlugin extends BasePlugin
     /**
      * bootstrap
      *
-     * @param PluginApplicationInterface $application
+     * @param PluginApplicationInterface $app
+     * @checked
+     * @noTodo
      */
-    public function bootstrap(PluginApplicationInterface $application): void
+    public function bootstrap(PluginApplicationInterface $app): void
     {
         $pluginPath = BcUtil::getPluginPath($this->name);
         if (file_exists($pluginPath . 'config' . DS . 'setting.php')) {
@@ -86,7 +96,7 @@ class BcPlugin extends BasePlugin
         }
         // 親の bootstrap は、setting の読み込みの後でなければならない
         // bootstrap 内で、setting の値を参照する場合があるため
-        parent::bootstrap($application);
+        parent::bootstrap($app);
     }
 
     /**
@@ -110,11 +120,12 @@ class BcPlugin extends BasePlugin
         ], $options);
         $pluginName = $options['plugin'];
         $permission = $options['permission'];
-        unset($options['permission']);
+        unset($options['permission'], $options['db_init']);
         BcUtil::clearAllCache();
         $pluginPath = BcUtil::getPluginPath($options['plugin']);
         try {
-            $plugins = TableRegistry::getTableLocator()->get('BaserCore.Plugins');
+        	TableRegistry::getTableLocator()->clear();
+            $plugins = TableRegistry::getTableLocator()->get('BaserCore.Plugins', ['connectionName' => $options['connection']]);
             $plugin = $plugins->findByName($pluginName)->first();
             if (!$plugin || !$plugin->db_init) {
                 if (is_dir($pluginPath . 'config' . DS . 'Migrations')) {
@@ -137,10 +148,13 @@ class BcPlugin extends BasePlugin
             $this->createAssetsSymlink();
 
             BcUtil::clearAllCache();
+            TableRegistry::getTableLocator()->clear();
             return $plugins->install($pluginName);
         } catch (BcException $e) {
             $this->log($e->getMessage());
             $this->migrations->rollback($options);
+            BcUtil::clearAllCache();
+            TableRegistry::getTableLocator()->clear();
             return false;
         }
     }
@@ -149,6 +163,8 @@ class BcPlugin extends BasePlugin
      * マイグレーションを実行する
      *
      * @param array $options
+     * @checked
+     * @noTodo
      */
     public function migrate($options = [])
     {
@@ -163,6 +179,8 @@ class BcPlugin extends BasePlugin
 
     /**
      * アップデートプログラムを実行する
+     * @checked
+     * @noTodo
      */
     public function execUpdater()
     {
@@ -187,10 +205,11 @@ class BcPlugin extends BasePlugin
      * @noTodo
      * @unitTest
      */
-    public function createAssetsSymlink(): void
+    public function createAssetsSymlink(): bool
     {
         $command = ROOT . DS . 'bin' . DS . 'cake plugin assets symlink';
-        exec($command);
+        exec($command, $out, $code);
+        return ($code === 0);
     }
 
     /**
@@ -224,23 +243,23 @@ class BcPlugin extends BasePlugin
      * @noTodo
      * @unitTest
      */
-    public function getUpdaters($name = '')
+    public function getUpdaters($name = '', $isUpdateTmp = false)
     {
         if (!$name) $name = $this->getName();
-        $targetVerPoint = BcUtil::verpoint(BcUtil::getVersion($name));
+        $targetVerPoint = BcUtil::verpoint(BcUtil::getVersion($name, $isUpdateTmp));
         $sourceVerPoint = BcUtil::verpoint(BcUtil::getDbVersion($name));
         if ($sourceVerPoint === false || $targetVerPoint === false) {
             return [];
         }
 
         // 有効化されていない可能性があるため CakePlugin::path() は利用しない
-        $path = BcUtil::getPluginPath($name) . 'config' . DS . 'update';
-        $folder = new Folder($path);
-        $files = $folder->read(true, true);
+        $path = BcUtil::getPluginPath($name, $isUpdateTmp) . 'config' . DS . 'update';
+        $folder = new BcFolder($path);
+        $files = $folder->getFolders();
         $updaters = [];
         $updateVerPoints = [];
-        if (!empty($files[0])) {
-            foreach($files[0] as $folder) {
+        if (!empty($files)) {
+            foreach($files as $folder) {
                 $updateVersion = $folder;
                 $updateVerPoints[$updateVersion] = BcUtil::verpoint($updateVersion);
             }
@@ -272,23 +291,23 @@ class BcPlugin extends BasePlugin
      * @noTodo
      * @unitTest
      */
-    public function getUpdateScriptMessages($name = '')
+    public function getUpdateScriptMessages($name = '', $isUpdateTmp = false)
     {
         if (!$name) $name = $this->getName();
-        $targetVerPoint = BcUtil::verpoint(BcUtil::getVersion($name));
+        $targetVerPoint = BcUtil::verpoint(BcUtil::getVersion($name, $isUpdateTmp));
         $sourceVerPoint = BcUtil::verpoint(BcUtil::getDbVersion($name));
         if ($sourceVerPoint === false || $targetVerPoint === false) {
             return [];
         }
 
         // 有効化されていない可能性があるため CakePlugin::path() は利用しない
-        $path = BcUtil::getPluginPath($name) . 'config' . DS . 'update';
-        $folder = new Folder($path);
-        $files = $folder->read(true, true);
+        $path = BcUtil::getPluginPath($name, $isUpdateTmp) . 'config' . DS . 'update';
+        $folder = new BcFolder($path);
+        $files = $folder->getFolders();
         $messages = [];
         $updateVerPoints = [];
-        if (!empty($files[0])) {
-            foreach($files[0] as $folder) {
+        if (!empty($files)) {
+            foreach($files as $folder) {
                 $updateVersion = $folder;
                 $updateVerPoints[$updateVersion] = BcUtil::verpoint($updateVersion);
             }
@@ -330,8 +349,8 @@ class BcPlugin extends BasePlugin
 
         $pluginPath = BcUtil::getPluginPath($pluginName);
         if ($pluginPath) {
-            $Folder = new Folder();
-            $Folder->delete($pluginPath);
+            $Folder = new BcFolder($pluginPath);
+            $Folder->delete();
         }
         /** @var PermissionGroupsService $permissionGroupsService */
         $permissionGroupsService = $this->getService(PermissionGroupsServiceInterface::class);
@@ -418,6 +437,13 @@ class BcPlugin extends BasePlugin
             $routes = $this->frontPageRouting($routes, $plugin);
         }
 
+        // CSRFトークンの場合は高速化のためここで処理を終了
+        $request = Router::getRequest();
+        if($request && !$request->is('requestview')) {
+            parent::routes($routes);
+            return;
+        }
+
         // プレフィックスルーティング
         $routes = $this->prefixRouting($routes, $plugin);
 
@@ -437,6 +463,8 @@ class BcPlugin extends BasePlugin
      * @param RouteBuilder $routes
      * @param string $plugin
      * @return RouteBuilder
+     * @checked
+     * @noTodo
      */
     public function contentsRoutingForReverse(RouteBuilder $routes, string $plugin)
     {
@@ -447,7 +475,7 @@ class BcPlugin extends BasePlugin
                 $routes->setRouteClass('BaserCore.BcContentsRoute');
                 $routes->connect('/', []);
                 $routes->connect('/{controller}/index', []);
-                $routes->connect('/:controller/:action/*', []);
+                $routes->connect('/{controller}/{action}/*', []);
             }
         );
         return $routes;
@@ -463,10 +491,12 @@ class BcPlugin extends BasePlugin
      * @param RouteBuilder $routes
      * @param string $plugin
      * @return RouteBuilder
+     * @checked
+     * @noTodo
      */
     public function frontPageRouting(RouteBuilder $routes, string $plugin)
     {
-
+        if(!BcPluginUtil::isPlugin($plugin)) return $routes;
         $routes->plugin(
             $plugin,
             ['path' => '/' . Inflector::dasherize($plugin)],
@@ -488,6 +518,8 @@ class BcPlugin extends BasePlugin
      * @param RouteBuilder $routes
      * @param string $plugin
      * @return RouteBuilder
+     * @checked
+     * @noTodo
      */
     public function prefixRouting(RouteBuilder $routes, string $plugin)
     {
@@ -535,17 +567,23 @@ class BcPlugin extends BasePlugin
      * @param RouteBuilder $routes
      * @param string $plugin
      * @return RouteBuilder
+     * @checked
+     * @noTodo
      */
     public function siteRouting(RouteBuilder $routes, string $plugin)
     {
-        $request = Router::getRequest();
-        if (!$request) {
-            $request = ServerRequestFactory::fromGlobals();
+        if(!BcPluginUtil::isPlugin($plugin)) return $routes;
+        if(!self::$currentSite) {
+            $request = Router::getRequest();
+            if (!$request) {
+                $request = ServerRequestFactory::fromGlobals();
+            }
+            /* @var SitesTable $sitesTable */
+            $sitesTable = TableRegistry::getTableLocator()->get('BaserCore.Sites');
+            /* @var Site $site */
+            self::$currentSite = $sitesTable->findByUrl($request->getPath());
         }
-        /* @var SitesTable $sitesTable */
-        $sitesTable = TableRegistry::getTableLocator()->get('BaserCore.Sites');
-        /* @var Site $site */
-        $site = $sitesTable->findByUrl($request->getPath());
+        $site = self::$currentSite;
         if ($site && $site->alias) {
             $routes->plugin(
                 $plugin,
@@ -585,20 +623,41 @@ class BcPlugin extends BasePlugin
      * @checked
      * @noTodo
      */
-    public function updateDateNow(string $table, array $fields, array $conditions = []): void
+    public function updateDateNow(string $table, array $fields, array $conditions = [], array $options = []): void
     {
-        $table = TableRegistry::getTableLocator()->get($table);
+        $options = array_merge([
+            'connection' => 'default'
+        ], $options);
+        $tableOptions = [];
+        if($options['connection'] && $options['connection'] !== 'default') {
+            $tableOptions = ['connectionName' => $options['connection']];
+        }
+        $table = TableRegistry::getTableLocator()->get($table, $tableOptions);
+        $beforeSaveEvents = BcUtil::offEvent($table->getEventManager(), 'Model.beforeSave');
+        $afterSaveEvents = BcUtil::offEvent($table->getEventManager(), 'Model.afterSave');
+
         $entities = $table->find()->where($conditions)->all();
         if($entities->count()) {
             foreach($entities as $entity) {
                 $array = $entity->toArray();
                 foreach($fields as $field) {
-                    $array[$field] = FrozenTime::now();
+                    $array[$field] = \Cake\I18n\DateTime::now();
                 }
                 $entity = $table->patchEntity($entity, $array);
                 $table->save($entity);
             }
         }
+        BcUtil::onEvent($table->getEventManager(), 'Model.beforeSave', $beforeSaveEvents);
+        BcUtil::onEvent($table->getEventManager(), 'Model.afterSave', $afterSaveEvents);
+    }
+
+    /**
+     * カレントサイトを初期化する
+     * @return void
+     */
+    public function clearCurrentSite(): void
+    {
+        self::$currentSite = null;
     }
 
 }

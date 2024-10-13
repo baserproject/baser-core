@@ -12,12 +12,10 @@
 namespace BaserCore\Model\Table;
 
 use ArrayObject;
-use Cake\Core\Plugin;
+use Cake\Chronos\Chronos;
 use Cake\Utility\Hash;
 use Cake\Core\Configure;
-use Cake\I18n\FrozenTime;
 use Cake\ORM\TableRegistry;
-use Cake\Utility\Inflector;
 use BaserCore\Utility\BcUtil;
 use Cake\Event\EventInterface;
 use Cake\Validation\Validator;
@@ -28,7 +26,6 @@ use BaserCore\Annotation\Note;
 use BaserCore\Model\Entity\Content;
 use Cake\Datasource\EntityInterface;
 use Cake\Datasource\ConnectionManager;
-use SoftDelete\Model\Table\SoftDeleteTrait;
 
 /**
  * Class ContentsTable
@@ -36,8 +33,16 @@ use SoftDelete\Model\Table\SoftDeleteTrait;
  */
 class ContentsTable extends AppTable
 {
+
+    /**
+     * Trait
+     */
     use SoftDeleteTrait;
 
+    /**
+     * 論理削除フィールド名
+     * @var string
+     */
     protected $softDeleteField = 'deleted_date';
 
     /**
@@ -145,12 +150,21 @@ class ContentsTable extends AppTable
         $validator
             ->integer('parent_id')
             ->requirePresence('parent_id', 'create', __d('baser_core', 'content[parent_id] フィールドが存在しません。'))
-            ->notEmptyString('parent_id', __d('baser_core', '親フォルダを入力してください。'));
+            ->allowEmptyString('parent_id', __d('baser_core', '親フォルダを入力してください。'), function(array $context) {
+                return (isset($context['data']['id']) && $context['data']['id'] === 1);
+            });
 
         $validator
             ->scalar('name')
             ->requirePresence('name', 'create', __d('baser_core', 'content[name] フィールドが存在しません。'))
             ->maxLength('name', 230, __d('baser_core', '名前は230文字以内で入力してください。'))
+            ->add('name', 'notBlankIfNonTop', [
+                'rule' => 'notBlank',
+                'on' => function ($context) {
+                    return !empty($context['data']['parent_id']);
+                },
+                'message' => __d('baser_core', 'URLを入力してください。')
+            ])
             ->add('name', [
                 'bcUtileUrlencodeBlank' => [
                     'rule' => ['bcUtileUrlencodeBlank'],
@@ -185,28 +199,31 @@ class ContentsTable extends AppTable
                     'provider' => 'bc',
                     'message' => __d('baser_core', 'ファイルのアップロードに失敗しました。')
                 ]
-            ]);
-        $validator
-            ->dateTime('self_publish_begin')
-            ->allowEmptyDateTime('self_publish_begin')
-            ->add('self_publish_begin', [
-                'checkDate' => [
-                    'rule' => ['checkDate'],
+            ])
+            ->add('eyecatch', [
+                'fileExt' => [
+                    'rule' => ['fileExt', ['gif', 'jpg', 'jpeg', 'jpe', 'jfif', 'png']],
                     'provider' => 'bc',
-                    'message' => __d('baser_core', '公開開始日に不正な文字列が入っています。')
+                    'message' => __d('baser_core', '許可されていないファイルです。')
                 ]
             ]);
+        $validator
+            ->add('self_publish_begin', [
+                'dateTime' => [
+                    'rule' => ['dateTime'],
+                    'message' => __d('baser_core', '公開開始日に不正な文字列が入っています。')
+                ]
+            ])
+            ->allowEmptyDateTime('self_publish_begin');
 
         $validator
-            ->dateTime('self_publish_end')
-            ->allowEmptyDateTime('self_publish_end')
             ->add('self_publish_end', [
-                'checkDate' => [
-                    'rule' => ['checkDate'],
-                    'provider' => 'bc',
+                'dateTime' => [
+                    'rule' => ['dateTime'],
                     'message' => __d('baser_core', '公開終了日に不正な文字列が入っています。')
                 ]
             ])
+            ->allowEmptyDateTime('self_publish_end')
             ->add('self_publish_end', [
                 'checkDateAfterThan' => [
                     'rule' => ['checkDateAfterThan', 'self_publish_begin'],
@@ -215,27 +232,41 @@ class ContentsTable extends AppTable
                 ]
             ]);
         $validator
-            ->dateTime('created_date')
-            ->requirePresence('created_date', 'create', __d('baser_core', '作成日がありません。'))
-            ->notEmptyDateTime('created_date', __d('baser_core', '作成日が空になってます。'))
             ->add('created_date', [
-                'checkDate' => [
-                    'rule' => ['checkDate'],
-                    'provider' => 'bc',
+                'dateTime' => [
+                    'rule' => ['dateTime'],
                     'message' => __d('baser_core', '作成日が正しくありません。')
                 ]
-            ]);
+            ])
+            ->requirePresence('created_date', 'create', __d('baser_core', '作成日がありません。'))
+            ->notEmptyDateTime('created_date', __d('baser_core', '作成日が空になってます。'));
         $validator
-            ->datetime('modified_date')
-            ->notEmptyDateTime('modified_date', __d('baser_core', '更新日が空になってます。'), 'update')
             ->add('modified_date', [
-                'checkDate' => [
-                    'rule' => ['checkDate'],
-                    'provider' => 'bc',
+                'dateTime' => [
+                    'rule' => ['dateTime'],
                     'message' => __d('baser_core', '更新日が正しくありません。')
                 ]
-            ]);
+            ])
+            ->notEmptyDateTime('modified_date', __d('baser_core', '更新日が空になってます。'), 'update');
         return $validator;
+    }
+
+    /**
+     * 最大のバイト数チェック
+     * - 対象となる値のサイズが、指定した最大値より短い場合、true を返す
+     *
+     * @param mixed $value 対象となる値
+     * @param int $max バイト数の最大値
+     * @return boolean
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public static function notEmptyString($value, $max)
+    {
+        $value = (is_array($value))? current($value) : $value;
+        $byte = strlen($value);
+        return ($byte <= $max);
     }
 
     /**
@@ -264,7 +295,7 @@ class ContentsTable extends AppTable
         // if ($parents) {
         //     $baseUrl = '/' . implode('/', $parents) . '/';
         // }
-        // $sites = $this->Sites->find('all', ['conditions' => ['Site.main_site_id' => $this->data['Content']['site_id'], 'relate_main_site' => true]]);
+        // $sites = $this->Sites->find('all', ...['conditions' => ['Site.main_site_id' => $this->data['Content']['site_id'], 'relate_main_site' => true]]);
         // // URLを取得
         // $urlAry = [];
         // foreach($sites as $site) {
@@ -320,7 +351,7 @@ class ContentsTable extends AppTable
                 $content['self_publish_end'] = null;
             }
             if (!isset($content['created_date'])) {
-                $content['created_date'] = FrozenTime::now();
+                $content['created_date'] = \Cake\I18n\DateTime::now();
             }
             if (!isset($content['site_root'])) {
                 $content['site_root'] = 0;
@@ -333,22 +364,18 @@ class ContentsTable extends AppTable
                 if ($user) $content['author_id'] = $user['id'];
             }
         } else {
-			if (isset($content['name'])) {
-				$content['name'] = BcUtil::urlencode(mb_substr($content['name'], 0, 230, 'UTF-8'));
-			}
-            if (!empty($content['self_publish_begin'])) {
-                $content['self_publish_begin'] = new FrozenTime($content['self_publish_begin']);
-            }
-            if (!empty($content['self_publish_end'])) {
-                $content['self_publish_end'] = new FrozenTime($content['self_publish_end']);
+            if (isset($content['name'])) {
+                try {
+                    $oldName = $this->get($content['id'])->name;
+                } catch (\Exception $e) {
+                    $oldName = null;
+                }
+                if($content['name'] !== $oldName) {
+                    $content['name'] = BcUtil::urlencode(mb_substr($content['name'], 0, 230, 'UTF-8'));
+                }
             }
             if (empty($content['modified_date'])) {
-                $content['modified_date'] = FrozenTime::now();
-            } else {
-                $content['modified_date'] = new FrozenTime($content['modified_date']);
-            }
-            if (!empty($content['created_date'])) {
-                $content['created_date'] = new FrozenTime($content['created_date']);
+                $content['modified_date'] = \Cake\I18n\DateTime::now();
             }
         }
         // name の 重複チェック＆リネーム
@@ -394,7 +421,7 @@ class ContentsTable extends AppTable
         if ($contentId) {
             $query = $query->andWhere(['id <>' => $contentId]);
         }
-        $datas = $query->select('name')->order('name')->all()->toArray();
+        $datas = $query->select('name')->orderBy('name')->all()->toArray();
         $datas = Hash::extract($datas, '{n}.name');
         $numbers = [];
 
@@ -476,29 +503,6 @@ class ContentsTable extends AppTable
                 $this->beforeSaveParentId = null;
             }
         }
-    }
-
-    /**
-     * 関連するコンテンツ本体のデータキャッシュを削除する
-     * @param Content $content
-     */
-    public function deleteAssocCache($content)
-    {
-        if (empty($content->plugin) || empty($content->type)) {
-            $content = $this->find()->applyOptions(['withDeleted'])->select(['plugin', 'type'])->where(['id' => $content->id])->first();
-        }
-        $assoc = $content->plugin . '.' . Inflector::pluralize($content->type);
-        if ($content->plugin != 'BaserCore') {
-            if (!Plugin::isLoaded($content->plugin)) {
-                return;
-            }
-        }
-        $AssocTable = TableRegistry::getTableLocator()->get($assoc);
-        // if ($AssocTable && !empty($AssocTable->actsAs) && in_array('BcCache', $AssocTable->actsAs)) {
-        //     if ($AssocTable->Behaviors->hasMethod('delCache')) {
-        //         $AssocTable->delCache();
-        //     }
-        // }
     }
 
     /**
@@ -710,7 +714,7 @@ class ContentsTable extends AppTable
                 unset($content->created);
                 unset($content->modified);
                 unset($content->layout_template);
-                $content->created_date = $content->created = FrozenTime::now();
+                $content->created_date = $content->created = \Cake\I18n\DateTime::now();
                 $content->name = $data->name;
                 $content->main_site_content_id = $data->id;
                 $content->site_id = $site->id;
@@ -754,7 +758,7 @@ class ContentsTable extends AppTable
             $currentId = $current->first()->id;
         }
         $prefix = $this->Sites->getPrefix($targetSiteId);
-        $path = $this->find('path', ['for' => $currentId])->toArray();
+        $path = $this->find('path', for: $currentId)->toArray();
         if (!$path) {
             return false;
         }
@@ -791,7 +795,7 @@ class ContentsTable extends AppTable
                         'type' => 'ContentFolder',
                         'site_id' => $targetSiteId,
                         'self_status' => true,
-                        'created_date' => FrozenTime::now()
+                        'created_date' => \Cake\I18n\DateTime::now()
                     ]
                 ]);
                 $result = $contentFoldersTable->save($contentFolder);
@@ -853,7 +857,7 @@ class ContentsTable extends AppTable
             $content['exclude_search'] = 0;
         }
         if (!isset($content['created_date'])) {
-            $content['created_date'] = FrozenTime::now();
+            $content['created_date'] = \Cake\I18n\DateTime::now();
         }
         $content = $this->newEntity($content);
         return $this->save($content);
@@ -887,7 +891,7 @@ class ContentsTable extends AppTable
                 // =========================================================================================================
                 $connection = ConnectionManager::get('default');
                 $content = $connection
-                    ->newQuery()
+                    ->selectQuery()
                     ->select(['lft', 'rght'])
                     ->from($prefix . 'contents')
                     ->where(['id' => $id, 'deleted_date IS' => null])
@@ -899,7 +903,7 @@ class ContentsTable extends AppTable
                     return false;
                 }
                 $parents = $connection
-                    ->newQuery()
+                    ->selectQuery()
                     ->select(['name', 'plugin', 'type'])
                     ->from($prefix . 'contents')
                     ->where(['lft <=' => $content['lft'], 'rght >=' => $content['rght'], 'deleted_date IS' => null])
@@ -953,7 +957,7 @@ class ContentsTable extends AppTable
             }
         }
         if ($content->site_id) {
-            $site = $this->Sites->find()->where(['id' => $content->site_id])->first();
+            $site = $this->Sites->find()->where(['Sites.id' => $content->site_id])->first();
         }
         // URLを更新
         $content->url = $this->createUrl($content->id);
@@ -963,7 +967,10 @@ class ContentsTable extends AppTable
         }
         $content = $this->updatePublishDate($content);
         if (!empty($content->parent_id)) {
-            $parent = $this->find()->select(['name', 'status', 'publish_begin', 'publish_end'])->where(['id' => $content->parent_id])->first();
+            $parent = $this->find()
+                ->select(['Contents.name', 'Contents.status', 'Contents.publish_begin', 'Contents.publish_end'])
+                ->where(['Contents.id' => $content->parent_id])
+                ->first();
             // 親フォルダが非公開の場合は自身も非公開
             if (!$parent->status) {
                 $content->status = $parent->status;
@@ -981,7 +988,7 @@ class ContentsTable extends AppTable
             if ($site->alias) {
                 $prefix = $site->alias;
             }
-            if($prefix) {
+            if ($prefix) {
                 $url = preg_replace('/^\/' . preg_quote($prefix, '/') . '\//', '/', $content->url);
             }
             $mainSitePrefix = $this->Sites->getPrefix($site->main_site_id);
@@ -990,7 +997,10 @@ class ContentsTable extends AppTable
             }
             // main_site_content_id を更新
             if (!$content->isNew() && $site->main_site_id) {
-                $mainSiteContent = $this->find()->select(['id'])->where(['site_id' => $site->main_site_id, 'url' => $url])->first();
+                $mainSiteContent = $this->find()
+                    ->select(['Contents.id'])
+                    ->where(['Contents.site_id' => $site->main_site_id, 'Contents.url' => $url])
+                    ->first();
                 $content->main_site_content_id = $mainSiteContent->id ?? null;
             } else {
                 $content->main_site_content_id = null;
@@ -1018,7 +1028,7 @@ class ContentsTable extends AppTable
     {
         foreach(['publish_begin', 'publish_end'] as $date) {
             if ($content[$date] !== $content["self_" . $date]) {
-                if ($content[$date] instanceof FrozenTime && $content["self_" . $date] instanceof FrozenTime) {
+                if ($content[$date] instanceof \Cake\I18n\DateTime && $content["self_" . $date] instanceof \Cake\I18n\DateTime) {
                     if ($content[$date]->__toString() !== $content["self_" . $date]->__toString()) {
                         $content->$date = $content["self_" . $date];
                     }
@@ -1054,7 +1064,7 @@ class ContentsTable extends AppTable
      */
     public function updateChildren($id)
     {
-        $children = $this->find('children', ['for' => $id])->order('lft');
+        $children = $this->find('children', for: $id)->orderBy('Contents.lft');
         $result = true;
         if (!$children->all()->isEmpty()) {
             foreach($children as $child) {
@@ -1090,7 +1100,7 @@ class ContentsTable extends AppTable
         if ($entityId) {
             $conditions['Contents.entity_id'] = $entityId;
         }
-        return $this->find()->where([$conditions])->order(['Contents.id'])->first();
+        return $this->find()->where([$conditions])->orderBy(['Contents.id'])->first();
     }
 
     /**
@@ -1107,16 +1117,16 @@ class ContentsTable extends AppTable
             $plugin = 'BaserCore';
         }
         $conditions = [
-            'plugin' => $plugin,
-            'type' => $type,
-            'alias_id' => null
+            'Contents.plugin' => $plugin,
+            'Contents.type' => $type,
+            'Contents.alias_id' => null
         ];
         if ($entityId) {
             $conditions['Content.entity_id'] = $entityId;
         }
         $softDelete = $this->softDelete(null);
         $this->softDelete(false);
-        $id = $this->field('id', $conditions);
+        $id = $this->field('Contents.id', $conditions);
         $result = $this->removeFromTree($id, true);
         $this->softDelete($softDelete);
         return $result;
@@ -1162,10 +1172,10 @@ class ContentsTable extends AppTable
             return false;
         }
         // FrozenTimeの場合は変換
-        if ($publishBegin instanceof FrozenTime) {
+        if ($publishBegin instanceof \Cake\I18n\DateTime) {
             $publishBegin = $publishBegin->i18nFormat('yyyy-MM-dd HH:mm:ss');
         }
-        if ($publishEnd instanceof FrozenTime) {
+        if ($publishEnd instanceof \Cake\I18n\DateTime) {
             $publishEnd = $publishEnd->i18nFormat('yyyy-MM-dd HH:mm:ss');
         }
         if ($publishBegin && $publishBegin != '0000-00-00 00:00:00') {
@@ -1191,7 +1201,7 @@ class ContentsTable extends AppTable
      */
     public function getParentTemplate($id)
     {
-        $contents = $this->find('path', ['for' => $id])->contain(['Sites'])->all()->toArray();
+        $contents = $this->find('path', for: $id)->contain(['Sites'])->all()->toArray();
         $contents = array_reverse($contents);
         unset($contents[0]);
         $parentTemplates = Hash::extract($contents, '{n}.layout_template');
@@ -1235,11 +1245,10 @@ class ContentsTable extends AppTable
             $conditions['Content.site_id <>'] = $options['excludeIds'];
         }
         $conditions = array_merge($conditions, $this->getConditionAllowPublish());
-        $contents = $this->find('all', [
-            'conditions' => $conditions,
-            'order' => ['Content.id'],
-            'recursive' => 0
-        ]);
+        $contents = $this->find('all',
+        conditions: $conditions,
+        order: ['Content.id'],
+        recursive: 0);
         $mainSite = $this->Sites->getRootMain();
         foreach($contents as $key => $content) {
             if ($content['Content']['site_id'] == 0) {
@@ -1250,48 +1259,15 @@ class ContentsTable extends AppTable
     }
 
     /**
-     * キャッシュ時間を取得する
-     *
-     * @param mixed $id | $data
-     * @return mixed int or false
-     */
-    public function getCacheTime($data)
-    {
-        if (!is_array($data)) {
-            $data = $this->find('first', ['conditions' => ['Content.id' => $data], 'recursive' => 0]);
-        }
-        if (isset($data['Content'])) {
-            $data = $data['Content'];
-        }
-        if (!$data) {
-            return false;
-        }
-        // #10680 Modify 2016/01/22 gondoh
-        // 3.0.10 で追加されたViewキャッシュ分離の設定値を、後方互換のため存在しない場合は旧情報で取り込む
-        $duration = Configure::read('BcCache.viewDuration');
-        if (empty($duration)) {
-            $duration = Configure::read('BcCache.duration');
-        }
-        // 固定ページなどの公開期限がviewDulationより短い場合
-        if ($data['status'] && $data['publish_end'] && $data['publish_end'] != '0000-00-00 00:00:00') {
-            if (strtotime($duration) - time() > (strtotime($data['publish_end']) - time())) {
-                $duration = strtotime($data['publish_end']) - time();
-            }
-        }
-        return $duration;
-    }
-
-    /**
      * 全てのURLをデータの状況に合わせ更新する
      *
      * @return bool
      */
     public function updateAllUrl()
     {
-        $contents = $this->find('all', [
-            'recursive' => -1,
-            'order' => ['Content.lft']
-        ]);
+        $contents = $this->find('all',
+        recursive: -1,
+        order: ['Content.lft']);
         $result = true;
         $updatingRelated = $this->updatingRelated;
         $updatingSystemData = $this->updatingSystemData;
@@ -1318,13 +1294,13 @@ class ContentsTable extends AppTable
     public function updateChildrenUrl($id)
     {
         set_time_limit(0);
-        $children = $this->find('children', ['for' => $id])->select(['url', 'id'])->order('lft');
+        $children = $this->find('children', for: $id)->select(['url', 'id'])->orderBy('lft');
         /** @var \Cake\Database\Connection $connection */
         $connection = ConnectionManager::get('default');
         if ($children) {
             foreach($children as $child) {
                 // サイト全体を更新する為、サイト規模によってはかなり時間がかかる為、SQLを利用
-                $connection->update('contents', ['url' => $this->createUrl($child->id)], ['id' => $child->id]);
+                $connection->update($this->getTable(), ['url' => $this->createUrl($child->id)], ['id' => $child->id]);
             }
         }
         return true;
@@ -1341,16 +1317,15 @@ class ContentsTable extends AppTable
         $this->removeBehavior('Tree');
         $this->updatingRelated = false;
 
-        $beforeSaveListeners = $this->getEventManager()->listeners('Model.beforeSave');
-        $this->getEventManager()->off('Model.beforeSave', $beforeSaveListeners);
-        $afterSaveListeners = $this->getEventManager()->listeners('Model.afterSave');
-        $this->getEventManager()->off('Model.afterSave', $afterSaveListeners);
+        $eventManager = $this->getEventManager();
+        $beforeSaveListeners = BcUtil::offEvent($eventManager, 'Model.beforeSave');
+        $afterSaveListeners = BcUtil::offEvent($eventManager, 'Model.afterSave');
 
         $this->getConnection()->begin();
         $result = true;
         $siteRoots = $this->find()
             ->where(['Contents.site_root' => true])
-            ->order('lft')
+            ->orderBy('Contents.lft')
             ->all();
         $count = 0;
         $mainSite = [];
@@ -1361,7 +1336,7 @@ class ContentsTable extends AppTable
             $siteRoot->parent_id = ($siteRoot->id == 1)? null : 1;
             $contents = $this->find()
                 ->where(['Contents.site_id' => $siteRoot->site_id, 'Contents.site_root' => false])
-                ->order('lft')
+                ->orderBy('Contents.lft')
                 ->all();
             if ($contents) {
                 foreach($contents as $content) {
@@ -1371,7 +1346,7 @@ class ContentsTable extends AppTable
                     $content->rght = $count;
                     $content->level = $siteRoot->level + 1;
                     $content->parent_id = $siteRoot->id;
-                    if (!$this->save($content, false)) $result = false;
+                    if (!$this->save($content)) $result = false;
                 }
             }
             if ($siteRoot->id == 1) {
@@ -1390,15 +1365,14 @@ class ContentsTable extends AppTable
         $this->addBehavior('Tree');
         $this->updatingRelated = true;
 
-        $this->getEventManager()->on('Model.beforeSave', $beforeSaveListeners);
-        $this->getEventManager()->on('Model.afterSave', $afterSaveListeners);
+        BcUtil::onEvent($eventManager, 'Model.beforeSave', $beforeSaveListeners);
+        BcUtil::onEvent($eventManager, 'Model.afterSave', $afterSaveListeners);
 
-        $contents = $this->find()->order(['lft'])->all();
+        $contents = $this->find()->orderBy(['Contents.lft'])->all();
         if ($contents) {
             foreach($contents as $content) {
-                // バリデーションをオンにする事で同名コンテンツを強制的にリネームする
-                // beforeValidate でリネーム処理を入れている為
-                // （第二引数を false に設定しない）
+                // setDirty を利用して同名コンテンツを強制的にリネームする
+                $content->setDirty('name', true);
                 if (!$this->save($content)) $result = false;
             }
         }
@@ -1427,7 +1401,7 @@ class ContentsTable extends AppTable
     public function findByUrl($url, $publish = true, $extend = false, $sameUrl = false, $useSubDomain = false)
     {
         $url = preg_replace('/^\//', '', $url);
-        $query = $this->find()->order(['url' => 'DESC'])->contain('Sites');
+        $query = $this->find()->orderBy(['Contents.url' => 'DESC'])->contain('Sites');
         if ($extend) {
             $params = explode('/', $url);
             $condUrls = [];
@@ -1483,7 +1457,10 @@ class ContentsTable extends AppTable
      */
     public function getOrderSameParent($id, $parentId)
     {
-        $contents = $this->find()->select(['id', 'parent_id', 'title'])->where(['parent_id' => $parentId])->order('lft');
+        $contents = $this->find()
+            ->select(['Contents.id', 'Contents.parent_id', 'Contents.title'])
+            ->where(['Contents.parent_id' => $parentId])
+            ->orderBy('Contents.lft');
         $order = null;
         if (!$contents->all()->isEmpty()) {
             if ($id) {

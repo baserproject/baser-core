@@ -11,6 +11,7 @@
 
 namespace BaserCore\Mailer;
 
+use BaserCore\Event\BcEventDispatcherTrait;
 use BaserCore\Service\SiteConfigsService;
 use BaserCore\Service\SiteConfigsServiceInterface;
 use BaserCore\Utility\BcContainerTrait;
@@ -18,10 +19,13 @@ use BaserCore\Utility\BcSiteConfig;
 use Cake\Mailer\Mailer;
 use Cake\Mailer\TransportFactory;
 use Cake\Routing\Router;
+use BaserCore\Annotation\UnitTest;
+use BaserCore\Annotation\NoTodo;
+use BaserCore\Annotation\Checked;
 
 /**
  * Class BcMailer
-*/
+ */
 class BcMailer extends Mailer
 {
 
@@ -29,17 +33,27 @@ class BcMailer extends Mailer
      * Trait
      */
     use BcContainerTrait;
+    use BcEventDispatcherTrait;
+
+    /**
+     * プラグイン名
+     *
+     * @var string
+     */
+    protected $plugin = 'BaserCore';
 
     /**
      * Constructor
      *
      * @param null $config
+     * @checked
+     * @noTodo
      */
     public function __construct($config = null)
     {
         parent::__construct($config);
         $request = Router::getRequest();
-        $site = $request->getAttribute('currentSite');
+        $site = $request ? $request->getAttribute('currentSite') : null;
         $this->setEmailTransport();
         if ($site) $this->viewBuilder()
             ->setTheme($site->theme)
@@ -52,6 +66,8 @@ class BcMailer extends Mailer
     /**
      * Emailのトランスポート設定を行う
      * @return void
+     * @checked
+     * @noTodo
      */
     public function setEmailTransport()
     {
@@ -81,6 +97,33 @@ class BcMailer extends Mailer
             }
         }
         $this->setTransport($type);
+    }
+
+    /**
+     * プラグイン名取得
+     *
+     * @return string
+     * @checked
+     * @noTodo
+     */
+    public function getPlugin(): ?string
+    {
+        return $this->plugin;
+    }
+
+    /**
+     * Render content and send email using configured transport.
+     *
+     * @param string $content Content.
+     * @return array
+     * @psalm-return array{headers: string, message: string}
+     * @checked
+     * @noTodo
+     */
+    public function deliver(string $content = ''): array
+    {
+        $this->dispatchLayerEvent('beforeDeliver');
+        return parent::deliver($content);
     }
 
 }

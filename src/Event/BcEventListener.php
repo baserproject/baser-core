@@ -11,9 +11,13 @@
 
 namespace BaserCore\Event;
 
+use BaserCore\Error\BcException;
 use Cake\Event\EventListenerInterface;
 use Cake\Routing\Router;
 use Cake\Utility\Inflector;
+use BaserCore\Annotation\UnitTest;
+use BaserCore\Annotation\NoTodo;
+use BaserCore\Annotation\Checked;
 
 /**
  * Class BcEventListener
@@ -58,6 +62,8 @@ class BcEventListener implements EventListenerInterface
 
     /**
      * コンストラクタ
+     * @checked
+     * @noTodo
      */
     public function __construct()
     {
@@ -70,6 +76,8 @@ class BcEventListener implements EventListenerInterface
      * implementedEvents
      *
      * @return array
+     * @checked
+     * @noTodo
      */
     public function implementedEvents(): array
     {
@@ -85,6 +93,12 @@ class BcEventListener implements EventListenerInterface
                 if (strpos($registerEvent, '.') !== false) {
                     $aryRegisterEvent = explode('.', $registerEvent);
                     $registerEvent = Inflector::variable(implode('_', $aryRegisterEvent));
+                }
+                if(!method_exists($this, $registerEvent)) {
+                    throw new BcException(__d('baser_core', '{0} に、メソッド {1} が定義されていません。',
+                        get_class($this),
+                        $registerEvent
+                    ));
                 }
                 if ($options) {
                     $options = array_merge(['callable' => $registerEvent], $options);
@@ -106,6 +120,8 @@ class BcEventListener implements EventListenerInterface
      * @param string $action アクションを特定する為の文字列
      * @param bool $isContainController コントローラー名を含むかどうか（初期値：true）
      * @return bool
+     * @checked
+     * @noTodo
      */
     public function isAction($action, $isContainController = true)
     {
@@ -121,6 +137,8 @@ class BcEventListener implements EventListenerInterface
      *
      * @param bool $isContainController コントローラー名を含むかどうか（初期値：true）
      * @return string
+     * @checked
+     * @noTodo
      */
     public function getAction($isContainController = true)
     {

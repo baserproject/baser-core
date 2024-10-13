@@ -13,12 +13,12 @@ namespace BaserCore\Service;
 
 use BaserCore\Error\BcException;
 use BaserCore\Utility\BcContainerTrait;
+use BaserCore\Utility\BcFolder;
 use BaserCore\Utility\BcUtil;
 use BaserCore\Utility\BcZip;
 use Cake\Cache\Cache;
 use Cake\Core\Configure;
 use Cake\Core\Plugin;
-use Cake\Filesystem\Folder;
 use Cake\Log\LogTrait;
 use Cake\ORM\Table;
 use Cake\ORM\TableRegistry;
@@ -105,7 +105,7 @@ class UtilitiesService implements UtilitiesServiceInterface
         $errors = [];
 
         for($i = $min; $i <= $edge; $i++) {
-            $count = $table->find()->where([
+            $count = $table->find()->applyOptions(['withDeleted'])->where([
                 $scope,
                 'OR' => [$left => $i, $right => $i]
             ])->count();
@@ -241,9 +241,10 @@ class UtilitiesService implements UtilitiesServiceInterface
     public function createLogZip(): ?string
     {
         set_time_limit(0);
-        $Folder = new Folder(LOGS);
-        $files = $Folder->read(true, true, false);
-        if (count($files[0]) === 0 && count($files[1]) === 0) {
+        $Folder = new BcFolder(LOGS);
+        $files = $Folder->getFiles();
+        $folders = $Folder->getFolders();
+        if (count($files) === 0 && count($folders) === 0) {
             return false;
         }
         // ZIP圧縮して出力
@@ -416,6 +417,9 @@ class UtilitiesService implements UtilitiesServiceInterface
         }
 
         $tmpPath = TMP . 'schema' . DS;
+        if(!is_dir($tmpPath)) {
+            (new BcFolder())->create($tmpPath);
+        }
         $name = $uploaded['backup']->getClientFileName();
         $uploaded['backup']->moveTo($tmpPath . $name);
         $bcZip = new BcZip();
@@ -452,9 +456,9 @@ class UtilitiesService implements UtilitiesServiceInterface
      */
     protected function _loadBackup($path, $encoding)
     {
-        $folder = new Folder($path);
-        $files = $folder->read(true, true);
-        if (!is_array($files[1])) return;
+        $folder = new BcFolder($path);
+        $files = $folder->getFiles();
+        if (!is_array($files)) return;
 
         /* @var BcDatabaseService $dbService */
         $dbService = $this->getService(BcDatabaseServiceInterface::class);
@@ -464,7 +468,7 @@ class UtilitiesService implements UtilitiesServiceInterface
         $db = BcUtil::getCurrentDb();
         $db->begin();
         // テーブルを削除する
-        foreach($files[1] as $file) {
+        foreach($files as $file) {
             if (!preg_match("/\.php$/", $file)) continue;
             try {
                 $dbService->loadSchema([
@@ -480,7 +484,7 @@ class UtilitiesService implements UtilitiesServiceInterface
         }
 
         // テーブルを読み込む
-        foreach($files[1] as $file) {
+        foreach($files as $file) {
             if (!preg_match("/\.php$/", $file)) continue;
             try {
                 if (!$dbService->loadSchema([
@@ -498,7 +502,7 @@ class UtilitiesService implements UtilitiesServiceInterface
         }
 
         /* CSVファイルを読み込む */
-        foreach($files[1] as $file) {
+        foreach($files as $file) {
             if (!preg_match("/\.csv$/", $file)) continue;
             try {
                 if (!$dbService->loadCsv([

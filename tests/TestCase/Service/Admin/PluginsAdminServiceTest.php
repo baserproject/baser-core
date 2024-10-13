@@ -13,9 +13,11 @@ namespace BaserCore\Test\TestCase\Service\Admin;
 
 use BaserCore\Service\Admin\PluginsAdminService;
 use BaserCore\Service\Admin\PluginsAdminServiceInterface;
+use BaserCore\Test\Scenario\PluginsScenario;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Utility\BcContainerTrait;
 use Cake\Log\Log;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 use Psr\Log\LogLevel;
 
 /**
@@ -25,17 +27,13 @@ class PluginsAdminServiceTest extends BcTestCase
 {
 
     /**
-     * Fixtures
-     * @var string[]
-     */
-    public $fixtures = [
-        'plugin.BaserCore.Plugins'
-    ];
-
-    /**
      * Trait
      */
     use BcContainerTrait;
+    /**
+     * ScenarioAwareTrait
+     */
+    use ScenarioAwareTrait;
 
     /**
      * PluginsAdminService
@@ -48,7 +46,6 @@ class PluginsAdminServiceTest extends BcTestCase
      */
     public function setUp(): void
     {
-        $this->setFixtureTruncate();
         parent::setUp();
         $this->PluginsAdmin = $this->getService(PluginsAdminServiceInterface::class);
     }
@@ -67,6 +64,7 @@ class PluginsAdminServiceTest extends BcTestCase
      */
     public function test_getViewVarsForInstall()
     {
+        $this->loadFixtureScenario(PluginsScenario::class);
         $vars = $this->PluginsAdmin->getViewVarsForInstall($this->PluginsAdmin->get(1));
         $this->assertTrue(isset($vars['plugin']));
         $this->assertTrue(isset($vars['installStatusMessage']));
@@ -77,6 +75,7 @@ class PluginsAdminServiceTest extends BcTestCase
      */
     public function test_getViewVarsForUpdate()
     {
+        $this->loadFixtureScenario(PluginsScenario::class);
         $vars = $this->PluginsAdmin->getViewVarsForUpdate($this->PluginsAdmin->get(1));
         $this->assertEquals([
             'plugin',
@@ -88,8 +87,13 @@ class PluginsAdminServiceTest extends BcTestCase
             'programVerPoint',
             'availableVersion',
             'log',
-            'requireUpdate',
-            'php'
+            'coreDownloaded',
+            'php',
+            'isCore',
+            'isWritableVendor',
+            'isWritableComposerJson',
+            'isWritableComposerLock',
+            'isUpdatable'
         ], array_keys($vars));
     }
 

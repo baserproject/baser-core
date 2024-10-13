@@ -23,7 +23,7 @@ trait BcEventDispatcherTrait
      *
      * @var \Cake\View\View
      */
-    protected $_View;
+    protected \Cake\View\View $_View;
 
     /**
      * イベントを発火
@@ -63,9 +63,12 @@ trait BcEventDispatcherTrait
             $class = str_replace('Helper', '', $class);
             $subject = $this->_View;
             $plugin = method_exists($this->_View, 'getPlugin')? $this->_View->getPlugin() : '';
+        } elseif (is_a($this, 'Cake\Mailer\Mailer')) {
+            $layer = 'Mailer';
+            $classArray = explode('\\', $class);
+            $class = str_replace('Mailer', '', $classArray[count($classArray) - 1]);
         }
         $options = array_merge([
-            'modParams' => 0,
             'plugin' => $plugin,
             'layer' => $layer,
             'class' => $class

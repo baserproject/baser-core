@@ -16,47 +16,51 @@ use BaserCore\Test\Factory\SiteConfigFactory;
 use BaserCore\Test\Factory\UserFactory;
 use BaserCore\Test\Factory\UserGroupFactory;
 use BaserCore\Test\Factory\UsersUserGroupFactory;
+use BaserCore\Test\Scenario\ContentFoldersScenario;
+use BaserCore\Test\Scenario\ContentsScenario;
+use BaserCore\Test\Scenario\PagesScenario;
+use BaserCore\Test\Scenario\PluginsScenario;
+use BaserCore\Test\Scenario\SiteConfigsScenario;
+use BaserCore\Test\Scenario\SitesScenario;
+use BaserCore\Test\Scenario\UserGroupsScenario;
+use BaserCore\Test\Scenario\UsersScenario;
+use BaserCore\Test\Scenario\UsersUserGroupsScenario;
+use BaserCore\Utility\BcFile;
+use BaserCore\Utility\BcFolder;
 use Cake\Core\App;
 use Cake\Cache\Cache;
 use Cake\Core\Plugin;
 use Cake\Core\Configure;
 use Cake\Event\EventManager;
-use Cake\Filesystem\File;
-use Cake\Filesystem\Folder;
 use BaserCore\Utility\BcUtil;
 use BaserCore\TestSuite\BcTestCase;
 use Cake\Http\Session;
+use Cake\ORM\TableRegistry;
+use Cake\Routing\Router;
+use Cake\Utility\Inflector;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * Class BcUtilTest
  */
 class BcUtilTest extends BcTestCase
 {
-    /**
-     * Fixtures
-     *
-     * @var array
-     */
-    protected $fixtures = [
-        'plugin.BaserCore.Users',
-        'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.UsersUserGroups',
-        'plugin.BaserCore.Plugins',
-        'plugin.BaserCore.Sites',
-        'plugin.BaserCore.SiteConfigs',
-        'plugin.BaserCore.Contents',
-        'plugin.BaserCore.ContentFolders',
-    ];
-
+    use ScenarioAwareTrait;
     /**
      * set up
      */
     public function setUp(): void
     {
-        // testIsSuperUser にて FixtureFactory を利用しているため、setFixtureTruncate が必要
-        // 最終的には、全て FixtureFactory に変更予定
-        $this->setFixtureTruncate();
         parent::setUp();
+        $this->loadFixtureScenario(SiteConfigsScenario::class);
+        $this->loadFixtureScenario(PluginsScenario::class);
+        $this->loadFixtureScenario(ContentFoldersScenario::class);
+        $this->loadFixtureScenario(ContentsScenario::class);
+        $this->loadFixtureScenario(UserGroupsScenario::class);
+        $this->loadFixtureScenario(UsersUserGroupsScenario::class);
+        $this->loadFixtureScenario(UsersScenario::class);
+        $this->loadFixtureScenario(PagesScenario::class);
+        $this->loadFixtureScenario(SitesScenario::class);
         $this->request = $this->getRequest();
     }
 
@@ -87,7 +91,7 @@ class BcUtilTest extends BcTestCase
         $this->assertEquals($expects, $result);
     }
 
-    public function loginUserDataProvider()
+    public static function loginUserDataProvider()
     {
         return [
             // ログインしている状況
@@ -157,7 +161,7 @@ class BcUtilTest extends BcTestCase
         $this->assertEquals($expects, $result);
     }
 
-    public function isAgentUserDataProvider()
+    public static function isAgentUserDataProvider()
     {
         return [
             // ログインしてない場合
@@ -179,7 +183,7 @@ class BcUtilTest extends BcTestCase
         $this->assertEquals($expects, $result);
     }
 
-    public function isInstallModeDataProvider()
+    public static function isInstallModeDataProvider()
     {
         return [
             // インストールモード On
@@ -196,27 +200,47 @@ class BcUtilTest extends BcTestCase
     public function testGetVersion(): void
     {
         // BaserCore
-        $file = new File(BASER . DS . 'VERSION.txt');
+        $file = new BcFile(BASER . DS . 'VERSION.txt');
         $expected = preg_replace('/^(.+?)\n.+$/s', "$1", $file->read());
         $result = BcUtil::getVersion();
         $this->assertEquals($expected, $result);
 
         // プラグイン
-        $file = new File(Plugin::path('bc-admin-third') . DS . 'VERSION.txt');
+        $file = new BcFile(Plugin::path('bc-admin-third') . DS . 'VERSION.txt');
         $expected = preg_replace('/^(.+?)\n.*$/s', "$1", $file->read());
         $result = BcUtil::getVersion('BcAdminThird');
         $this->assertEquals($expected, $result);
 
         // ダミーのプラグインを作成
         $path = App::path('plugins')[0] . 'hoge' . DS;
-        $Folder = new Folder($path, true);
-        $File = new File($path . 'VERSION.txt', true);
+        $Folder = new BcFolder($path);
+        $Folder->create();
+        $File = new BcFile($path . 'VERSION.txt');
+        $File->create();
         $File->write('1.2.3');
         $result = BcUtil::getVersion('Hoge');
-
-        $File->close();
-        $Folder->delete();
         $this->assertEquals('1.2.3', $result, 'プラグインのバージョンを取得できません');
+        $Folder->delete();
+
+        // アップデート時の一時ディレクトリ内のバージョン（BaserCore）
+        $updateTmpDir = TMP . 'update';
+        $pluginTmpDir = $updateTmpDir . DS . 'vendor' . DS . 'baserproject';
+        (new BcFolder($pluginTmpDir . DS . 'baser-core'))->create();
+        $file = new BcFile($pluginTmpDir . DS . 'baser-core' . DS . 'VERSION.txt');
+        $file->write('1.2.4');
+        $this->assertEquals('1.2.4', BcUtil::getVersion('BaserCore', true));
+
+        // アップデート時の一時ディレクトリ内のバージョン（BcBlog）
+        $this->assertEquals('1.2.4', BcUtil::getVersion('BcBlog', true));
+        $file->delete();
+
+        // アップデート時の一時ディレクトリ内のバージョン（Sample）
+        (new BcFolder($pluginTmpDir . DS . 'Sample'))->create();
+        $file = new BcFile($pluginTmpDir . DS . 'Sample' . DS . 'VERSION.txt');
+        $file->write('1.2.5');
+        $this->assertEquals('1.2.5', BcUtil::getVersion('Sample', true));
+        $file->delete();
+        (new BcFolder($updateTmpDir))->delete();
     }
 
     /**
@@ -266,14 +290,12 @@ class BcUtilTest extends BcTestCase
     public function testClearAllCache(): void
     {
         // cacheファイルのバックアップ作成
-        $folder = new Folder();
         $origin = CACHE;
+        $folder = new BcFolder($origin);
+//        $folder->create();
         $backup = str_replace('cache', 'cache_backup', CACHE);
-        $folder->move($backup, [
-            'from' => $origin,
-            'mode' => 0777,
-            'schema' => Folder::OVERWRITE,
-        ]);
+        (new BcFolder($backup))->create();
+        $folder->move($backup);
 
         // cache環境準備
         $cacheList = ['environment' => '_bc_env_', 'persistent' => '_cake_core_', 'models' => '_cake_model_'];
@@ -297,12 +319,9 @@ class BcUtilTest extends BcTestCase
         }
 
         // cacheファイル復元
-        $folder->move($origin, [
-            'from' => $backup,
-            'mode' => 0777,
-            'schema' => Folder::OVERWRITE,
-        ]);
-        $folder->chmod($origin, 0777);
+        $folder = new BcFolder($backup);
+        $folder->move($origin);
+        $folder->chmod(0777);
     }
 
     /**
@@ -324,7 +343,7 @@ class BcUtilTest extends BcTestCase
      *
      * @return array
      */
-    public function isAdminSystemDataProvider()
+    public static function isAdminSystemDataProvider()
     {
         return [
             ['baser/admin', true],
@@ -362,7 +381,7 @@ class BcUtilTest extends BcTestCase
      *
      * @return array
      */
-    public function isAdminUserDataProvider()
+    public static function isAdminUserDataProvider()
     {
         return [
             // 管理ユーザー
@@ -402,7 +421,7 @@ class BcUtilTest extends BcTestCase
      *
      * @return array
      */
-    public function loginUserGroupDataProvider()
+    public static function loginUserGroupDataProvider()
     {
         return [
             // ログイン
@@ -417,20 +436,15 @@ class BcUtilTest extends BcTestCase
      */
     public function testLoginUserName()
     {
-        // TODO ucmitz移行時に未実装のため代替措置
-        // >>>
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        // <<<
 
         // ログインしていない場合
         $result = BcUtil::loginUserName();
-        $this->assertEmpty($result, 'ログインユーザーのデータを正しく取得できません');
+        $this->assertEmpty($result);
 
         // ログインしている場合
-        $Session = new CakeSession();
-        $Session->write('Auth.' . BcUtil::authSessionKey() . '.name', 'hoge');
+        $this->loginAdmin($this->getRequest());
         $result = BcUtil::loginUserName();
-        $this->assertEquals('hoge', $result, 'ログインユーザーのデータを正しく取得できません');
+        $this->assertEquals('baser admin', $result);
     }
 
     /**
@@ -459,8 +473,8 @@ class BcUtilTest extends BcTestCase
         $this->assertCount(1, $plugins);
         $this->assertEquals($pluginName, $plugins[0]);
 
-        $folder = new Folder();
-        $folder->delete($themePath . 'plugins');
+        $folder = new BcFolder($themePath . 'plugins');
+        $folder->delete();
     }
 
     /**
@@ -473,8 +487,8 @@ class BcUtilTest extends BcTestCase
         $targetTheme = BcUtil::getCurrentTheme();
         $themePath = BcUtil::getPluginPath($targetTheme);
         $pluginName = 'test';
-        $folder = new Folder();
-        $folder->create($themePath . 'plugins/' . $pluginName, 0777);
+        $folder = new BcFolder($themePath . 'plugins/' . $pluginName);
+        $folder->create();
         // プラグインが存在しているかどうか確認する
         $plugins = BcUtil::getCurrentThemesPlugins();
         $this->assertCount(1, $plugins);
@@ -487,8 +501,8 @@ class BcUtilTest extends BcTestCase
         $this->assertCount(0, $plugins);
 
         // 作成したプラグインを削除する
-        $folder = new Folder();
-        $folder->delete($themePath . 'plugins');
+        $folder = new BcFolder($themePath . 'plugins');
+        $folder->delete();
     }
 
     /**
@@ -521,12 +535,12 @@ class BcUtilTest extends BcTestCase
      */
     public function testGetDefaultDataPath($theme, $pattern, $expect)
     {
-        $Folder = new Folder();
         // 初期データ用のダミーディレクトリを作成
         if (!$pattern) $pattern = 'default';
         if ($theme) {
             $path = BASER_THEMES . $theme . DS . 'config' . DS . 'data' . DS . $pattern;
-            $Folder->create($path);
+            $Folder = new BcFolder($path);
+            $Folder->create();
         }
         $result = BcUtil::getDefaultDataPath($theme, $pattern);
         // 初期データ用のダミーディレクトリを削除
@@ -541,7 +555,7 @@ class BcUtilTest extends BcTestCase
      *
      * @return array
      */
-    public function getDefaultDataPathDataProvider()
+    public static function getDefaultDataPathDataProvider()
     {
         return [
             [null, null, ROOT . '/plugins/bc-front/config/data/default'],
@@ -549,6 +563,22 @@ class BcUtilTest extends BcTestCase
             ['nada-icons', 'not_default', ROOT . '/plugins/nada-icons/config/data/not_default'],
         ];
     }
+
+    /**
+     * test getExistsTemplateDir
+     */
+    public function test_getExistsTemplateDir()
+    {
+        //正常系実行
+        $result = BcUtil::getExistsTemplateDir('BcThemeSample', 'BaserCore', '');
+        $this->assertEquals('/var/www/html/plugins/BcThemeSample/templates/', $result);
+        $result = BcUtil::getExistsTemplateDir('BcThemeSample', 'BaserCore', 'layout');
+        $this->assertEquals('/var/www/html/plugins/BcThemeSample/templates/layout', $result);
+        //異常系実行
+        $this->expectException('Cake\Core\Exception\MissingPluginException');
+        BcUtil::getExistsTemplateDir('BcThemeSample', 'abc', '');
+    }
+
 
     /**
      * シリアライズ / アンシリアライズ
@@ -587,7 +617,7 @@ class BcUtilTest extends BcTestCase
         $this->assertEquals($expected, BcUtil::urlencode($input));
     }
 
-    public function urlencodeDataProvider(): array
+    public static function urlencodeDataProvider(): array
     {
         return [
             ['a=b+c', 'a_b_c'],
@@ -635,26 +665,47 @@ class BcUtilTest extends BcTestCase
     }
 
     /**
+     * test getExistsWebrootDir
+     */
+    public function test_getExistsWebrootDir()
+    {
+        // theme = ''
+        $result = BcUtil::getExistsWebrootDir('', 'BaserCore', '', 'front');
+        $this->assertEquals('/var/www/html/plugins/bc-front/webroot/', $result);
+        // theme != ''
+        $result = BcUtil::getExistsWebrootDir('BcThemeSample', 'BaserCore', '', 'front');
+        $this->assertEquals('/var/www/html/plugins/BcThemeSample/webroot/', $result);
+        // type = 'admin'
+        $result = BcUtil::getExistsWebrootDir('', 'BaserCore', '', 'admin');
+        $this->assertEquals('/var/www/html/plugins/bc-admin-third/webroot/', $result);
+        // set plugin
+        $result = BcUtil::getExistsWebrootDir('', 'BcPluginSample', '', 'front');
+        $this->assertEquals('/var/www/html/plugins/BcPluginSample/webroot/', $result);
+
+    }
+
+
+    /**
      * 全てのテーマリストを取得する
      */
     public function testGetAllThemeList()
     {
         $themePath = ROOT . DS . 'plugins' . DS . 'TestTheme';
         $themeConfigPath = $themePath . DS . 'config.php';
-        $folder = new Folder();
-        $folder->create(ROOT . DS . 'plugins' . DS . 'TestTheme');
-        $file = new File($themeConfigPath);
+        $folder = new BcFolder(ROOT . DS . 'plugins' . DS . 'TestTheme');
+        $folder->create();
+        $file = new BcFile($themeConfigPath);
+        $file->create();
         $file->write('<?php
             return [
                 \'type\' => \'Theme\'
             ];
         ');
-        $file->close();
         $themes = BcUtil::getAllThemeList();
         $this->assertTrue(in_array('BcFront', $themes));
         $this->assertTrue(in_array('BcAdminThird', $themes));
         $this->assertTrue(in_array('TestTheme', $themes));
-        $folder->delete($themePath);
+        $folder->delete();
     }
 
     /**
@@ -687,7 +738,7 @@ class BcUtilTest extends BcTestCase
         $this->assertEquals($expected, $result);
     }
 
-    public function getDomainDataProvider()
+    public static function getDomainDataProvider()
     {
         return [
             ['http', ''],
@@ -766,12 +817,6 @@ class BcUtilTest extends BcTestCase
      */
     public function testGetSubDomain($host, $currentHost, $expects, $message)
     {
-
-        // TODO ucmitz移行時に未実装のため代替措置
-        // >>>
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        // <<<
-
         Configure::write('BcEnv.mainDomain', 'localhost');
         if ($currentHost) {
             Configure::write('BcEnv.host', $currentHost);
@@ -781,7 +826,7 @@ class BcUtilTest extends BcTestCase
         $this->assertEquals($expects, BcUtil::getSubDomain($host), $message);
     }
 
-    public function getSubDomainDataProvider()
+    public static function getSubDomainDataProvider()
     {
         return [
             ['', '', '', '現在のサブドメイン名が不正です。'],
@@ -794,6 +839,40 @@ class BcUtilTest extends BcTestCase
     }
 
     /**
+     * test getViewPath
+     */
+    public function test_getViewPath()
+    {
+        //ウェブ
+        $theme = Inflector::dasherize(BcUtil::getCurrentTheme());
+        $result = BcUtil::getViewPath();
+        $this->assertEquals('/var/www/html/plugins/'.$theme.DS, $result);
+        //管理側
+        $request = $this->getRequest('/baser/admin');
+        Router::setRequest($request);
+        $result = BcUtil::getViewPath();
+        $theme = Inflector::dasherize(BcUtil::getCurrentAdminTheme());
+        $this->assertEquals('/var/www/html/plugins/'.$theme.DS, $result);
+
+    }
+
+
+    /**
+     * test getCurrentAdminTheme
+     */
+    public function test_getCurrentAdminTheme()
+    {
+        //site_configs テーブルの admin_theme を変更した場合
+        $SiteConfig = TableRegistry::getTableLocator()->get('BaserCore.SiteConfigs');
+        $siteConfig = $SiteConfig->get(16);
+        $siteConfig->value = 'test theme';
+        $SiteConfig->save($siteConfig);
+        $result = BcUtil::getCurrentAdminTheme();
+        $this->assertEquals('test theme',$result);
+    }
+
+
+    /**
      * testGetPluginPath
      */
     public function testGetPluginPath()
@@ -801,6 +880,14 @@ class BcUtilTest extends BcTestCase
         $this->assertEquals(ROOT . '/plugins/baser-core/', BcUtil::getPluginPath('BaserCore'));
         $this->assertEquals(ROOT . '/plugins/bc-blog/', BcUtil::getPluginPath('BcBlog'));
         $this->assertEquals(ROOT . '/plugins/BcPluginSample/', BcUtil::getPluginPath('BcPluginSample'));
+        // アップデート用の一時ディレクトリを確認
+        (new BcFolder(TMP . 'update' . DS . 'vendor' . DS . 'baserproject' . DS . 'baser-core'))->create();
+        (new BcFolder(TMP . 'update' . DS . 'vendor' . DS . 'baserproject' . DS . 'bc-blog'))->create();
+        (new BcFolder(TMP . 'update' . DS . 'vendor' . DS . 'baserproject' . DS . 'BcPluginSample'))->create();
+        $this->assertEquals(TMP . 'update/vendor/baserproject/baser-core/', BcUtil::getPluginPath('BaserCore', true));
+        $this->assertEquals(TMP . 'update/vendor/baserproject/bc-blog/', BcUtil::getPluginPath('BcBlog', true));
+        $this->assertEquals(TMP . 'update/vendor/baserproject/BcPluginSample/', BcUtil::getPluginPath('BcPluginSample', true));
+        (new BcFolder(TMP . 'update'))->delete();
     }
 
     /**
@@ -811,6 +898,19 @@ class BcUtilTest extends BcTestCase
         $this->assertEquals('baser-core', BcUtil::getPluginDir('BaserCore'));
         $this->assertEquals('bc-blog', BcUtil::getPluginDir('BcBlog'));
         $this->assertEquals('BcPluginSample', BcUtil::getPluginDir('BcPluginSample'));
+        // アップデート用の一時ディレクトリを確認
+        // - フォルダが存在しない場合
+        $this->assertFalse(BcUtil::getPluginDir('BaserCore', true));
+        $this->assertFalse(BcUtil::getPluginDir('BcBlog', true));
+        $this->assertFalse(BcUtil::getPluginDir('BcPluginSample', true));
+        // - フォルダが存在する場合
+        (new BcFolder(TMP . 'update' . DS . 'vendor' . DS . 'baserproject' . DS . 'baser-core'))->create();
+        (new BcFolder(TMP . 'update' . DS . 'vendor' . DS . 'baserproject' . DS . 'bc-blog'))->create();
+        (new BcFolder(TMP . 'update' . DS . 'vendor' . DS . 'baserproject' . DS . 'BcPluginSample'))->create();
+        $this->assertEquals('baser-core', BcUtil::getPluginDir('BaserCore', true));
+        $this->assertEquals('bc-blog', BcUtil::getPluginDir('BcBlog', true));
+        $this->assertEquals('BcPluginSample', BcUtil::getPluginDir('BcPluginSample', true));
+        (new BcFolder(TMP . 'update'))->delete();
     }
 
     /**
@@ -863,7 +963,7 @@ class BcUtilTest extends BcTestCase
         $this->assertEquals($expect, BcUtil::isOverPostSize());
     }
 
-    public function isOverPostSizeDataProvider()
+    public static function isOverPostSizeDataProvider()
     {
         $postMaxSizeMega = preg_replace('/M\z/', '', ini_get('post_max_size'));
         $postMaxSizeByte = $postMaxSizeMega * 1024 * 1024;
@@ -934,7 +1034,7 @@ class BcUtilTest extends BcTestCase
         $this->assertEquals($expect, $result, 'WebサイトのベースとなるURLを正しく取得できません');
     }
 
-    public function baseUrlDataProvider()
+    public static function baseUrlDataProvider()
     {
         return [
             ['/hoge/test', '/hoge/test/'],
@@ -984,20 +1084,19 @@ class BcUtilTest extends BcTestCase
         ];
 
         // ダミーのフォルダとファイルを作成
-        $Folder = new Folder();
-        $Folder->create($dummyPath, 0755);
-        $Folder->create($dummyPath . $names['folder'][0], 0755);
-        $Folder->create($dummyPath . $names['folder'][1], 0755);
+        (new BcFolder($dummyPath))->create(0755);
+        (new BcFolder($dummyPath . $names['folder'][0]))->create(0755);
+        (new BcFolder($dummyPath . $names['folder'][1]))->create(0755);
 
         // フォルダtestにファイルを追加する
-        new File($dummyPath . $names['file'][0], true);
-        new File($dummyPath . $names['file'][1], true);
+        (new BcFile($dummyPath . $names['file'][0]))->create();
+        (new BcFile($dummyPath . $names['file'][1]))->create();
 
         // folder1とfolder2にfile1とfile2を追加する
         foreach ($names['folder'] as $folder) {
             $folderPath = $dummyPath . $folder . DS;
             foreach ($names['file'] as $file) {
-                new File($folderPath . $file, true);
+                (new BcFile($folderPath . $file))->create();
             }
         }
 
@@ -1028,7 +1127,8 @@ class BcUtilTest extends BcTestCase
                 @unlink($folderPath . $file);
             }
         }
-        $Folder->delete($dummyPath);
+        $Folder = new BcFolder($dummyPath);
+        $Folder->delete();
 
         $this->assertTrue($result, 'フォルダの中のファイルのみを削除することができません');
     }
@@ -1046,18 +1146,16 @@ class BcUtilTest extends BcTestCase
      */
     public function testFgetcsvReg($content, $length, $d, $e, $expect, $message)
     {
-        $csv = new File(CACHE . 'test.csv');
+        $csv = new BcFile(CACHE . 'test.csv');
+        $csv->create();
+        $handle = fopen($csv->getPath(), 'r');
         $csv->write($content);
-        $csv->close();
-        $csv->open();
 
-        $result = BcUtil::fgetcsvReg($csv->handle, $length, $d, $e);
+        $result = BcUtil::fgetcsvReg($handle, $length, $d, $e);
         $this->assertEquals($expect, $result, $message);
-
-        $csv->close();
     }
 
-    public function fgetcsvRegDataProvider()
+    public static function fgetcsvRegDataProvider()
     {
         return [
             ['test1,test2,test3', null, ',', '"', ['test1', 'test2', 'test3'], 'ファイルポインタから行を取得し、CSVフィールドを正しく処理できません'],
@@ -1074,11 +1172,15 @@ class BcUtilTest extends BcTestCase
      */
     public function testOnEventOffEvent(): void
     {
+        $this->markTestIncomplete('こちらのテストはまだ未確認です');
         $eventManager = EventManager::instance();
         $eventKey = 'testOnEvent';
-        $bcEvenListener = new BcEventListener();
-        $bcEvenListener->events = ['event 1', 'event 2'];
-
+        $bcEvenListener = new class extends BcEventListener {
+            public $events = ['event1'];
+            public function event1() {
+                return 'event1';
+            }
+        };
         // onEvent() でイベントを設定
         BcUtil::onEvent($eventManager, $eventKey, $bcEvenListener->implementedEvents());
         // listeners() イベントの登録を確認
@@ -1101,7 +1203,7 @@ class BcUtilTest extends BcTestCase
     public function testCreateRequest(): void
     {
         // デフォルトURL $url = '/'
-        $urlList = ['' => '/*', '/about' => '/*', '/baser/admin/baser-core/users/login' => '/baser/admin/baser-core/{controller}/{action}/*'];
+        $urlList = ['' => '/', '/about' => '/*', '/baser/admin/baser-core/users/login' => '/baser/admin/baser-core/{controller}/{action}/*'];
         foreach($urlList as $url => $route) {
             $request = BcUtil::createRequest($url);
             $this->assertEquals($route, $request->getParam('_matchedRoute'));
@@ -1121,6 +1223,37 @@ class BcUtilTest extends BcTestCase
         $session->write('test', 'testGetRequest');
         $request = BcUtil::createRequest('/', [], 'GET', ['session' => $session]);
         $this->assertEquals('testGetRequest', $request->getSession()->read('test'));
+    }
+
+    /**
+     *  test checkTime
+     *
+     * @param $hour
+     * @param $min
+     * @param $sec
+     * @param $expect
+     * @dataProvider checkTimeDataProvider
+     */
+    public function test_checkTime($hour, $min, $sec, $expect)
+    {
+        $rs = BcUtil::checkTime($hour, $min, $sec);
+        $this->assertEquals($expect, $rs);
+    }
+
+    public static function checkTimeDataProvider()
+    {
+        return [
+            [-1, 1, 1, false],      //$hour < 0 return false
+            [24, 1, 1, false],      //$hour > 23 return false
+            [23, -1, 1, false],     //$min < 0 return false
+            [23, 60, 1, false],     //$min > 59 return false
+            [23, 59, -1, false],    //$sec < 0 return false
+            [23, 59, 60, false],    //$sec > 59 return false
+            [23, 59, 59, true],     //return true
+            [0, 0, 0, true],        //return true
+            [0, 0, null, true],     //return true
+            [23, 59, null, true],   //return true
+        ];
     }
 
     /**
@@ -1169,7 +1302,7 @@ class BcUtilTest extends BcTestCase
         $this->assertEquals($contentType, $type);
     }
 
-    public function getContentTypeDataProvider(): array
+    public static function getContentTypeDataProvider(): array
     {
         return [
             [TMP, false],
@@ -1195,7 +1328,7 @@ class BcUtilTest extends BcTestCase
         $this->assertEquals($extension, $ext);
     }
 
-    public function decodeContentProvider(): array
+    public static function decodeContentProvider(): array
     {
         return [
             ['image/gif', null, 'gif'],
@@ -1242,7 +1375,7 @@ class BcUtilTest extends BcTestCase
         // 対象ファイルをopen
         $theme = 'BcFront';
         $pluginPath = BcUtil::getPluginPath($theme);
-        $file = new File($pluginPath . 'src' . DS . 'Plugin.php');
+        $file = new BcFile($pluginPath . 'src' . DS . 'BcFrontPlugin.php');
         // テーマ名とネームスペースが違う状態を作る
         $data = $file->read();
         $file->write(preg_replace('/namespace .+?;/', 'namespace WrongNamespace;', $data));
@@ -1257,8 +1390,6 @@ class BcUtilTest extends BcTestCase
         $data = $file->read();
         preg_match('/namespace .+?;/', $data, $match);
         $this->assertEquals('namespace ' . $theme . ';', $match[0]);
-        // ファイルをclose
-        $file->close();
     }
 
     /**
@@ -1269,6 +1400,15 @@ class BcUtilTest extends BcTestCase
         $this->assertMatchesRegularExpression('/\//', BcUtil::fullUrl('/'));
         $this->assertMatchesRegularExpression('/\/.*blog/', BcUtil::fullUrl('/blog'));
         $this->assertMatchesRegularExpression('/\//', BcUtil::fullUrl(null));
+    }
+
+    /**
+     * test base64UrlSafeEncode
+     */
+    public function test_base64UrlSafeEncode()
+    {
+        $rs = BcUtil::base64UrlSafeEncode(base64_decode('a+b/c=d'));
+        $this->assertEquals('a_b-cQ..', $rs);
     }
 
     /**
@@ -1294,15 +1434,150 @@ class BcUtilTest extends BcTestCase
      */
     public function testMbBasename()
     {
-        $this->markTestIncomplete('このテストは未確認です。basics.phpより移行');
-        $result = mbBasename('/hoge/あいうえお.php');
+        $result = BcUtil::mbBasename('/hoge/あいうえお.php');
         $this->assertEquals('あいうえお.php', $result);
 
-        $result = mbBasename('/hoge/あいうえお.phptest', 'test');
-        $this->assertEquals('あいうえお.php', $result, 'suffixを取り除けません');
+        $result = BcUtil::mbBasename('/hoge/あいうえお.phptest', 'test');
+        $this->assertEquals('あいうえお.php', $result);
 
-        $result = mbBasename('/hoge/あいうえおtest.php', 'test');
+        $result = BcUtil::mbBasename('/hoge/あいうえおtest.php', 'test');
         $this->assertEquals('あいうえおtest.php', $result);
     }
 
+    /**
+     * test isCorePluginData
+     *
+     * @return void
+     * @dataProvider isCorePluginDataProvider
+     */
+    public function testIsCorePlugin(string $plugin, bool $expected)
+    {
+        $this->assertEquals($expected, BcUtil::isCorePlugin($plugin));
+    }
+
+    public static function isCorePluginDataProvider()
+    {
+        return [
+            ['baser-core', true],
+            ['BcCustomContent', true],
+            ['test', false],
+            ['baser_core', false]
+        ];
+    }
+
+    /**
+     * test base64UrlSafeDecode
+     */
+    public function test_base64UrlSafeDecode()
+    {
+        $rs = BcUtil::base64UrlSafeDecode('Api/A_d-m.in');
+        //文字列が交換できるか確認すること
+        $this->assertEquals(base64_decode('Api/A+d/m=in'), $rs);
+    }
+
+    /**
+     * test getAuthPrefixList
+     */
+    public function test_getAuthPrefixList()
+    {
+        $result = BcUtil::getAuthPrefixList();
+        $this->assertEquals(['Admin'=>'管理システム', 'Api/Admin'=>'Admin Web API'], $result);
+    }
+
+    /**
+     * test getRequestPrefix
+     */
+    public function test_getRequestPrefix()
+    {
+        $result = BcUtil::getRequestPrefix($this->getRequest());
+        $this->assertEquals('Front', $result);
+        $result = BcUtil::getRequestPrefix($this->getRequest('/baser/admin'));
+        $this->assertEquals('Admin', $result);
+    }
+
+
+    /**
+     * test getCurrentDbConfig
+     */
+    public function test_getCurrentDbConfig()
+    {
+        $rs = BcUtil::getCurrentDbConfig();
+
+        $this->assertEquals('bc-db', $rs['host']);
+        $this->assertEquals('3306', $rs['port']);
+        $this->assertEquals('test_basercms', $rs['database']);
+    }
+
+    /**
+     * test getFrontTemplatePaths
+     */
+    public function test_getFrontTemplatePaths()
+    {
+        $result = BcUtil::getFrontTemplatePaths(1, 'BcBlog');
+        $this->assertCount(5, $result);
+        $this->assertEquals('/var/www/html/plugins/bc-front/templates/', $result[0]);
+        $this->assertEquals('/var/www/html/plugins/bc-front/templates/plugin/BcBlog/', $result[1]);
+        $this->assertEquals('/var/www/html/plugins/bc-blog/templates/', $result[4]);
+    }
+
+
+    /**
+     * 後方互換のための非推奨メッセージを生成する
+     */
+    public function testGetDeprecatedMessage()
+    {
+        $expect = 'target は、バージョン since より非推奨となりました。';
+        $this->assertEquals($expect, BcUtil::getDeprecatedMessage('target', 'since'));
+        $expect = 'target は、バージョン since より非推奨となりました。バージョン remove で削除される予定です。';
+        $this->assertEquals($expect, BcUtil::getDeprecatedMessage('target', 'since', 'remove'));
+        $expect = 'target は、バージョン since より非推奨となりました。バージョン remove で削除される予定です。note';
+        $this->assertEquals($expect, BcUtil::getDeprecatedMessage('target', 'since', 'remove', 'note'));
+    }
+
+    /**
+     * test getLoggedInUsers
+     */
+    public function test_getLoggedInUsers()
+    {
+        $this->loginAdmin($this->getRequest('/baser/admin'));
+        $result = BcUtil::getLoggedInUsers();
+        $this->assertEquals('baser admin', $result['Api/Admin']->name);
+    }
+
+    public function test_isInstalled()
+    {
+        // Set the 'BcEnv.isInstalled' configuration to true
+        Configure::write('BcEnv.isInstalled', true);
+        $this->assertTrue(BcUtil::isInstalled());
+
+        // Set the 'BcEnv.isInstalled' configuration to false
+        Configure::write('BcEnv.isInstalled', false);
+        $this->assertFalse(BcUtil::isInstalled());
+    }
+
+    public function test_isDebug()
+    {
+        // Set the debug configuration to true
+        Configure::write('debug', true);
+        $this->assertTrue(BcUtil::isDebug());
+
+        // Set the debug configuration to false
+        Configure::write('debug', false);
+        $this->assertFalse(BcUtil::isDebug());
+    }
+
+    /**
+     * test PairToAssoc
+     */
+    public function testPairToAssoc()
+    {
+        $result = BcUtil::pairToAssoc('key1', 'value1', 'key2', 'value2', 'key3');
+        $this->assertEquals(['key1' => 'value1', 'key2' => 'value2', 'key3' => null], $result);
+
+        $result = BcUtil::pairToAssoc('key1|value1|key2|value2|key3');
+        $this->assertEquals(['key1' => 'value1', 'key2' => 'value2', 'key3' => null], $result);
+
+        $result = BcUtil::pairToAssoc('');
+        $this->assertEquals([], $result);
+    }
 }

@@ -13,6 +13,7 @@ namespace BaserCore\Test\TestCase\Model\Table;
 
 use BaserCore\Model\Table\UsersUserGroupsTable;
 use BaserCore\TestSuite\BcTestCase;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * Class UsersUserGroupsTableTest
@@ -21,17 +22,10 @@ use BaserCore\TestSuite\BcTestCase;
  */
 class UsersUserGroupsTableTest extends BcTestCase
 {
-    public $fixtures = [
-        'plugin.BaserCore.Users',
-        'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.UsersUserGroups',
-    ];
-
     /**
-     * Auto Fixtures
-     * @var bool
+     * ScenarioAwareTrait
      */
-    public $autoFixtures = false;
+    use ScenarioAwareTrait;
 
     /**
      * set up
@@ -41,7 +35,6 @@ class UsersUserGroupsTableTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
-        $this->loadFixtures('Users', 'UserGroups', 'UsersUserGroups');
         $this->UsersUserGroups = $this->getTableLocator()->get('BaserCore.UsersUserGroups');
     }
 

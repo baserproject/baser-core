@@ -11,7 +11,10 @@
 
 namespace BaserCore\Model\Validation;
 
+use BaserCore\Utility\BcContainerTrait;
+use Cake\Http\Client\Request;
 use Cake\Log\Log;
+use Cake\Routing\Router;
 use Cake\Utility\Hash;
 use Cake\Core\Configure;
 use Cake\I18n\FrozenTime;
@@ -26,6 +29,11 @@ use BaserCore\Annotation\UnitTest;
  */
 class BcValidation extends Validation
 {
+
+    /**
+     * BcContainerTrait
+     */
+    use BcContainerTrait;
 
     /**
      * 英数チェックプラス
@@ -62,20 +70,6 @@ class BcValidation extends Validation
     }
 
     /**
-     * 半角英数字+アンダーバー＋ハイフンのチェック
-     *
-     * @param string $value 確認する値を含む配列。先頭の要素のみチェックされる
-     * @return boolean
-     * @checked
-     * @noTodo
-     * @unitTest
-     */
-    public static function alphaNumericDashUnderscore($value)
-    {
-        return (bool) preg_match('|^[0-9a-zA-Z_-]*$|', $value);
-    }
-
-    /**
      * 削除文字チェック
      *
      * BcUtile::urlencode で、削除される文字のみで構成されているかチェック(結果ブランクになるためnotBlankになる確認)
@@ -103,17 +97,17 @@ class BcValidation extends Validation
      * 最短の長さチェック
      * - 対象となる値の長さが、指定した最短値より長い場合、trueを返す
      *
-     * @param mixed $value 対象となる値
+     * @param mixed $check 対象となる値
      * @param int $min 値の最短値
      * @return boolean
      * @checked
      * @noTodo
      * @unitTest
      */
-    public static function minLength($value, $min): bool
+    public static function minLength($check, int $min): bool
     {
-        $value = (is_array($value))? current($value) : $value;
-        $length = mb_strlen($value, Configure::read('App.encoding'));
+        $check = (is_array($check))? current($check) : $check;
+        $length = mb_strlen($check, Configure::read('App.encoding'));
         return ($length >= $min);
     }
 
@@ -121,17 +115,17 @@ class BcValidation extends Validation
      * 最長の長さチェック
      * - 対象となる値の長さが、指定した最長値より短い場合、trueを返す
      *
-     * @param mixed $value 対象となる値
+     * @param mixed $check 対象となる値
      * @param int $max 値の最長値
      * @return boolean
      * @checked
      * @noTodo
      * @unitTest
      */
-    public static function maxLength($value, $max): bool
+    public static function maxLength($check, int $max): bool
     {
-        $value = (is_array($value))? current($value) : $value;
-        $length = mb_strlen($value, Configure::read('App.encoding'));
+        $check = (is_array($check))? current($check) : $check;
+        $length = mb_strlen($check, Configure::read('App.encoding'));
         return ($length <= $max);
     }
 
@@ -224,8 +218,8 @@ class BcValidation extends Validation
                     return false;
                 case 4:
                     // UPLOAD_ERR_NO_FILE
-                     Log::error(__d('baser_core', 'CODE: {0} ファイルがアップロードされませんでした。', $fileErrorCode));
-                     break;
+                    Log::error(__d('baser_core', 'CODE: {0} ファイルがアップロードされませんでした。', $fileErrorCode));
+                    break;
                 case 6:
                     // UPLOAD_ERR_NO_TMP_DIR
                     Log::error(__d('baser_core', 'CODE: {0} 一時書込み用のフォルダがありません。テンポラリフォルダの書込み権限を見直してください。', $fileErrorCode));
@@ -267,29 +261,25 @@ class BcValidation extends Validation
      * @noTodo
      * @unitTest
      */
-	public static function fileExt($file, $exts)
-	{
-		if (!is_array($exts)) {
-			$exts = explode(',', $exts);
-		}
+    public static function fileExt($file, $exts)
+    {
+        if (!is_array($exts)) $exts = explode(',', $exts);
+        if (empty($file)) return true;
 
-		// FILES形式のチェック
-		if (!empty($file['name'])) {
-			$ext = BcUtil::decodeContent($file['type'], $file['name']);
-			if (!in_array($ext, $exts)) {
-				return false;
-			}
-		}
-
-		// 更新時の文字列チェック
-		if (!empty($file) && is_string($file)) {
-			$ext = pathinfo($file, PATHINFO_EXTENSION);
-			if (!in_array($ext, $exts)) {
-				return false;
-			}
-		}
-		return true;
-	}
+        // FILES形式のチェック
+        if (is_array($file) && !empty($file['type'])) {
+            $ext = BcUtil::decodeContent($file['type'], $file['name']);
+            if (!in_array($ext, $exts)) {
+                return false;
+            }
+        } else {
+            $ext = pathinfo($file, PATHINFO_EXTENSION);
+            if (!in_array($ext, $exts)) {
+                return false;
+            }
+        }
+        return true;
+    }
 
     /**
      * ファイルが送信されたかチェックするバリデーション
@@ -423,21 +413,6 @@ class BcValidation extends Validation
     }
 
     /**
-     * 日付の正当性チェック
-     *
-     * @param string $value 確認する値
-     * @return boolean
-     * @checked
-     * @noTodo
-     * @unitTest
-     */
-    public static function checkDate($value)
-    {
-        if (!$value instanceof FrozenTime) return false;
-        return true;
-    }
-
-    /**
      * 日時チェック
      * - 開始日時が終了日時より過去の場合、true を返す
      *
@@ -465,7 +440,7 @@ class BcValidation extends Validation
     /**
      * 指定した日付よりも新しい日付かどうかチェックする
      *
-     * @param FrozenTime $fieldValue 対象となる日付
+     * @param string $fieldValue 対象となる日付
      * @param array $context
      * @return bool
      * @checked
@@ -474,8 +449,14 @@ class BcValidation extends Validation
      */
     public static function checkDateAfterThan($fieldValue, $target, $context)
     {
-        if ($fieldValue instanceof FrozenTime && !empty($context['data'][$target])) {
-            return $fieldValue->greaterThan($context['data'][$target]);
+        if (!empty($fieldValue) && !empty($context['data'][$target])) {
+            try {
+                $startDate = new FrozenTime($fieldValue);
+                $endDate = new FrozenTime($context['data'][$target]);
+            } catch (\Exception) {
+                return false;
+            }
+            return $startDate->greaterThan($endDate);
         }
         return true;
     }
@@ -493,20 +474,20 @@ class BcValidation extends Validation
      */
     public static function containsScript($value)
     {
-        if(!$value) return true;
-		$events = ['onclick', 'ondblclick', 'onmousedown', 'onmouseup', 'onmouseover', 'onmousemove',
-			'onmouseout', 'onkeypress', 'onkeydown', 'onkeyup', 'onload', 'onunload',
-			'onfocus', 'onblur', 'onsubmit', 'onreset', 'onselect', 'onchange'];
+        if (!$value) return true;
+        $events = ['onclick', 'ondblclick', 'onmousedown', 'onmouseup', 'onmouseover', 'onmousemove',
+            'onmouseout', 'onkeypress', 'onkeydown', 'onkeyup', 'onload', 'onunload',
+            'onfocus', 'onblur', 'onsubmit', 'onreset', 'onselect', 'onchange'];
         if (BcUtil::isAdminUser() || Configure::read('BcApp.allowedPhpOtherThanAdmins')) {
             return true;
         }
         if (preg_match('/(<\?=|<\?php|<script)/i', $value)) {
             return false;
         }
-		if (preg_match('/<[^>]+?(' . implode('|', $events) . ')\s*=[^<>]*?>/i', $value)) {
+        if (preg_match('/<[^>]+?(' . implode('|', $events) . ')\s*=[^<>]*?>/i', $value)) {
             return false;
         }
-		if (preg_match('/href\s*=\s*[^>]*?javascript\s*?:/i', $value)) {
+        if (preg_match('/href\s*=\s*[^>]*?javascript\s*?:/i', $value)) {
             return false;
         }
         return true;
@@ -525,7 +506,7 @@ class BcValidation extends Validation
      * 半角と全角のスペースを許容しない場合はvaliadtionのrule設定で空の文字列を渡す
      * 'rule' => ['checkKatakana', '']
      */
-    public static function checkKatakana($value, $addAllow = '\s　') : bool
+    public static function checkKatakana($value, $addAllow = '\s　'): bool
     {
         if (!is_string($addAllow)) {
             $addAllow = '\s　';
@@ -534,7 +515,7 @@ class BcValidation extends Validation
         if ($value === '') {
             return true;
         }
-        if(preg_match("/^[ァ-ヾ" . $addAllow . "]+$/u", $value)){
+        if (preg_match("/^[ァ-ヾ" . $addAllow . "]+$/u", $value)) {
             return true;
         }
         return false;
@@ -554,7 +535,7 @@ class BcValidation extends Validation
      * 'rule' => ['checkHiragana', '']
      *
      */
-    public static function checkHiragana($value, $addAllow = '\s　ー') : bool
+    public static function checkHiragana($value, $addAllow = '\s　ー'): bool
     {
         if (!is_string($addAllow)) {
             $addAllow = '\s　ー';
@@ -563,7 +544,7 @@ class BcValidation extends Validation
         if ($value === '') {
             return true;
         }
-        if(preg_match("/^[ぁ-ゞ" . $addAllow . "]+$/u", $value)){
+        if (preg_match("/^[ぁ-ゞ" . $addAllow . "]+$/u", $value)) {
             return true;
         }
         return false;
@@ -574,13 +555,106 @@ class BcValidation extends Validation
      *
      * @param $value
      * @return bool
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public static function reserved($value): bool
     {
-        if(in_array($value, Configure::read('BcApp.reservedWords'))) {
+        if (in_array($value, Configure::read('BcApp.reservedWords'))) {
             return false;
         }
         return true;
     }
 
+    /**
+     * 選択リストに同じ項目を複数登録するかをチェック
+     *
+     * @param $value
+     * @return bool
+     * @checked
+     * @notodo
+     * @unitTest
+     */
+    public static function checkSelectList($value): bool
+    {
+        $data = preg_split("/\r\n|\n|\r/", $value);
+        $result = max(array_count_values($data));
+        return ($result < 2);
+    }
+
+    /**
+     * 範囲を指定しての長さチェック
+     *
+     * @param mixed $value 対象となる値
+     * @param int $min 値の最短値
+     * @param int $max 値の最長値
+     * @param boolean
+     * @unitTest
+     */
+    public static function between($value, $min, $max)
+    {
+        $length = mb_strlen($value, Configure::read('App.encoding'));
+        return ($length >= $min && $length <= $max);
+    }
+
+    /**
+     * スペースしかない文字列
+     *
+     * @param $string
+     * @return bool
+     * @checked
+     * @notodo
+     * @unitTest
+     */
+    public static function notBlankOnlyString($string): bool
+    {
+        return (preg_replace("/( |　)/", '', $string) !== '');
+    }
+
+    /**
+     * 16進数カラーコードチェック
+     *
+     * @param string $value 対象となる値
+     * @return bool
+     * @checked
+     * @notodo
+     * @unitTest
+     */
+    public static function hexColorPlus($value): bool
+    {
+        return preg_match('/\A([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})\z/i', $value);
+    }
+
+    /**
+     * Jsonをバリデーション
+     * 半角小文字英数字とアンダースコアを許容
+     * @param $string
+     * @param $key
+     * @return bool
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public static function checkWithJson($string, $key, $regex)
+    {
+        $value = json_decode($string, true);
+        $keys = explode('.', $key);
+
+        foreach ($keys as $k) {
+            $value = $value[$k] ?? '';
+        }
+
+        //入力チェックした項目だけバリデーション
+        $request = Router::getRequest();
+        $validate = $request->getData('validate');
+        if (is_array($validate) && !in_array(strtoupper($k), $validate))
+            return true;
+
+        if (empty($value) || preg_match($regex, $value)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
 }

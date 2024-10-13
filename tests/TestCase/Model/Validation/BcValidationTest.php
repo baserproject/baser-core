@@ -11,10 +11,11 @@
 
 namespace BaserCore\Test\TestCase\Model\Validation;
 
+use BaserCore\Test\Scenario\InitAppScenario;
 use Cake\Routing\Router;
-use Cake\I18n\FrozenTime;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Model\Validation\BcValidation;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * Class BcValidationTest
@@ -22,17 +23,11 @@ use BaserCore\Model\Validation\BcValidation;
  */
 class BcValidationTest extends BcTestCase
 {
-
     /**
-     * Fixtures
-     *
-     * @var array
+     * ScenarioAwareTrait
      */
-    protected $fixtures = [
-        'plugin.BaserCore.Users',
-        'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.UsersUserGroups',
-    ];
+    use ScenarioAwareTrait;
+
     /**
      * Test subject
      *
@@ -78,30 +73,23 @@ class BcValidationTest extends BcTestCase
         $this->assertEquals($expect, $result);
     }
 
-    public function alphaNumericPlusDataProvider()
-    {
-        return [
-            ['あいうえお', [], false],
-            ['あいうえお', ['あ'], false],
-            ['あいうえお', ['あいうえお'], true],
-            ['あいうえお_', ['あいうえお'], true],
-        ];
-    }
-
-    /**
-     * Test alphaNumericDashUnderscore
-     *
-     * @return void
-     */
-    public function testAlphaNumericDashUnderscore()
+    public static function alphaNumericPlusDataProvider()
     {
         $alpha = implode('', array_merge(range('a', 'z'), range('A', 'Z')));
         $numeric = implode('', range(0, 9));
         $mark = '-_';
         $allowedChars = $alpha . $numeric . $mark;
 
-        $this->assertEquals(true, $this->BcValidation->alphaNumericDashUnderscore($allowedChars));
-        $this->assertEquals(false, $this->BcValidation->alphaNumericDashUnderscore($allowedChars . '!'));
+        return [
+            ['test', [], true],
+            ['test!', [], false],
+            [$allowedChars, [], true],
+            [$allowedChars . '!', [], false],
+            ['あいうえお', [], false],
+            ['あいうえお', ['あ'], false],
+            ['あいうえお', ['あいうえお'], true],
+            ['あいうえお_', ['あいうえお'], true],
+        ];
     }
 
     /**
@@ -118,7 +106,7 @@ class BcValidationTest extends BcTestCase
         $this->assertEquals($expect, $result);
     }
 
-    public function bcUtileUrlencodeBlankDataProvider()
+    public static function bcUtileUrlencodeBlankDataProvider()
     {
         return [
             ['あいうえお', true],
@@ -143,7 +131,7 @@ class BcValidationTest extends BcTestCase
         $this->assertEquals($expect, $result);
     }
 
-    public function minLengthDataProvider()
+    public static function minLengthDataProvider()
     {
         return [
             ['あいう', 4, false],
@@ -167,7 +155,7 @@ class BcValidationTest extends BcTestCase
         $this->assertEquals($expect, $result);
     }
 
-    public function maxLengthDataProvider()
+    public static function maxLengthDataProvider()
     {
         return [
             ['あいう', 4, true],
@@ -192,7 +180,7 @@ class BcValidationTest extends BcTestCase
         $this->assertEquals($expect, $result);
     }
 
-    public function maxByteDataProvider()
+    public static function maxByteDataProvider()
     {
         return [
             ['あいう', 10, true],
@@ -216,7 +204,7 @@ class BcValidationTest extends BcTestCase
         $this->assertEquals($expect, $result);
     }
 
-    public function notInListDataProvider()
+    public static function notInListDataProvider()
     {
         return [
             ['test1', ['test1', 'test2'], false],
@@ -246,7 +234,7 @@ class BcValidationTest extends BcTestCase
         $this->assertEquals($expect, $result);
     }
 
-    public function fileCheckDataProvider()
+    public static function fileCheckDataProvider()
     {
         return [
             ["test.jpg", 1048576, 0, true],
@@ -264,26 +252,61 @@ class BcValidationTest extends BcTestCase
      * @param boolean $expect
      * @dataProvider fileExtDataProvider
      */
-    public function testFileExt($fileName, $fileType, $expect)
+    public function testFileExt($fileType, $expect)
     {
-        $check = [
-            "name" => $fileName,
-            "type" => $fileType
-        ];
         $ext = "jpg,png";
 
-        $result = $this->BcValidation->fileExt($check, $ext);
+        $result = $this->BcValidation->fileExt($fileType, $ext);
         $this->assertEquals($expect, $result);
     }
 
-
-    public function fileExtDataProvider()
+    public static function fileExtDataProvider()
     {
         return [
-            ["test.jpg", "image/jpeg", true],
-            ["test.png", "image/png", true],
-            ["test.gif", "image/gif", false],
-            ["test", "image/png", true],
+            [
+                [
+                    'name' => 'test.jpg',
+                    'size' => 1,
+                    'type' => 'image/jpeg',
+                    'error' => UPLOAD_ERR_OK,
+                    'tmp_name' => 'test',
+                    'ext' => 'jpg'
+                ],
+                true
+            ],
+            [
+                [
+                    'name' => 'test.png',
+                    'size' => 1,
+                    'type' => 'image/jpeg',
+                    'error' => UPLOAD_ERR_OK,
+                    'tmp_name' => 'test',
+                    'ext' => 'png'
+                ],
+                true
+            ],
+            [
+                [
+                    'name' => 'test.gif',
+                    'size' => 1,
+                    'type' => 'image/jpeg',
+                    'error' => UPLOAD_ERR_OK,
+                    'tmp_name' => 'test',
+                    'ext' => 'gif'
+                ],
+                true
+            ],
+            [
+                [
+                    'name' => 'test.png',
+                    'size' => 1,
+                    'type' => 'image/gif',
+                    'error' => UPLOAD_ERR_OK,
+                    'tmp_name' => 'test',
+                    'ext' => 'png'
+                ],
+                false
+            ]
         ];
     }
 
@@ -302,7 +325,7 @@ class BcValidationTest extends BcTestCase
         $this->assertEquals($expect, $result);
     }
 
-    public function notFileEmptyDataProvider()
+    public static function notFileEmptyDataProvider()
     {
         return [
             [['size' => 0], false],
@@ -332,7 +355,7 @@ class BcValidationTest extends BcTestCase
         $this->assertEquals($expect, $result, $message);
     }
 
-    public function confirmDataProvider()
+    public static function confirmDataProvider()
     {
         return [
             ['', ['test1', 'test2'], ['test1' => 'value', 'test2' => 'value'], true, '2つのフィールドが同じ値の場合の判定が正しくありません'],
@@ -357,7 +380,7 @@ class BcValidationTest extends BcTestCase
         $this->assertEquals($expect, $result, $message);
     }
 
-    public function emailsDataProvider()
+    public static function emailsDataProvider()
     {
         return [
             ['test1@co.jp', true],
@@ -412,35 +435,11 @@ class BcValidationTest extends BcTestCase
         $this->assertEquals($expect, $result);
     }
 
-    public function halfTextDataProvider()
+    public static function halfTextDataProvider()
     {
         return [
             ['test', true],
             ['テスト', false],
-        ];
-    }
-
-    /**
-     * Test CheckDate
-     *
-     * @param string $value
-     * @param boolean $expect
-     * @return void
-     * @dataProvider checkDateDataProvider
-     */
-    public function testCheckDate($value, $expect)
-    {
-        $result = $this->BcValidation->checkDate($value);
-        $this->assertEquals($expect, $result);
-    }
-
-    public function checkDateDataProvider()
-    {
-        return [
-            [FrozenTime::now(), true],
-            [new FrozenTime('2015-01-01'), true],
-            ['', false],
-            ['2015-01-01 00:00:00', false],
         ];
     }
 
@@ -491,13 +490,13 @@ class BcValidationTest extends BcTestCase
         $this->assertEquals($expect, $result);
     }
 
-    public function checkDataAfterThanDataProvider()
+    public static function checkDataAfterThanDataProvider()
     {
         return [
-            [new FrozenTime('2015-01-01 00:00:00'), new FrozenTime('2015-01-01 00:00:00'), false],
-            [new FrozenTime('2015-01-01 24:00:01'), new FrozenTime('2015-01-02 00:00:00'), true],
-            [new FrozenTime('2015-01-01 00:00:00'), new FrozenTime('2015-01-02 00:00:00'), false],
-            [new FrozenTime('2015-01-02 00:00:00'), new FrozenTime('2015-01-01 00:00:00'), true],
+            ['2015-01-01 00:00:00', '2015-01-01 00:00:00', false],
+            ['2015-01-01 24:00:01', '2015-01-02 00:00:00', true],
+            ['2015-01-01 00:00:00', '2015-01-02 00:00:00', false],
+            ['2015-01-02 00:00:00', '2015-01-01 00:00:00', true],
         ];
     }
 
@@ -509,12 +508,13 @@ class BcValidationTest extends BcTestCase
      */
     public function testContainsScript($value, $expect)
     {
+        $this->loadFixtureScenario(InitAppScenario::class);
         if ($expect) Router::setRequest($this->loginAdmin($this->getRequest()));
         $result = $this->BcValidation->containsScript($value);
         $this->assertEquals($expect, $result);
     }
 
-    public function containsScriptDataProvider()
+    public static function containsScriptDataProvider()
     {
         return [
             // phpコードの場合
@@ -582,6 +582,156 @@ class BcValidationTest extends BcTestCase
 
         $result = $this->BcValidation->checkHiragana('すぺーすきんし　 ', '');
         $this->assertEquals($result, false);
+    }
+
+    /**
+     * test checkSelectList
+     */
+    public function test_checkSelectList()
+    {
+        //戻り＝falseケース
+        $str = "あ\rべ\r\nあ\nべ\ntest";
+        $result = $this->BcValidation->checkSelectList($str);
+        $this->assertFalse($result);
+        //戻り＝trueケース
+        $str = "あa\nべ\nあ";
+        $result = $this->BcValidation->checkSelectList($str);
+        $this->assertTrue($result);
+    }
+
+    /**
+     * 範囲を指定しての長さチェック
+     *
+     * @param mixed $check
+     * @param int $min
+     * @param int $max
+     * @param boolean $expect
+     * @dataProvider betweenDataProvider
+     */
+    public function testBetween($check, $min, $max, $expect)
+    {
+        $result = $this->BcValidation->between($check, $min, $max);
+        $this->assertEquals($expect, $result);
+    }
+
+    public static function betweenDataProvider()
+    {
+        return [
+            ["あいう", 2, 4, true],
+            ["あいう", 3, 3, true],
+            ["あいう", 4, 3, false],
+            ["あいうえお", 2, 4, false],
+        ];
+    }
+
+
+    /**
+     * test notBlankOnlyString
+     */
+    public function test_notBlankOnlyString()
+    {
+        //戻り＝falseケース：半角スペース
+        $str = " ";
+        $result = $this->BcValidation->notBlankOnlyString($str);
+        $this->assertFalse($result);
+        //戻り＝falseケース：全角スペース
+        $str = "　";
+        $result = $this->BcValidation->notBlankOnlyString($str);
+        $this->assertFalse($result);
+        //戻り＝falseケース：半角・全角
+        $str = "　 ";
+        $result = $this->BcValidation->notBlankOnlyString($str);
+        $this->assertFalse($result);
+        //戻り＝trueケース
+        $str = "あa　";
+        $result = $this->BcValidation->notBlankOnlyString($str);
+        $this->assertTrue($result);
+    }
+
+    /**
+     * @param $str
+     * @param $key
+     * @param $regex
+     * @param $expect
+     *
+     * test checkWithJson
+     * @dataProvider checkWithJsonProvider
+     *
+     */
+    public function test_checkWithJson($key, $str, $regex, $expect)
+    {
+        $request = $this->getRequest('/')->withData('validate', ['EMAIL_CONFIRM', 'FILE_EXT', 'MAX_FILE_SIZE']);
+        Router::setRequest($request);
+
+        $result = $this->BcValidation->checkWithJson($str, $key, $regex);
+        $this->assertEquals($expect, $result);
+    }
+
+    public static function checkWithJsonProvider()
+    {
+        return [
+            //Eメール比較先フィールド名 テスト
+            ['BcCustomContent.email_confirm', '{"BcCustomContent":{"email_confirm":"ああ"}}', "/^[a-z0-9_]+$/", false],       //戻り＝falseケース：全角文字
+            ['BcCustomContent.email_confirm', '{"BcCustomContent":{"email_confirm":" "}}', "/^[a-z0-9_]+$/", false],         //戻り＝falseケース：半角スペース
+            ['BcCustomContent.email_confirm', '{"BcCustomContent":{"email_confirm":"ああaaa"}}', "/^[a-z0-9_]+$/", false],    //戻り＝falseケース：半角・全角
+            ['BcCustomContent.email_confirm', '{"BcCustomContent":{"email_confirm":"aaaa_bbb"}}', "/^[a-z0-9_]+$/", true],    //戻り＝trueケース
+
+            //ファイルアップロードサイズ制限 テスト
+            ['BcCustomContent.max_file_size', '{"BcCustomContent":{"max_file_size":"aaaaa111"}}', "/^[0-9]+$/", false],       //戻り＝falseケース：文字列
+            ['BcCustomContent.max_file_size', '{"BcCustomContent":{"max_file_size":"ああaaa"}}', "/^[0-9]+$/", false],         //戻り＝falseケース：半角・全角
+            ['BcCustomContent.max_file_size', '{"BcCustomContent":{"max_file_size":"123"}}', "/^[0-9]+$/", true],             //戻り＝falseケース：数値
+
+            //ファイル拡張子チェック テスト
+            ['BcCustomContent.file_ext', '{"BcCustomContent":{"file_ext":"ああaaa"}}', "/^[a-z,]+$/", false],                  //戻り＝falseケース：半角・全角
+            ['BcCustomContent.file_ext', '{"BcCustomContent":{"file_ext":"1111"}}', "/^[a-z,]+$/", false],                    //戻り＝falseケース：数字
+            ['BcCustomContent.file_ext', '{"BcCustomContent":{"file_ext":"pdf,png"}}', "/^[a-z,]+$/", true],                  //戻り＝trueケース：文字列
+        ];
+    }
+
+    /**
+     * test hexColorPlus
+     *
+     * @param string $value
+     * @param boolean $expect
+     * @return void
+     * @dataProvider hexColorPlusDataProvider
+     */
+    public function testHexColorPlus($value, $expect)
+    {
+        $result = $this->BcValidation->hexColorPlus($value);
+        $this->assertEquals($expect, $result);
+    }
+
+    public static function hexColorPlusDataProvider()
+    {
+        return [
+            ['000', true],
+            ['0fF', true],
+            ['123f', true],
+            ['123abc', true],
+            ['1234abcd', true],
+            ['black', false],
+            ['#000', false]
+        ];
+    }
+
+    /**
+     * @dataProvider reservedDataProvider
+     */
+    public function test_reserved($value, $expect)
+    {
+        $result = $this->BcValidation->reserved($value);
+        $this->assertEquals($expect, $result);
+    }
+
+    public static function reservedDataProvider()
+    {
+        return [
+            ['test', true],
+            ['admin', true],
+            ['accessible', false],
+            ['before', false],
+        ];
     }
 
 }

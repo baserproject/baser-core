@@ -14,10 +14,14 @@ namespace BaserCore\Test\TestCase\Controller\Api;
 use Authentication\Authenticator\Result;
 use BaserCore\Controller\Api\BcApiController;
 use BaserCore\Service\UsersServiceInterface;
+use BaserCore\Test\Scenario\InitAppScenario;
+use BaserCore\Test\Scenario\LoginStoresScenario;
+use BaserCore\Test\Scenario\SiteConfigsScenario;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Utility\BcContainerTrait;
 use Cake\Event\Event;
 use Cake\TestSuite\IntegrationTestTrait;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * BaserCore\Controller\ApiControllerTest Test Case
@@ -30,26 +34,7 @@ class BcApiControllerTest extends BcTestCase
      */
     use IntegrationTestTrait;
     use BcContainerTrait;
-
-    /**
-     * Fixtures
-     *
-     * @var array
-     */
-    public $fixtures = [
-        'plugin.BaserCore.Users',
-        'plugin.BaserCore.UsersUserGroups',
-        'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.LoginStores',
-        'plugin.BaserCore.Sites',
-        'plugin.BaserCore.SiteConfigs',
-    ];
-
-    /**
-     * Auto Fixtures
-     * @var bool
-     */
-    public $autoFixtures = false;
+    use ScenarioAwareTrait;
 
     /**
      * set up
@@ -57,7 +42,25 @@ class BcApiControllerTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
-        $this->loadFixtures('Sites', 'SiteConfigs');
+        $this->loadFixtureScenario(InitAppScenario::class);
+        $this->loadFixtureScenario(SiteConfigsScenario::class);
+        $this->loadFixtureScenario(LoginStoresScenario::class);
+    }
+
+    /**
+     * test Before Filter
+     * @return void
+     */
+    public function testBeforeFilter()
+    {
+        // API ON
+        $this->get('/baser/api/baser-core/contents/index.json');
+        $this->assertResponseCode(200);
+        // API OFF
+        $_SERVER['USE_CORE_API'] = 'false';
+        $this->get('/baser/api/baser-core/contents/index.json');
+        $this->assertResponseCode(403);
+        $_SERVER['USE_CORE_API'] = 'true';
     }
 
     /**
@@ -65,7 +68,6 @@ class BcApiControllerTest extends BcTestCase
      */
     public function testGetAccessToken()
     {
-        $this->loadFixtures('Users', 'UserGroups', 'UsersUserGroups');
         $user = $this->getService(UsersServiceInterface::class);
         $controller = new BcApiController($this->getRequest());
         $result = $controller->getAccessToken(new Result($user->get(1), Result::SUCCESS));

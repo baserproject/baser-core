@@ -14,11 +14,13 @@ namespace BaserCore\Service;
 use BaserCore\Model\Entity\SiteConfig;
 use BaserCore\Model\Table\SiteConfigsTable;
 use BaserCore\Utility\BcContainerTrait;
+use BaserCore\Utility\BcFile;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\Configure;
 use Cake\Datasource\Exception\MissingDatasourceConfigException;
 use Cake\Filesystem\File;
 use Cake\Mailer\MailerAwareTrait;
+use Cake\ORM\Table;
 use Cake\ORM\TableRegistry;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
@@ -40,7 +42,7 @@ class SiteConfigsService implements SiteConfigsServiceInterface
      * SiteConfigs Table
      * @var SiteConfigsTable
      */
-    public $SiteConfigs;
+    public SiteConfigsTable|Table $SiteConfigs;
 
     /**
      * キャッシュ用 Entity
@@ -96,8 +98,6 @@ class SiteConfigsService implements SiteConfigsServiceInterface
             $this->entity = $this->SiteConfigs->newEntity(array_merge($this->SiteConfigs->getKeyValue(), [
                 'mode' => Configure::read('debug'),
                 'site_url' => Configure::read('BcEnv.siteUrl'),
-                'ssl_url' => Configure::read('BcEnv.sslUrl'),
-                'admin_ssl' => (int)Configure::read('BcApp.adminSsl'),
             ]), ['validate' => 'keyValue']);
         }
         return $this->entity;
@@ -131,24 +131,16 @@ class SiteConfigsService implements SiteConfigsServiceInterface
         if ($siteConfig->site_url && !preg_match('/\/$/', $siteConfig->site_url)) {
             $siteConfig->site_url .= '/';
         }
-        if ($siteConfig->ssl_url && !preg_match('/\/$/', $siteConfig->ssl_url)) {
-            $siteConfig->ssl_url .= '/';
-        }
 
         if ($this->isWritableEnv()) {
             if (isset($siteConfig->mode)) $this->putEnv('DEBUG', ($siteConfig->mode)? 'true' : 'false');
             if (isset($siteConfig->site_url)) $this->putEnv('SITE_URL', $siteConfig->site_url);
-            if (isset($siteConfig->ssl_url)) $this->putEnv('SSL_URL', $siteConfig->ssl_url);
-            if (isset($siteConfig->admin_ssl)) $this->putEnv('ADMIN_SSL', ($siteConfig->admin_ssl)? 'true' : 'false');
         }
 
         $siteConfigArray = $siteConfig->toArray();
         unset($siteConfigArray['mode'],
             $siteConfigArray['site_url'],
-            $siteConfigArray['ssl_url'],
-            $siteConfigArray['admin_ssl'],
             $siteConfigArray['dummy-site_url'],
-            $siteConfigArray['dummy-ssl_url']
         );
 
         if ($this->SiteConfigs->saveKeyValue($siteConfigArray)) {
@@ -188,7 +180,7 @@ class SiteConfigsService implements SiteConfigsServiceInterface
         if (!$this->isWritableEnv()) {
             return false;
         }
-        $file = new File(CONFIG . '.env');
+        $file = new BcFile(CONFIG . '.env');
         $contents = $file->read();
         $newLine = "export $key=\"$value\"";
         if (isset($_ENV[$key])) {
@@ -274,6 +266,8 @@ class SiteConfigsService implements SiteConfigsServiceInterface
      * @param string $body
      * @return void
      * @throws \Throwable
+     * @checked
+     * @noTodo
      */
     public function sendTestMail(array $postData, string $email, string $subject, string $body)
     {

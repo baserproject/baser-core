@@ -11,7 +11,7 @@
 
 namespace BaserCore\Service\Front;
 
-use BaserCore\Model\Validation\BcValidation;
+use BaserCore\Model\Entity\Page;
 use BaserCore\Service\PagesService;
 use Cake\Controller\Controller;
 use Cake\Datasource\EntityInterface;
@@ -68,7 +68,7 @@ class PagesFrontService extends PagesService implements PagesFrontServiceInterfa
             if ($validationErrors) {
                 foreach($validationErrors as $columnsErros) {
                     foreach($columnsErros as $error) {
-                        throw new NotFoundException(__d('baser_core', $error));
+                        throw new NotFoundException($error);
                     }
                 }
             }

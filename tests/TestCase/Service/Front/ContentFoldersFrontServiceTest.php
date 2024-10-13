@@ -34,16 +34,6 @@ class ContentFoldersFrontServiceTest extends BcTestCase
     use ScenarioAwareTrait;
 
     /**
-     * Fixtures
-     *
-     * @var array
-     */
-    protected $fixtures = [
-        'plugin.BaserCore.Factory/Contents',
-        'plugin.BaserCore.Factory/ContentFolders',
-    ];
-
-    /**
      * Set Up
      *
      * @return void
@@ -96,7 +86,7 @@ class ContentFoldersFrontServiceTest extends BcTestCase
         $this->assertArrayHasKey('children', $vars);
         $this->assertArrayHasKey('editLink', $vars);
         $this->assertEquals('edit', $vars['editLink']['action']);
-        $this->assertTrue($vars['editLink']['admin']);
+        $this->assertEquals('Admin', $vars['editLink']['prefix']);
     }
 
     /**

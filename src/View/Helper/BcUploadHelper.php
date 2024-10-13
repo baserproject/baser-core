@@ -47,7 +47,7 @@ class BcUploadHelper  extends Helper
      *
      * @var array
      */
-    public $helpers = ['Html', 'BaserCore.BcAdminForm'];
+    public array $helpers = ['Html', 'BaserCore.BcAdminForm'];
 
     /**
      * BcUploadHelperで使用するテーブル
@@ -157,6 +157,10 @@ class BcUploadHelper  extends Helper
             $basePath = '/baser-core/uploads/tmp/';
         }
 
+        if (is_array($value)) {
+            return false;
+        }
+
         /* ファイルのパスを取得 */
         /* 画像の場合はサイズを指定する */
         if (isset($settings['saveDir'])) {
@@ -200,7 +204,7 @@ class BcUploadHelper  extends Helper
                     if (is_array($options['link'])) {
                         $linkOptions = array_merge($linkOptions, $options['link']);
                     }
-                    $out = $this->Html->tag('figure', $this->Html->link(__d('baser_core', 'ダウンロード') . ' ≫', $filePath, $linkOptions) . '<br>' . $this->Html->tag('figcaption', BcUtil::mbBasename($value), $figcaptionOptions), $figureOptions);
+                    $out = $this->Html->tag('figure', $this->Html->link(__d('baser_core', 'ダウンロード') . ' ≫', $filePath, $linkOptions) . '<br>' . $this->Html->tag('figcaption', h(BcUtil::mbBasename($value)), $figcaptionOptions), $figureOptions);
                 }
             } else {
                 $out = $value;
@@ -328,7 +332,7 @@ class BcUploadHelper  extends Helper
         $fileUrl = $this->getBasePath($settings);;
         $fileUrlInTheme = $this->getBasePath($settings, true);
         $saveDir = $this->table->getSaveDir(false, $options['limited']);
-        $saveDirInTheme = $this->table->getSaveDir(true, $options['limited']);
+        $saveDirInTheme = $this->table->getSaveDir(true, $options['limited']) ?? '';
 
         $settingField = $fieldName;
         if(strpos($fieldName, '.') !== false) {

@@ -11,6 +11,7 @@
 
 namespace BaserCore\Service\Admin;
 
+use BaserCore\Service\UserGroupsService;
 use BaserCore\Service\UserGroupsServiceInterface;
 use BaserCore\Service\UsersService;
 use BaserCore\Utility\BcContainerTrait;
@@ -33,6 +34,12 @@ class UsersAdminService extends UsersService implements UsersAdminServiceInterfa
      * Trait
      */
     use BcContainerTrait;
+
+    /**
+     * UserGroups Service
+     * @var UserGroupsServiceInterface|UserGroupsService
+     */
+    public UserGroupsServiceInterface|UserGroupsService $UserGroupsService;
 
     /**
      * Pageservice constructor.
@@ -167,7 +174,7 @@ class UsersAdminService extends UsersService implements UsersAdminServiceInterfa
     public function getViewVarsForLogin(ServerRequest $request): array
     {
         return [
-            'savedEnable' => $request->is('ssl'),
+            'savedEnable' => $request->is('https'),
             'isEnableLoginCredit' => (bool) BcSiteConfig::get('login_credit')
         ];
     }

@@ -13,9 +13,10 @@ namespace BaserCore\Test\TestCase\Controller\Admin;
 
 use BaserCore\Test\Scenario\InitAppScenario;
 use BaserCore\Controller\Admin\ThemesController;
+use BaserCore\Test\Scenario\SmallSetContentFoldersScenario;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Utility\BcContainerTrait;
-use Cake\Filesystem\Folder;
+use BaserCore\Utility\BcFolder;
 use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 use Cake\TestSuite\IntegrationTestTrait;
 use Composer\Package\Archiver\ZipArchiver;
@@ -35,25 +36,12 @@ class ThemesControllerTest extends BcTestCase
     use BcContainerTrait;
 
     /**
-     * Fixtures
-     *
-     * @var array
-     */
-    public $fixtures = [
-        'plugin.BaserCore.Factory/Users',
-        'plugin.BaserCore.Factory/Sites',
-        'plugin.BaserCore.Factory/UsersUserGroups',
-        'plugin.BaserCore.Factory/UserGroups',
-    ];
-
-    /**
      * set up
      *
      * @return void
      */
     public function setUp(): void
     {
-        $this->setFixtureTruncate();
         parent::setUp();
         $this->ThemesController = new ThemesController($this->getRequest());
         $this->loadFixtureScenario(InitAppScenario::class);
@@ -81,10 +69,12 @@ class ThemesControllerTest extends BcTestCase
 
         $path = ROOT . DS . 'plugins' . DS . 'BcPluginSample';
         $zipSrcPath = TMP . 'zip' . DS;
-        $folder = new Folder();
-        $folder->create($zipSrcPath, 0777);
-        $folder->copy($zipSrcPath . 'BcPluginSample2', ['from' => $path, 'mode' => 0777]);
         $theme = 'BcPluginSample2';
+        $folder = new BcFolder($zipSrcPath);
+        $folder->create();
+        //copy
+        $folder = new BcFolder($path);
+        $folder->copy($zipSrcPath. 'BcPluginSample2');
         $zip = new ZipArchiver();
         $testFile = $zipSrcPath . $theme . '.zip';
         $zip->archive($zipSrcPath, $testFile, true);
@@ -102,9 +92,8 @@ class ThemesControllerTest extends BcTestCase
         ]);
         $this->assertFlashMessage('テーマファイル「' . $theme . '」を追加しました。');
 
-        $folder = new Folder();
-        $folder->delete(ROOT . DS . 'plugins' . DS . $theme);
-        $folder->delete($zipSrcPath);
+        (new BcFolder(ROOT . DS . 'plugins' . DS . $theme))->delete();
+        (new BcFolder($zipSrcPath))->delete();
     }
 
     /**
@@ -112,6 +101,7 @@ class ThemesControllerTest extends BcTestCase
      */
     public function test_get_market_themes()
     {
+        $this->markTestIncomplete('baserマーケットのRSSのロードに時間がかかり過ぎるためスキップ。マーケット側を見直してから対応する');
         $this->enableSecurityToken();
         $this->enableCsrfToken();
 
@@ -166,8 +156,7 @@ class ThemesControllerTest extends BcTestCase
 
         // コピーしたテーマを削除する
         $path = BASER_THEMES . $theme . 'Copy';
-        $Folder = new Folder();
-        $Folder->delete($path);
+        (new BcFolder($path))->delete();
     }
 
     /**
@@ -204,7 +193,7 @@ class ThemesControllerTest extends BcTestCase
     {
         $this->enableSecurityToken();
         $this->enableCsrfToken();
-
+        $this->loadFixtureScenario(SmallSetContentFoldersScenario::class);
         $theme = 'BcFront';
         $this->post('/baser/admin/baser-core/themes/apply/' . $theme);
         $this->assertResponseCode(302);
@@ -237,13 +226,13 @@ class ThemesControllerTest extends BcTestCase
         $this->assertResponseOk();
 
         $tmpDir = TMP . 'csv' . DS;
-        $folder = new Folder($tmpDir);
-        $folderContents = $folder->read(true, true, true);
+        $folder = new BcFolder($tmpDir);
+        $folderContents = $folder->getFolders(['full'=>true]);
         $result = true;
-        if (count($folderContents[1]) > 0) $result = false;
-        foreach ($folderContents[0] as $path) {
-            $childFolder = new Folder($path);
-            $childFiles = $childFolder->find();
+        if (count($folderContents) > 0) $result = false;
+        foreach ($folderContents as $path) {
+            $childFolder = new BcFolder($path);
+            $childFiles = $childFolder->getFiles();
             if (count($childFiles) > 0) $result = false;
         }
 

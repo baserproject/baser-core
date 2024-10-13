@@ -31,18 +31,6 @@ use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 class PasswordRequestsServiceTest extends BcTestCase
 {
 
-    public $fixtures = [
-        'plugin.BaserCore.Factory/Sites',
-        'plugin.BaserCore.Factory/Users',
-        'plugin.BaserCore.Factory/UsersUserGroups',
-        'plugin.BaserCore.Factory/UserGroups',
-        'plugin.BaserCore.Factory/PasswordRequests',
-        'plugin.BaserCore.Factory/SiteConfigs',
-        'plugin.BaserCore.Factory/Contents',
-        'plugin.BaserCore.Factory/ContentFolders',
-        'plugin.BaserCore.Factory/Pages',
-    ];
-
     /**
      * Trait
      */
@@ -54,7 +42,6 @@ class PasswordRequestsServiceTest extends BcTestCase
      */
     public function setUp(): void
     {
-        $this->setFixtureTruncate();
         parent::setUp();
         $this->service = $this->getService(PasswordRequestsServiceInterface::class);
     }
@@ -95,8 +82,8 @@ class PasswordRequestsServiceTest extends BcTestCase
 
         $passwordRequest = $this->service->get(3);
         $this->assertNotEmpty($this->service->updatePassword($passwordRequest, [
-            'password_1' => 'testtest',
-            'password_2' => 'testtest'
+            'password_1' => 'Testtest1234',
+            'password_2' => 'Testtest1234'
         ]));
 
         $passwordRequest = $this->service->PasswordRequests
@@ -114,12 +101,12 @@ class PasswordRequestsServiceTest extends BcTestCase
 
         $this->assertNotEquals($beforePassword, $afterPassword);
 
-        // 変更後のパスワードでログインw
+        // 変更後のパスワードでログイン
         $this->enableSecurityToken();
         $this->enableCsrfToken();
         $this->post(Configure::read('BcPrefixAuth.Admin.loginAction'), [
             'email' => 'admin@example.com',
-            'password' => 'testtest'
+            'password' => 'Testtest1234'
         ]);
         $this->assertSession(1, 'AuthAdmin.id');
     }

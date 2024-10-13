@@ -12,6 +12,7 @@
 namespace BaserCore\Routing\Route;
 
 use BaserCore\Model\Table\ContentsTable;
+use BaserCore\Model\Table\SitesTable;
 use BaserCore\Service\SitesService;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\Configure;
@@ -58,6 +59,7 @@ class BcContentsRoute extends Route
         }
 
         $sameUrl = false;
+        /** @var SitesTable $sites */
         $sites = TableRegistry::getTableLocator()->get('BaserCore.Sites');
         $site = $sites->getSubByUrl($url, true);
         if ($site) {
@@ -69,11 +71,7 @@ class BcContentsRoute extends Route
             $site = $sites->findByUrl($url);
             if ($site && !is_null($site->name)) {
                 if ($site->use_subdomain) {
-                    if (str_starts_with($url, '/' . $site->alias)) {
-                        $checkUrl = $url;
-                    } else {
-                        $checkUrl = '/' . $site->alias . (($url)? $url : '/');
-                    }
+                    $checkUrl = '/' . $site->alias . (($url) ? $url : '/');
                 } else {
                     $checkUrl = ($url)? $url : '/';
                 }
@@ -108,7 +106,7 @@ class BcContentsRoute extends Route
         $redirect = Configure::read('BcContents.previewRedirect');
         if ($redirect) {
             // データが存在してもプレビューで管理システムにログインしていない場合はログイン画面に遷移
-            if ((!empty($request->geQuery['preview']) || !empty($request->geQuery['force'])) && !BcUtil::loginUser()) {
+            if ((!empty($request->getQuery['preview']) || !empty($request->getQuery['force'])) && !BcUtil::loginUser()) {
                 $_SESSION['Auth']['redirect'] = $_SERVER['REQUEST_URI'];
                 header('Location: ' . BcUtil::topLevelUrl(false) . BcUtil::baseUrl() . Configure::read('BcPrefixAuth.Admin.alias') . '/users/login');
                 exit();
@@ -139,6 +137,8 @@ class BcContentsRoute extends Route
      * @param $type
      * @param $entityId
      * @return mixed false|array
+     * @checked
+     * @noTodo
      */
     public function getParams($requestUrl, $entryUrl, $plugin, $type, $entityId, $alias)
     {
@@ -268,10 +268,10 @@ class BcContentsRoute extends Route
 
         // エンティティID確定
         $entityId = $contentId = null;
+        $request = Router::getRequest(true);
         if (isset($url['entityId'])) {
             $entityId = $url['entityId'];
         } else {
-            $request = Router::getRequest(true);
             if (!empty($request->getParam('entityId'))) {
                 $entityId = $request->getParam('entityId');
             }
@@ -347,7 +347,7 @@ class BcContentsRoute extends Route
         if ($type === 'ContentFolder') {
             $strUrl .= '/';
         }
-        return $strUrl;
+        return $request->getAttribute('base') . $strUrl;
     }
 
     /**
@@ -356,6 +356,8 @@ class BcContentsRoute extends Route
      * @param array $params パラメーター
      * @param bool $useAction アクションを判定に入れるかどうか
      * @return bool|string
+     * @checked
+     * @noTodo
      */
     protected function _getContentTypeByParams($params, $useAction = true)
     {

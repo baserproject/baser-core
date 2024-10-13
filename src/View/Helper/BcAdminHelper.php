@@ -12,10 +12,10 @@
 namespace BaserCore\View\Helper;
 
 use BaserCore\Event\BcEventDispatcherTrait;
+use BaserCore\Model\Entity\Site;
 use BaserCore\Service\PermissionsService;
 use BaserCore\Service\PermissionsServiceInterface;
 use BaserCore\Service\SitesServiceInterface;
-use BaserCore\Utility\BcSiteConfig;
 use BaserCore\Utility\BcUtil;
 use BaserCore\Utility\BcContainerTrait;
 use Cake\Core\Configure;
@@ -45,23 +45,19 @@ class BcAdminHelper extends Helper
      * Helper
      * @var string[]
      */
-    public $helpers = ['BaserCore.BcBaser', 'BaserCore.BcAuth', 'BaserCore.BcContents'];
+    public array $helpers = ['BaserCore.BcBaser', 'BaserCore.BcAuth', 'BaserCore.BcContents'];
 
     /**
      * ログインユーザーがシステム管理者かチェックする
      *
      * @return boolean
+     * @checked
+     * @noTodo
+     * @unitTest ラッパーメソッドのためテスト不要
      */
     public function isSystemAdmin()
     {
-        $user = $this->_View->getVar('user');
-        if ($this->request->getParam['prefix'] === 'Admin' || !$user) {
-            return false;
-        }
-        if ($user['user_group_id'] == Configure::read('BcApp.adminGroupId')) {
-            return true;
-        }
-        return false;
+        return BcUtil::isAdminUser();
     }
 
     /**
@@ -95,8 +91,9 @@ class BcAdminHelper extends Helper
 
     /**
      * 管理画面のメニューに変更を加える
-     * @todo 整理する必要あり
      * @return array
+     * @checked
+     * @noTodo
      */
     private function convertAdminMenuGroups($adminMenuGroups)
     {
@@ -266,6 +263,7 @@ class BcAdminHelper extends Helper
     public function isAvailableSideBar()
     {
         if(!BcUtil::isInstalled()) return false;
+        if($this->getView()->getName() === 'Error') return false;
         $prefix = $this->_View->getRequest()->getParam('prefix');
         $loginAction = Router::url(Configure::read('BcPrefixAuth.' . $prefix . '.loginAction'));
         $name = $this->_View->getName();
@@ -378,6 +376,7 @@ class BcAdminHelper extends Helper
     public function contentsMenu(): void
     {
         if(!BcUtil::isInstalled()) return;
+        if($this->getView()->getName() === 'Error') return;
         echo $this->_View->element('contents_menu', [
             'isHelp' => (bool)($this->_View->get('help')),
             'isLogin' => (bool)(BcUtil::loginUser()),
@@ -513,11 +512,25 @@ class BcAdminHelper extends Helper
     /**
      * 初回アクセス時のメッセージ表示
      * @return void
+     * @checked
+     * @noTodo
      */
     public function firstAccess()
     {
         if($this->getView()->getRequest()->getParam('controller') === 'installations') return;
         $this->BcBaser->element('first_access');
+    }
+
+    /**
+     * 管理画面において現在のサイトを取得する
+     * @return false|Site
+     * @checked
+     * @noTodo
+     */
+    public function getCurrentSite()
+    {
+        if(!BcUtil::isAdminSystem()) return false;
+        return $this->getView()->getRequest()->getAttribute('currentSite');
     }
 
 }

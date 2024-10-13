@@ -12,7 +12,14 @@
 namespace BaserCore\View\Helper;
 
 use BaserCore\Event\BcEventDispatcherTrait;
+use Cake\Chronos\ChronosDate;
+use Cake\Core\Configure;
 use Cake\View\Helper\TimeHelper;
+use DateTimeInterface;
+use DateTimeZone;
+use BaserCore\Annotation\Checked;
+use BaserCore\Annotation\NoTodo;
+use BaserCore\Annotation\UnitTest;
 
 /**
  * Class BcTimeHelper
@@ -54,6 +61,9 @@ class BcTimeHelper extends TimeHelper
      *
      * @param string $w 年号のローマ字表記の頭文字 m (明治） / t（大正) / s（昭和） / h（平成） / r（令和）
      * @return string 年号をあらわすアルファベット
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function nengo($w)
     {
@@ -68,7 +78,10 @@ class BcTimeHelper extends TimeHelper
      * 和暦を取得（アルファベット）
      *
      * @param string $date 和暦を表す日付文字列（s-48/5/10）
-     * @return mixid 和暦　or false
+     * @return string|false 和暦
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function wareki($date)
     {
@@ -82,7 +95,10 @@ class BcTimeHelper extends TimeHelper
      * 和暦の年を取得
      *
      * @param string $date 和暦を表す日付文字列（s-48/5/10）
-     * @return mixid int / false
+     * @return string|false int / false
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function wyear($date)
     {
@@ -97,7 +113,10 @@ class BcTimeHelper extends TimeHelper
      * 西暦をまたがる場合があるので配列で返す
      *
      * @param int $year
-     * @return array
+     * @return array|false
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function convertToWarekiYear($year)
     {
@@ -129,7 +148,10 @@ class BcTimeHelper extends TimeHelper
      * 和暦のフォーマット例：s-48
      *
      * @param string $year
-     * @return int
+     * @return int|false
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function convertToSeirekiYear($year)
     {
@@ -139,15 +161,15 @@ class BcTimeHelper extends TimeHelper
         [$w, $year] = explode('-', $year);
         switch($w) {
             case 'm':
-                return $year + 1867;
+                return (int) $year + 1867;
             case 't':
-                return $year + 1911;
+                return (int) $year + 1911;
             case 's':
-                return $year + 1925;
+                return (int) $year + 1925;
             case 'h':
-                return $year + 1988;
+                return (int) $year + 1988;
             case 'r':
-                return $year + 2018;
+                return (int) $year + 2018;
             default:
                 return false;
         }
@@ -158,6 +180,9 @@ class BcTimeHelper extends TimeHelper
      *
      * @param string|array $date 文字列形式の日付 (例: '2018/05/28')、または配列形式の和暦データ
      * @return array|string 配列形式の和暦データ、または日付フォーマットが正しくない場合は空文字
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function convertToWarekiArray($date)
     {
@@ -217,6 +242,8 @@ class BcTimeHelper extends TimeHelper
      *
      * @param string $date 日付
      * @return string 和暦データ
+     * @checked
+     * @noTodo
      */
     public function convertToWareki($date)
     {
@@ -248,6 +275,9 @@ class BcTimeHelper extends TimeHelper
      *
      * @param string $strDate 日時
      * @return mixed 分/null
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function minutes($strDate)
     {
@@ -266,11 +296,18 @@ class BcTimeHelper extends TimeHelper
      * @param array $format
      * @param string $date String Datetime string
      * @param boolean $invalid flag to ignore results of fromString == false
-     * @param int $userOffset User's offset from GMT (in hours)
+     * @param int $timezone User's timezone string or DateTimeZone
      * @return string Formatted date string
+     * @checked
+     * @noTodo
+     * @unitTest
      */
-    public function format($date = null, $format = 'yyyy-MM-dd', $invalid = false, $userOffset = null)
-    {
+    public function format(
+        ChronosDate|DateTimeInterface|string|int|null $date,
+        array|string|int|null $format = null,
+        string|false $invalid = false,
+        DateTimeZone|string|null $timezone = null
+    ): string|int|false {
         if ($format === 'Y-m-d') {
             $format = 'yyyy-MM-dd';
         } elseif ($format === 'Y/m/d') {
@@ -281,7 +318,17 @@ class BcTimeHelper extends TimeHelper
         if ($date !== "00:00:00" && (!$date || $date == '0000-00-00 00:00:00')) {
             return "";
         }
-        return parent::format($date, $format, $invalid, $userOffset);
+        try {
+            return parent::format($date, $format, $invalid, $timezone);
+        } catch (\Throwable $e) {
+            $message = $e->getMessage();
+            $this->getView()->log($message);
+            if(Configure::read('debug')) {
+                return $message;
+            } else {
+                return '';
+            }
+        }
     }
 
     /**
@@ -292,6 +339,9 @@ class BcTimeHelper extends TimeHelper
      * @param string $date 日付
      * @param int $days 経過日数
      * @return boolean 経過有無
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function pastDays($date, $days, $now = null)
     {
@@ -317,8 +367,11 @@ class BcTimeHelper extends TimeHelper
      * - 文字列で、strtotime関数で解析可能な場合は解析された日付の曜日
      *
      * @param string $dataStr (null|string) 日付文字列 "+1 day" / "yyyy/MM/DD"など
-     * @param type $suffix 接尾語(曜日 など)
+     * @param string $suffix 接尾語(曜日 など)
      * @return string 曜日 | 空白
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function getJpWeek($dateStr = null, $suffix = '')
     {
@@ -343,12 +396,14 @@ class BcTimeHelper extends TimeHelper
      *
      * @param string $dateStr getJpWeek参照
      * @param string $suffix getJpWeek参照
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function jpWeek($dateStr = null, $suffix = '')
     {
         echo $this->getJpWeek($dateStr, $suffix);
     }
-
 
 // <<<
 }

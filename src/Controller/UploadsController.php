@@ -11,8 +11,8 @@
 
 namespace BaserCore\Controller;
 
+use BaserCore\Utility\BcFile;
 use Cake\Core\Configure;
-use Cake\Filesystem\File;
 use BaserCore\Utility\BcUtil;
 use BaserCore\Vendor\Imageresizer;
 use BaserCore\Annotation\NoTodo;
@@ -29,6 +29,8 @@ class UploadsController extends AppController
      * セッションに保存した一時ファイルを出力する
      * @param string $name
      * @return \Cake\Http\Response
+     * @checked
+     * @noTodo
      */
     public function tmp()
     {
@@ -84,9 +86,9 @@ class UploadsController extends AppController
             }
 
             $path = TMP . 'uploads' . DS . $name;
-            $file = new File($path, true);
+            $file = new BcFile($path);
+            $file->create();
             $file->write(base64_decode($session->read('Upload.' . $sessioName . '.data'), 'wb'));
-            $file->close();
 
             $thumb = false;
 

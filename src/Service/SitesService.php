@@ -11,6 +11,7 @@
 
 namespace BaserCore\Service;
 
+use BaserCore\Error\BcException;
 use BaserCore\Model\Entity\Content;
 use BaserCore\Model\Entity\Site;
 use BaserCore\Model\Table\SitesTable;
@@ -18,6 +19,7 @@ use BaserCore\Utility\BcUtil;
 use Cake\Core\Configure;
 use Cake\Core\Exception\Exception;
 use Cake\ORM\Query;
+use Cake\ORM\Table;
 use Cake\ORM\TableRegistry;
 use Cake\Datasource\EntityInterface;
 use BaserCore\Annotation\UnitTest;
@@ -35,7 +37,7 @@ class SitesService implements SitesServiceInterface
      * Sites Table
      * @var SitesTable
      */
-    public $Sites;
+    public SitesTable|Table $Sites;
 
     /**
      * SitesService constructor.
@@ -96,10 +98,10 @@ class SitesService implements SitesServiceInterface
             $query->limit($queryParams['limit']);
         }
         if (!empty($queryParams['name'])) {
-            $query->where(['name LIKE' => '%' . $queryParams['name'] . '%']);
+            $query->where(['Sites.name LIKE' => '%' . $queryParams['name'] . '%']);
         }
         if (isset($queryParams['status'])) {
-            $query->where(['status' => $queryParams['status']]);
+            $query->where(['Sites.status' => $queryParams['status']]);
         }
         return $query;
     }
@@ -183,7 +185,7 @@ class SitesService implements SitesServiceInterface
     {
         $site = $this->get($id);
         if(!$site->main_site_id) {
-            throw new Exception(__d('baser_core', 'メインサイトは削除できません。'));
+            throw new BcException(__d('baser_core', 'メインサイトは削除できません。'));
         }
         return $this->Sites->delete($site);
     }
@@ -348,7 +350,7 @@ class SitesService implements SitesServiceInterface
 		}
 
         /* @var Content $content */
-        $content = $this->Sites->Contents->get($contentId, ['contain' => ['Sites']]);
+        $content = $this->Sites->Contents->get($contentId, contain: ['Sites']);
         $isMainSite = $this->Sites->isMain($content->site->id);
         $fields = ['id', 'name', 'alias', 'display_name', 'main_site_id'];
         $conditions = ['Sites.status' => true];
@@ -368,7 +370,7 @@ class SitesService implements SitesServiceInterface
             }
             $mainSiteContentId = $content->main_site_content_id ?? $content->id;
         }
-        $sites = $this->Sites->find()->select($fields)->where($conditions)->order('main_site_id')->toArray();
+        $sites = $this->Sites->find()->select($fields)->where($conditions)->orderBy('main_site_id')->toArray();
         $conditions = [
             'or' => [
                 ['Contents.id' => $mainSiteContentId],

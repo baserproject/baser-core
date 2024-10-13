@@ -66,7 +66,7 @@ return [
      * エラー構成
      */
     'Error' => [
-        'errorLevel' => E_ALL & ~E_USER_DEPRECATED,
+        'errorLevel' => E_ALL,
         'exceptionRenderer' => BcExceptionRenderer::class,
     ],
 
@@ -128,7 +128,7 @@ return [
      */
     'Session' => [
         'defaults' => 'cake',
-        'cookie' => 'BASERCMS5',
+        'cookie' => 'BASERCMS',
         /**
          * セッションの有効期限（分）
          * デフォルト：2日間
@@ -158,10 +158,6 @@ return [
          */
         'siteUrl' => env('SITE_URL', 'https://localhost/'),
         /**
-         * SSL URL
-         */
-        'sslUrl' => env('SSL_URL', 'https://localhost/'),
-        /**
          * CMS URL
          * CMSのURLが別ドメインの場合に設定する
          */
@@ -173,7 +169,16 @@ return [
         /**
          * 現在のリクエストのホスト
          */
-        'host' => (isset($_SERVER['HTTP_HOST']))? $_SERVER['HTTP_HOST'] : null
+        'host' => (isset($_SERVER['HTTP_HOST']))? $_SERVER['HTTP_HOST'] : null,
+        /**
+         * インストール済かどうか
+         *
+         * BaserCorePlugin::bootstrap() で設定する
+         * bootstrap の方が呼び出し順が早いため、こちらで設定すると再初期化となってしまうため
+         * コメントアウトのままとする
+         * ここで別途判定を入れた場合ユニットテストがやりにくくなるのでそのままにしておく
+         */
+        // 'isInstalled' => null,
     ],
 
     /**
@@ -278,6 +283,7 @@ return [
             'BcMail',
             'BcThemeConfig',
             'BcWidgetArea',
+            'BcUploader',
         ],
 
         /**
@@ -287,9 +293,9 @@ return [
 
         /**
          * インストール時に composer.json にセットするバージョン
-         * @see \BaserCore\Command\CreateReleaseCommand::setupComposer()
+         * @see \BaserCore\Utility\BcComposer::setupComposerForDistribution()
          */
-        'setupVersion' => '5.*.*',
+        'setupVersion' => '5.1.*',
 
         /**
          * リリースパッケージに不要なファイル
@@ -323,9 +329,9 @@ return [
         'passwordRequestAllowTime' => 1440,
 
         /**
-         * 管理画面のSSL
+         * 二段階認証コードの有効時間(min)
          */
-        'adminSsl' => filter_var(env('ADMIN_SSL', true), FILTER_VALIDATE_BOOLEAN),
+        'twoFactorAuthenticationCodeAllowTime' => 10,
 
         /**
          * エディタ
@@ -339,7 +345,36 @@ return [
          * 予約語
          * 主にDBの予約語としてテーブルのフィールドで利用できない名称
          */
-        'reservedWords' => ['group', 'rows', 'option'],
+        'reservedWords' => ["accessible", "add", "all", "alter", "analyze", "and", "array", "as", "asc", "asensitive",
+            "before", "between", "bigint", "binary", "blob", "both", "by", "call", "cascade", "case", "change", "char",
+            "character", "check", "collate", "column", "condition", "constraint", "continue", "convert", "create",
+            "cross", "cube", "cume_dist", "current_date", "current_time", "current_timestamp", "current_user",
+            "cursor", "database", "databases", "day_hour", "day_microsecond", "day_minute", "day_second",
+            "dec", "decimal", "declare", "default", "delayed", "delete", "dense_rank", "desc", "describe",
+            "deterministic", "distinct", "distinctrow", "div", "double", "drop", "dual", "each", "else",
+            "elseif", "empty", "enclosed", "escaped", "except", "exists", "exit", "explain", "false", "fetch",
+            "first_value", "float", "float4", "float8", "for", "force", "foreign", "from", "fulltext", "function",
+            "generated", "get", "grant", "group", "grouping", "groups", "having", "high_priority", "hour_microsecond",
+            "hour_minute", "hour_second", "if", "ignore", "in", "index", "infilex", "inner", "inout", "insensitive",
+            "insert", "int", "int1", "int2", "int3", "int4", "int8", "integer", "interval", "into", "io_after_gtids",
+            "io_before_gtids", "is", "iterate", "join", "json_table", "key", "keys", "kill", "lag", "last_value",
+            "lateral", "lead", "leading", "leave", "left", "like", "limit", "linear", "lines", "load", "localtime",
+            "localtimestamp", "lock", "long", "longblob", "longtext", "loop", "low_priority", "master", "master_bind",
+            "master_ssl_verify_server_cert", "match", "maxvalue", "mediumblob", "mediumint", "mediumtext", "member",
+            "middleint", "minute_microsecond", "minute_second", "mod", "modifies", "natural", "not",
+            "no_write_to_binlog", "nth_value", "ntile", "null", "numeric", "of", "on", "optimize", "optimizer_costs",
+            "option", "optionally", "or", "order", "out", "outer", "outfile", "over", "partition", "percent_rank",
+            "precision", "primary", "procedure", "purge", "range", "rank", "read", "reads", "read_write", "real",
+            "recursive", "references", "regexp", "release", "rename", "repeat", "replace", "require", "resignal",
+            "restrict", "return", "revoke", "right", "rlike", "row", "rows", "row_number", "schema", "schemas",
+            "second_microsecond", "select", "sensitive", "separator", "set", "show", "signal", "smallint", "spatial",
+            "specific", "sql", "sqlexception", "sqlstate", "sqlwarning", "sql_big_result", "sql_calc_found_rows",
+            "sql_small_result", "ssl", "starting", "stored", "straight_join", "system", "table", "terminated", "then",
+            "tinyblob", "tinyint", "tinytext", "to", "trailing", "trigger", "true", "undo", "union", "unique",
+            "unlock", "unsigned", "update", "usage", "use", "using", "utc_date", "utc_time", "utc_timestamp", "values",
+            "varbinary", "varchar", "varcharacter", "varying", "virtual", "when", "where", "while", "window", "with",
+            "write", "xor", "year_month", "zerofill"
+        ],
 
         /**
          * システムメッセージの言語につてサイト設定を利用する
@@ -349,9 +384,9 @@ return [
         'systemMessageLangFromSiteSetting' => true,
 
         /**
-         * Web API のPOST送信において CSRF をスキップするURL
+         * POST送信において CSRF をスキップするURL
          */
-        'skipCsrfUrlInPostApi' => [
+        'skipCsrfUrl' => [
             ['plugin' => 'BaserCore', 'controller' => 'Users', 'action' => 'login', '_ext' => 'json'],
             ['plugin' => 'BaserCore', 'controller' => 'Users', 'action' => 'refresh_token', '_ext' => 'json'],
         ],
@@ -506,7 +541,26 @@ return [
                     ]
                 ]
             ]
-        ]
+        ],
+
+        /*
+         * パスワードの設定ルール
+         */
+        'passwordRule' => [
+            // 最小文字数
+            'minLength' => 12,
+            // 入力必須な文字種
+            'requiredCharacterTypes' => [
+                // 数字
+                'numeric',
+                // 大文字英字
+                'uppercase',
+                // 小文字英字
+                'lowercase',
+                // 記号
+                // 'symbol',
+            ],
+        ],
     ],
 
     /**
@@ -516,11 +570,13 @@ return [
         'defaultAllows' => [
             '/baser/admin',
             '/baser/admin/baser-core/users/login',
+            '/baser/admin/baser-core/users/login_code',
             '/baser/admin/baser-core/users/logout',
             '/baser/admin/baser-core/password_requests/*',
             '/baser/admin/baser-core/dashboard/*',
             '/baser/admin/baser-core/dblogs/*',
             '/baser/admin/baser-core/users/back_agent',
+            '/baser/admin/baser-core/users/edit_password',
             '/baser/admin/baser-core/preview/*',
             '/baser/admin/baser-core/utilities/credit',
             '/',
@@ -530,21 +586,6 @@ return [
             '/baser/api/admin/baser-core/users/login.json',
             '/baser/api/admin/baser-core/users/refresh_token.json'
         ]
-    ],
-
-    /**
-     * リクエスト情報
-     */
-    'BcRequest' => [
-        // アセットファイルかどうか
-        'asset' => false,
-        // Router がロード済かどうか
-        // TODO 不要か確認
-        'routerLoaded' => false,
-        // アップデーターかどうか
-        'isUpdater' => false,
-        // メンテナンスかどうか
-        'isMaintenance' => false,
     ],
 
     /**
@@ -657,11 +698,9 @@ return [
         // baserCMSオフィシャルニュース
         'baserNewsRss' => 'https://basercms.net/news/index.rss',
         // インストールマニュアル
-        // TODO ucmitz リンク先を準備した上で変更要
-        'installManual' => 'https://wiki.basercms.net/%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB%E3%82%AC%E3%82%A4%E3%83%89',
+        'installManual' => 'https://baserproject.github.io/5/introduce/',
         // アップデートマニュアル
-        // TODO ucmitz リンク先を準備した上で変更要
-        'updateManual' => 'https://wiki.basercms.net/%E3%83%90%E3%83%BC%E3%82%B8%E3%83%A7%E3%83%B3%E3%82%A2%E3%83%83%E3%83%97%E3%82%AC%E3%82%A4%E3%83%89'
+        'updateManual' => 'https://baserproject.github.io/5/operation/update'
     ],
 
     /**

@@ -37,7 +37,22 @@ class SiteFactory extends CakephpBaseFactory
         $this->setDefaultData(function (Generator $faker) {
             return [
                 'name' => $faker->text(50),
-                'title' => $faker->text(50)
+                'title' => $faker->text(50),
+                'main_site_id' => null,
+                'display_name' => $faker->text(5),
+                'alias' => null,
+                'theme' => 'BcThemeSample',
+                'status' => true,
+                'keyword' => implode(',', [$faker->text(5), $faker->text(5), $faker->text(5)]),
+                'description' => $faker->text(100),
+                'use_subdomain' => false,
+                'relate_main_site' => false,
+                'device' => null,
+                'lang' => null,
+                'same_main_url' => false,
+                'auto_redirect' => false,
+                'auto_link' => false,
+                'domain_type' => null,
             ];
         });
     }
@@ -49,6 +64,8 @@ class SiteFactory extends CakephpBaseFactory
     public function main(): SiteFactory
     {
         return $this->setField('id', 1)
+            ->setField('name', '')
+            ->setField('display_name', 'メインサイト')
             ->setField('theme', 'BcFront')
             ->setField('status', true);
     }
@@ -72,6 +89,7 @@ class SiteFactory extends CakephpBaseFactory
             ->setField('auto_redirect', true)
             ->setField('auto_link', true)
             ->setField('theme', 'BcFront')
+            ->setField('status', true)
             ->setField('domain_type', null);
     }
 
@@ -93,6 +111,7 @@ class SiteFactory extends CakephpBaseFactory
             ->setField('same_main_url', false)
             ->setField('auto_redirect', true)
             ->setField('auto_link', false)
+            ->setField('status', true)
             ->setField('domain_type', null);
     }
 
@@ -114,6 +133,7 @@ class SiteFactory extends CakephpBaseFactory
             ->setField('auto_redirect', false)
             ->setField('auto_link', false)
             ->setField('use_subdomain', true)
+            ->setField('status', true)
             ->setField('domain_type', 2);
     }
 
@@ -135,6 +155,7 @@ class SiteFactory extends CakephpBaseFactory
             ->setField('auto_redirect', false)
             ->setField('auto_link', false)
             ->setField('use_subdomain', true)
+            ->setField('status', true)
             ->setField('domain_type', 1);
     }
 

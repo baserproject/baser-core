@@ -11,12 +11,15 @@
 
 namespace BaserCore\Test\TestCase\Controller\Api;
 
-use BaserCore\Controller\Api\ContentsController;
-use BaserCore\Test\Factory\PageFactory;
-use BcBlog\Test\Factory\BlogContentFactory;
+use BaserCore\Test\Scenario\ContentFoldersScenario;
+use BaserCore\Test\Scenario\ContentsScenario;
+use BaserCore\Test\Scenario\InitAppScenario;
+use BaserCore\Test\Scenario\PagesScenario;
+use BaserCore\Test\Scenario\SiteConfigsScenario;
 use Cake\Core\Configure;
 use BaserCore\Service\ContentsService;
 use Cake\TestSuite\IntegrationTestTrait;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * ContentsControllerTest
@@ -29,28 +32,7 @@ class ContentsControllerTest extends \BaserCore\TestSuite\BcTestCase
      * IntegrationTestTrait
      */
     use IntegrationTestTrait;
-
-    /**
-     * Fixtures
-     *
-     * @var array
-     */
-    public $fixtures = [
-        'plugin.BaserCore.Users',
-        'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.UsersUserGroups',
-        'plugin.BaserCore.Contents',
-        'plugin.BaserCore.ContentFolders',
-        'plugin.BaserCore.Sites',
-        'plugin.BaserCore.SiteConfigs',
-        'plugin.BaserCore.Pages',
-        'plugin.BaserCore.Service/SearchIndexesService/ContentsReconstruct',
-        'plugin.BaserCore.Service/SearchIndexesService/PagesReconstruct',
-        'plugin.BaserCore.Service/SearchIndexesService/ContentFoldersReconstruct',
-        'plugin.BcBlog.Factory/BlogContents'
-    ];
-
-    public $autoFixtures = false;
+    use ScenarioAwareTrait;
 
     /**
      * Access Token
@@ -70,17 +52,11 @@ class ContentsControllerTest extends \BaserCore\TestSuite\BcTestCase
     public function setUp(): void
     {
         parent::setUp();
-        $this->loadFixtures(
-            'Users',
-            'UserGroups',
-            'UsersUserGroups',
-            'Contents',
-            'ContentFolders',
-            'Sites',
-            'SiteConfigs',
-            'Pages',
-//            'SearchIndexes'
-        );
+        $this->loadFixtureScenario(SiteConfigsScenario::class);
+        $this->loadFixtureScenario(ContentFoldersScenario::class);
+        $this->loadFixtureScenario(ContentsScenario::class);
+        $this->loadFixtureScenario(InitAppScenario::class);
+        $this->loadFixtureScenario(PagesScenario::class);
         $token = $this->apiLoginAdmin(1);
         $this->accessToken = $token['access_token'];
         $this->refreshToken = $token['refresh_token'];
@@ -132,5 +108,103 @@ class ContentsControllerTest extends \BaserCore\TestSuite\BcTestCase
         $result = json_decode((string)$this->_response->getBody());
         $this->assertEquals(3, count($result->contents));
     }
+
+
+    /**
+     * test get_prev
+     */
+    public function test_get_prev()
+    {
+        //正常系実行
+        $this->get('/baser/api/baser-core/contents/get_prev/9.json?token=' . $this->accessToken);
+        $this->assertResponseOk();
+        $result = json_decode((string)$this->_response->getBody());
+        $this->assertEquals(6, $result->content->id);
+        //異常系実行
+        $this->get('/baser/api/baser-core/contents/get_prev/99.json?token=' . $this->accessToken);
+        $this->assertResponseError();
+        $result = json_decode((string)$this->_response->getBody());
+        $this->assertNull($result->content);
+        $this->assertEquals('データが見つかりません', $result->message);
+    }
+
+    /**
+     * test get_next
+     */
+    public function test_get_next()
+    {
+        //正常系実行
+        $this->get('/baser/api/baser-core/contents/get_next/4.json?token=' . $this->accessToken);
+        $this->assertResponseOk();
+        $result = json_decode((string)$this->_response->getBody());
+        $this->assertEquals(10, $result->content->id);
+        //異常系実行
+        $this->get('/baser/api/baser-core/contents/get_next/99.json?token=' . $this->accessToken);
+        $this->assertResponseError();
+        $result = json_decode((string)$this->_response->getBody());
+        $this->assertNull($result->content);
+        $this->assertEquals('データが見つかりません', $result->message);
+
+    }
+
+    /**
+     * test get_global_navi
+     */
+    public function test_get_global_navi()
+    {
+        //正常系実行
+        $this->get('/baser/api/baser-core/contents/get_global_navi/4.json?token=' . $this->accessToken);
+        $this->assertResponseOk();
+        $result = json_decode((string)$this->_response->getBody());
+        $this->assertCount(13, $result->contents);
+        $this->assertEquals(1, $result->contents[0]->site_id);
+        $this->assertFalse($result->contents[10]->exclude_menu);
+        //異常系実行
+        $this->get('/baser/api/baser-core/contents/get_global_navi/99.json?token=' . $this->accessToken);
+        $this->assertResponseError();
+        $result = json_decode((string)$this->_response->getBody());
+        $this->assertEquals('データが見つかりません', $result->message);
+
+    }
+
+    /**
+     * test get_crumbs
+     */
+    public function test_get_crumbs()
+    {
+        //正常系実行
+        $this->get('/baser/api/baser-core/contents/get_crumbs/11.json?token=' . $this->accessToken);
+        $this->assertResponseOk();
+        $result = json_decode((string)$this->_response->getBody());
+        $this->assertCount(3, $result->contents);
+        $this->assertEquals(1, $result->contents[0]->id);
+        $this->assertEquals(6, $result->contents[1]->id);
+        //異常系実行
+        $this->get('/baser/api/baser-core/contents/get_crumbs/99.json?token=' . $this->accessToken);
+        $this->assertResponseError();
+        $result = json_decode((string)$this->_response->getBody());
+        $this->assertEquals('データが見つかりません', $result->message);
+
+    }
+
+    /**
+     * test get_local_navi
+     */
+    public function test_get_local_navi()
+    {
+        //正常系実行
+        $this->get('/baser/api/baser-core/contents/get_local_navi/25.json?token=' . $this->accessToken);
+        $this->assertResponseOk();
+        $result = json_decode((string)$this->_response->getBody());
+        $this->assertCount(3, $result->contents);
+        $this->assertEquals(24, $result->contents[0]->parent_id);
+        //異常系実行
+        $this->get('/baser/api/baser-core/contents/get_local_navi/99.json?token=' . $this->accessToken);
+        $this->assertResponseError();
+        $result = json_decode((string)$this->_response->getBody());
+        $this->assertEquals('データが見つかりません', $result->message);
+
+    }
+
 
 }

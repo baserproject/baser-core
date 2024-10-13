@@ -12,8 +12,11 @@
 namespace BaserCore\Service;
 
 use BaserCore\Error\BcException;
+use BaserCore\Model\Table\ContentsTable;
+use BaserCore\Model\Table\UsersTable;
 use Cake\Http\ServerRequest;
 use Cake\ORM\Query;
+use Cake\ORM\Table;
 use Cake\ORM\TableRegistry;
 use BaserCore\Utility\BcUtil;
 use BaserCore\Model\Entity\Page;
@@ -42,7 +45,19 @@ class PagesService implements PagesServiceInterface
      * Pages Table
      * @var PagesTable
      */
-    public $Pages;
+    public PagesTable|Table $Pages;
+
+    /**
+     * Contents Table
+     * @var ContentsTable|Table
+     */
+    public ContentsTable|Table $Contents;
+
+    /**
+     * Users Table
+     * @var UsersTable|Table
+     */
+    public UsersTable|Table $Users;
 
     /**
      * Pageservice constructor.
@@ -88,6 +103,7 @@ class PagesService implements PagesServiceInterface
 				'content' => [
                     'name' => $name,
                     'title' => $title,
+                    'url' => '',
                     'type' => 'Page',
                     'plugin' => 'BaserCore',
                     'alias_id' => null,
@@ -110,10 +126,9 @@ class PagesService implements PagesServiceInterface
      */
     public function getList(): array
     {
-        return $this->Pages->find('list', [
-            'keyField' => 'id',
-            'valueField' => 'content.title'
-        ])->contain(['Contents'])->toArray();
+        return $this->Pages->find('list',
+        keyField: 'id',
+        valueField: 'content.title')->contain(['Contents'])->toArray();
     }
 
     /**
@@ -132,16 +147,15 @@ class PagesService implements PagesServiceInterface
         $options = array_merge([
             'status' => '',
             'contain' => ['Contents' => ['Sites']],
-            'draft' => false
+            'draft' => null
         ], $options);
         $conditions = [];
         if ($options['status'] === 'publish') {
             $conditions = $this->Pages->Contents->getConditionAllowPublish();
         }
-        $entity = $this->Pages->get($id, [
-            'contain' => $options['contain'],
-            'conditions' => $conditions,
-        ]);
+        $entity = $this->Pages->get($id,
+        contain: $options['contain'],
+        conditions: $conditions);
         if($options['draft'] === false) {
             unset($entity->draft);
         }
@@ -210,15 +224,21 @@ class PagesService implements PagesServiceInterface
      * @param Query $query
      * @param array $options
      * @return Query
+     * @checked
+     * @noTodo
      */
     protected function createIndexConditions(Query $query, $options = [])
     {
+        $options = array_merge([
+            'status' => null
+        ], $options);
+
         $conditions = [];
         if ($options['status'] === 'publish') {
             $conditions = $this->Pages->Contents->getConditionAllowPublish();
         }
         $queryList = ['contents', 'draft'];
-        foreach($options as $key => $value) {
+        foreach ($options as $key => $value) {
             if (in_array($key, $queryList)) {
                 $conditions["$key LIKE"] = '%' . $value . '%';
                 $query->where(["$key LIKE" => '%' . $value . '%']);

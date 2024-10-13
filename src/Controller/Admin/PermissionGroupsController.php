@@ -30,6 +30,10 @@ class PermissionGroupsController extends BcAdminAppController
      *
      * @param PermissionGroupsAdminService $service
      * @param int|null $userGroupId
+     *
+     * @noTodo
+     * @checked
+     * @unitTest
      */
     public function index(PermissionGroupsAdminServiceInterface $service, ?int $userGroupId = null)
     {
@@ -45,11 +49,23 @@ class PermissionGroupsController extends BcAdminAppController
             }
         }
 
+        $authPrefixes = $service->getControlSource('auth_prefix', [
+          'user_group_id' => $userGroupId,
+        ]);
+        $authPrefixes = array_keys($authPrefixes);
+
         $request = $this->getRequest();
+        $listType = $request->getQuery('list_type');
+        if (!in_array($listType, $authPrefixes)) {
+            $listType = $authPrefixes[0];
+        }
+
         $this->setRequest($request->withParsedBody([
-            'list_type' => $request->getQuery('list_type'),
+            'list_type' => $listType,
             'filter_user_group_id' => $userGroupId
         ]));
+        $request = $this->getRequest();
+
         $this->set($service->getViewVarsForIndex($userGroupId, $request));
     }
 
@@ -59,6 +75,10 @@ class PermissionGroupsController extends BcAdminAppController
      * @param PermissionGroupsAdminServiceInterface $service
      * @param int $userGroupId
      * @param int $id
+     *
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function add(PermissionGroupsAdminServiceInterface $service, int $userGroupId, string $prefix)
     {
@@ -86,6 +106,10 @@ class PermissionGroupsController extends BcAdminAppController
      * @param PermissionGroupsAdminServiceInterface $service
      * @param int $userGroupId
      * @param int $id
+     *
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function edit(PermissionGroupsAdminServiceInterface $service, int $userGroupId, int $id)
     {
@@ -111,6 +135,10 @@ class PermissionGroupsController extends BcAdminAppController
      * @param PermissionGroupsServiceInterface $service
      * @param int $id
      * @return \Cake\Http\Response|null
+     *
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function delete(PermissionGroupsServiceInterface $service, int $userGroupId, int $id)
     {
@@ -132,6 +160,10 @@ class PermissionGroupsController extends BcAdminAppController
      * @param PermissionGroupsServiceInterface $service
      * @param int $userGroupId
      * @return \Cake\Http\Response|void|null
+     *
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function rebuild_by_user_group(PermissionGroupsServiceInterface $service, int $userGroupId)
     {

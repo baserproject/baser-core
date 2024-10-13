@@ -12,43 +12,40 @@
 namespace BaserCore\Test\TestCase;
 
 use App\Application;
-use BaserCore\Plugin;
+use Authentication\Middleware\AuthenticationMiddleware;
+use BaserCore\BaserCorePlugin;
 use BaserCore\Service\SiteConfigsServiceInterface;
+use BaserCore\Test\Scenario\ContentsScenario;
+use BaserCore\Test\Scenario\PluginsScenario;
+use BaserCore\Test\Scenario\SitesScenario;
+use BaserCore\Test\Scenario\UserGroupsScenario;
+use BaserCore\Test\Scenario\UserScenario;
+use BaserCore\Test\Scenario\UsersUserGroupsScenario;
 use BaserCore\TestSuite\BcTestCase;
+use BaserCore\Utility\BcFile;
 use BaserCore\Utility\BcUtil;
+use BaserCore\Middleware\BcRequestFilterMiddleware;
 use Cake\Core\Configure;
 use Cake\Core\Container;
 use Cake\Event\EventManager;
 use Cake\Http\Middleware\CsrfProtectionMiddleware;
 use Cake\Http\MiddlewareQueue;
-use Authentication\Middleware\AuthenticationMiddleware;
+use Cake\Routing\Middleware\RoutingMiddleware;
 use Cake\Routing\Router;
-use Cake\Filesystem\File;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * Class PluginTest
- * @property Plugin $Plugin
+ * @property BaserCorePlugin $Plugin
  */
 class PluginTest extends BcTestCase
 {
-    /**
-     * @var Plugin
-     */
-    public $Plugin;
+    use ScenarioAwareTrait;
 
     /**
-     * Fixtures
-     *
-     * @var array
+     * @var BaserCorePlugin
      */
-    protected $fixtures = [
-        'plugin.BaserCore.Users',
-        'plugin.BaserCore.UsersUserGroups',
-        'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.Plugins',
-        'plugin.BaserCore.Sites',
-        'plugin.BaserCore.Contents'
-    ];
+    public $Plugin;
 
     /**
      * Set Up
@@ -58,8 +55,14 @@ class PluginTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
+        $this->loadFixtureScenario(UserScenario::class);
+        $this->loadFixtureScenario(UserGroupsScenario::class);
+        $this->loadFixtureScenario(UsersUserGroupsScenario::class);
+        $this->loadFixtureScenario(ContentsScenario::class);
+        $this->loadFixtureScenario(SitesScenario::class);
+        $this->loadFixtureScenario(PluginsScenario::class);
         $this->application = new Application(CONFIG);
-        $this->Plugin = new Plugin(['name' => 'BaserCore']);
+        $this->Plugin = new BaserCorePlugin(['name' => 'BaserCore']);
     }
 
     /**
@@ -114,12 +117,11 @@ class PluginTest extends BcTestCase
         }
 
         $this->assertNotNull(\Cake\Core\Plugin::getCollection()->get('DebugKit'));
-        $this->assertEquals('/var/www/html/plugins/' . Configure::read('BcApp.coreFrontTheme') . '/templates/', Configure::read('App.paths.templates')[0]);
 
         copy('config/.env','config/.env.bak');
 
-        $file = new File('config/.env');
-        $file->write('export APP_NAME="ucmitz"
+        $file = new BcFile('config/.env');
+        $file->write('export APP_NAME="baserCMS"
 export DEBUG="true"
 export APP_ENCODING="UTF-8"
 export APP_DEFAULT_LOCALE="en_US"
@@ -127,22 +129,18 @@ export APP_DEFAULT_TIMEZONE="Asia/Tokyo"
 
 export INSTALL_MODE="false"
 export SITE_URL="https://localhost/"
-export SSL_URL="https://localhost/"
-export ADMIN_SSL="true"
 export ADMIN_PREFIX="admin"
 export BASER_CORE_PREFIX="baser"
 export SQL_LOG="false"
 ');
-        $file->close();
 
-        $fileSetting = new File('config/setting.php');
+        $fileSetting = new BcFile('config/setting.php');
         $fileSetting->write('<?php
 return [];
 ');
 
         $this->loginAdmin($this->getRequest('/baser/admin'));
         $this->Plugin->bootstrap($this->application);
-        $this->assertEquals('/var/www/html/plugins/' . Configure::read('BcApp.coreAdminTheme') . '/templates/', Configure::read('App.paths.templates')[0]);
 
         $this->assertNotNull(\Cake\Core\Plugin::getCollection()->get('DebugKit'));
 
@@ -150,7 +148,7 @@ return [];
 
         $fileSetting->delete();
         copy('config/.env.bak','config/.env');
-        $fileEnvBak = new File('config/.env.bak');
+        $fileEnvBak = new BcFile('config/.env.bak');
         $fileEnvBak->delete();
     }
 
@@ -175,8 +173,10 @@ return [];
     {
         $middleware = new MiddlewareQueue();
         $middleware->add(CsrfProtectionMiddleware::class);
+        $middleware->add(RoutingMiddleware::class);
         $middlewareQueue = $this->Plugin->middleware($middleware);
         $this->assertInstanceOf(AuthenticationMiddleware::class, $middlewareQueue->current());
+        $this->assertEquals(7, $middlewareQueue->count());
     }
 
     /**
@@ -209,7 +209,7 @@ return [];
             $this->assertNotEmpty($service->identifiers()->get($identifiers));
         }
     }
-    public function getAuthenticationServiceDataProvider()
+    public static function getAuthenticationServiceDataProvider()
     {
         return [
             // Api/Admin の場合

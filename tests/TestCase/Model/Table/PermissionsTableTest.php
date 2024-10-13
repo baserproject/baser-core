@@ -11,8 +11,10 @@
 
 namespace BaserCore\Test\TestCase\Model\Table;
 
+use BaserCore\Test\Scenario\PermissionsScenario;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Model\Table\PermissionsTable;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * BaserCore\Model\Table\PermissionsTable Test Case
@@ -30,16 +32,9 @@ class PermissionsTableTest extends BcTestCase
     public $Permissions;
 
     /**
-     * Fixtures
-     *
-     * @var array
+     * ScenarioAwareTrait
      */
-    protected $fixtures = [
-        'plugin.BaserCore.Permissions',
-        'plugin.BaserCore.Users',
-        'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.UsersUserGroups',
-    ];
+    use ScenarioAwareTrait;
 
         /**
      * Set Up
@@ -87,22 +82,27 @@ class PermissionsTableTest extends BcTestCase
         $permission = $this->Permissions->newEntity($fields);
         $this->assertSame($messages, $permission->getErrors());
     }
-    public function validationDefaultDataProvider()
+    public static function validationDefaultDataProvider()
     {
         $maxName = str_repeat("a", 255);
         $maxUrl = '/' . str_repeat("a", 254);
 
         return [
+            // 正常
+            [
+                [
+                    'name' => 'test',
+                    'user_group_id' => '1',
+                    'url' => '/test'
+                ], []
+            ],
             // 空の場合
             [
-                // フィールド
                 [
                     'name' => '',
                     'user_group_id' => '',
                     'url' => ''
-                ],
-                // エラーメッセージ
-                [
+                ], [
                     'name' => ['_empty' => '設定名を入力してください。'],
                     'user_group_id' => ['_empty' => 'ユーザーグループを選択してください。'],
                     'url' => ['_empty' => '設定URLを入力してください。'],
@@ -110,17 +110,50 @@ class PermissionsTableTest extends BcTestCase
             ],
             // 文字数が超過する場合&&user_group_idフィールドが存在しない場合&&checkUrl失敗
             [
-                // フィールド
                 [
                     'name' => $maxName . 'a',
                     'url' => $maxUrl . 'a'
-                ],
-                // エラーメッセージ
-                [
+                ], [
                     'name' => ['maxLength' => '設定名は255文字以内で入力してください。'],
                     'user_group_id' => ['_required' => 'This field is required'],
                     'url' => [
                         'maxLength' => '設定URLは255文字以内で入力してください。'
+                    ],
+                ]
+            ],
+            // URL形式正常
+            [
+                [
+                    'name' => 'test',
+                    'user_group_id' => '1',
+                    'url' => '/baser/admin/baser-core/users/edit/{loginUserId}'
+                ], []
+            ], [
+                [
+                    'name' => 'test',
+                    'user_group_id' => '1',
+                    'url' => '/baser/api/admin/baser-core/contents/view/*.json'
+                ], []
+            ],
+            // URL形式異常
+            [
+                [
+                    'name' => 'test',
+                    'user_group_id' => '1',
+                    'url' => 'test'
+                ], [
+                    'url' => [
+                        'regex' => '設定URLはスラッシュから始まるURLを入力してください。'
+                    ],
+                ]
+            ], [
+                [
+                    'name' => 'test',
+                    'user_group_id' => '1',
+                    'url' => '/test?test=1'
+                ], [
+                    'url' => [
+                        'nameAlphaNumericPlus' => '設定URLに使用できない文字列が含まれています。',
                     ],
                 ]
             ],
@@ -213,7 +246,7 @@ class PermissionsTableTest extends BcTestCase
         $this->assertEquals($expected, $result->url, $message);
     }
 
-    public function beforeSaveDataProvider()
+    public static function beforeSaveDataProvider()
     {
         return [
             ['hoge', '/hoge', 'urlが絶対パスになっていません'],
@@ -232,12 +265,13 @@ class PermissionsTableTest extends BcTestCase
      */
     public function testCopy($id, $data, $expected, $message = null)
     {
+        $this->loadFixtureScenario(PermissionsScenario::class);
         $record = $this->Permissions->copy($id, $data);
         $result = $expected ? $record->name : $record;
         $this->assertEquals($expected, $result, $message);
     }
 
-    public function copyDataProvider()
+    public static function copyDataProvider()
     {
         return [
             // id指定の場合
@@ -273,6 +307,7 @@ class PermissionsTableTest extends BcTestCase
      */
     public function testGetTargetPermissionsAndSetTargetPermissions(): void
     {
+        $this->loadFixtureScenario(PermissionsScenario::class);
         $this->Permissions->setTargetPermissions([2, 3]);
         $data = $this->Permissions->getTargetPermissions([2, 3]);
         $this->assertNotEmpty($data[2]);

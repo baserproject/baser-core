@@ -14,6 +14,7 @@ namespace BaserCore\Service;
 
 use BaserCore\Model\Table\SitesTable;
 use Cake\ORM\Query;
+use Cake\ORM\Table;
 use Cake\ORM\TableRegistry;
 use BaserCore\Utility\BcUtil;
 use BaserCore\Model\Entity\Site;
@@ -44,13 +45,13 @@ class ContentFoldersService implements ContentFoldersServiceInterface
      * ContentFolders Table
      * @var ContentFoldersTable
      */
-    public $ContentFolders;
+    public ContentFoldersTable|Table $ContentFolders;
 
     /**
      * ContentFolders Table
      * @var ContentsTable
      */
-    public $Contents;
+    public ContentsTable|Table $Contents;
 
     /**
      * ContentFoldersService constructor.
@@ -88,10 +89,9 @@ class ContentFoldersService implements ContentFoldersServiceInterface
      */
     public function getList(): array
     {
-        return $this->ContentFolders->find('list', [
-            'keyField' => 'id',
-            'valueField' => 'content.title'
-        ])->contain(['Contents'])->toArray();
+        return $this->ContentFolders->find('list',
+        keyField: 'id',
+        valueField: 'content.title')->contain(['Contents'])->toArray();
     }
 
     /**
@@ -113,10 +113,9 @@ class ContentFoldersService implements ContentFoldersServiceInterface
         if ($queryParams['status'] === 'publish') {
             $conditions = $this->ContentFolders->Contents->getConditionAllowPublish();
         }
-        return $this->ContentFolders->get($id, [
-            'contain' => $queryParams['contain'],
-            'conditions' => $conditions
-        ]);
+        return $this->ContentFolders->get($id,
+        contain: $queryParams['contain'],
+        conditions: $conditions);
     }
 
     /**
@@ -167,6 +166,8 @@ class ContentFoldersService implements ContentFoldersServiceInterface
                 ->select($fields)
                 ->where($this->ContentFolders->Contents->getConditionAllowPublish());
         } else {
+            if (is_null($options['contain']))
+                $options['contain'] = [];
             $query = $this->ContentFolders->find()->contain($options['contain']);
         }
 
@@ -245,11 +246,10 @@ class ContentFoldersService implements ContentFoldersServiceInterface
      * @noTodo
      * @unitTest
      */
-    public function getFolderTemplateList($contentId, $plugins)
+    public function getFolderTemplateList(int $contentId, array|string $theme)
     {
-        $folderTemplates = BcUtil::getTemplateList('ContentFolders', $plugins);
-
-        if ($contentId != 1) {
+        $folderTemplates = BcUtil::getTemplateList('ContentFolders', $theme);
+        if ($contentId !== 1) {
             $parentTemplate = $this->getParentTemplate($contentId, 'folder');
             $searchKey = array_search($parentTemplate, $folderTemplates);
             if ($searchKey !== false) {
@@ -272,7 +272,7 @@ class ContentFoldersService implements ContentFoldersServiceInterface
      */
     public function getParentTemplate($id, $type)
     {
-        $contents = $this->Contents->find('path', ['for' => $id])->all()->toArray();
+        $contents = $this->Contents->find('path', for: $id)->all()->toArray();
         $contents = array_reverse($contents);
         unset($contents[0]);
         // 配列の場合一番上のものからコンテンツフォルダーを取得する
@@ -300,8 +300,7 @@ class ContentFoldersService implements ContentFoldersServiceInterface
      */
     public function saveSiteRoot($site, $isUpdateChildrenUrl = false)
     {
-        if ($site->id === 1) return false;
-        $rootContentId = 1;
+        $rootContentId = ($site->id === 1) ? null : 1;
         if($site->main_site_id) {
             /* @var SitesTable $sitesTable */
             $sitesTable = TableRegistry::getTableLocator()->get('BaserCore.Sites');
@@ -320,6 +319,8 @@ class ContentFoldersService implements ContentFoldersServiceInterface
                     'author_id' => BcUtil::loginUser()['id'],
                     'site_root' => true,
                     'layout_template' => 'default',
+                    'description' => $site->description,
+                    'created_date' => date('Y-m-d H:i:s'),
                 ]
             ];
             $contentFolder = $this->create($data);
@@ -333,6 +334,7 @@ class ContentFoldersService implements ContentFoldersServiceInterface
                     'parent_id' => $rootContentId,
                     'title' => $site->display_name,
                     'self_status' => $site->status,
+                    'description' => $site->description,
                 ]
             ];
             $contentFolder = $this->update($contentFolder, $data);

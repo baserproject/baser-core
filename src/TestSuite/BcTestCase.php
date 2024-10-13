@@ -17,33 +17,36 @@ use BaserCore\Plugin;
 use BaserCore\Service\BcDatabaseService;
 use BaserCore\Utility\BcApiUtil;
 use BaserCore\Utility\BcContainerTrait;
+use BaserCore\Utility\BcFolder;
 use BaserCore\Utility\BcUtil;
 use BcBlog\ServiceProvider\BcBlogServiceProvider;
 use BcContentLink\ServiceProvider\BcContentLinkServiceProvider;
+use BcCustomContent\ServiceProvider\BcCustomContentServiceProvider;
 use BcInstaller\ServiceProvider\BcInstallerServiceProvider;
 use BcMail\ServiceProvider\BcMailServiceProvider;
 use BcSearchIndex\ServiceProvider\BcSearchIndexServiceProvider;
+use BcThemeConfig\ServiceProvider\BcThemeConfigServiceProvider;
+use BcThemeFile\ServiceProvider\BcThemeFileServiceProvider;
+use BcUploader\ServiceProvider\BcUploaderServiceProvider;
 use BcWidgetArea\ServiceProvider\BcWidgetAreaServiceProvider;
 use Cake\Core\Configure;
 use Cake\Datasource\ConnectionManager;
 use Cake\Event\EventListenerInterface;
 use Cake\Event\EventManager;
-use Cake\Filesystem\Folder;
 use Cake\Http\Response;
 use Cake\Http\ServerRequest;
 use Cake\ORM\TableRegistry;
 use Cake\Routing\Router;
 use Cake\TestSuite\Fixture\FixtureInjector;
 use Cake\TestSuite\Fixture\FixtureManager;
-use Cake\TestSuite\Fixture\FixtureStrategyInterface;
-use Cake\TestSuite\Fixture\TransactionStrategy;
-use Cake\TestSuite\Fixture\TruncateStrategy;
 use Cake\TestSuite\IntegrationTestTrait;
 use Cake\TestSuite\TestCase;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
 use Cake\Utility\Inflector;
+use CakephpTestSuiteLight\Fixture\TruncateDirtyTables;
+use Couchbase\LookupGetSpec;
 use ReflectionClass;
 use BaserCore\Utility\BcContainer;
 use BaserCore\ServiceProvider\BcServiceProvider;
@@ -59,6 +62,7 @@ class BcTestCase extends TestCase
      */
     use IntegrationTestTrait;
     use BcContainerTrait;
+    use TruncateDirtyTables;
 
     /**
      * @var Application
@@ -87,24 +91,6 @@ class BcTestCase extends TestCase
     const EVENT_LAYER_HELPER = 'Helper';
 
     /**
-     * FixtureManager
-     * 古いフィクスチャーの後方互換用
-     * @var FixtureManager
-     * @deprecated 5.1.0
-     * @see setUpFixtureManager
-     */
-    public $FixtureManager;
-
-    /**
-     * FixtureInjector
-     * 古いフィクスチャーの後方互換用
-     * @var FixtureInjector
-     * @deprecated 5.1.0
-     * @see setUpFixtureManager
-     */
-    public $FixtureInjector;
-
-    /**
      * FixtureStrategy にて、TruncateStrategy を利用するかどうかを設定
      * @checked
      * @noTodo
@@ -131,58 +117,6 @@ class BcTestCase extends TestCase
     }
 
     /**
-     * getFixtureStrategy
-     * フィクスチャの削除処理の高速化を図るため、FixtureStrategy に TransactionStrategy を設定。
-     * ベースをこちらにし、 auto increment による問題が発生した場合は、個別のテストケースごとに
-     * TruncateStrategy を利用するようにする。
-     * @checked
-     * @noTodo
-     * @unitTest
-     */
-    protected function getFixtureStrategy(): FixtureStrategyInterface
-    {
-        if ($this->fixtureTruncate) {
-            return new TruncateStrategy();
-        } else {
-            return new TransactionStrategy();
-        }
-    }
-
-    /**
-     * setup FixtureManager
-     *
-     * CakePHP4系より、FixtureManagerが非推奨となったが、$this->autoFixtures = false を利用した動的フィクスチャーを
-     * 利用するために FixtureManager が必要となる。phpunit.xml.dist からは、FixtureManager の定義を除外し、
-     * 基本的に利用しない方針だが、動的フィクスチャーが必要なテストの場合にだけ利用する。
-     * 動的フィクスチャーを FixtureFactory に移管後、廃止とする
-     * @deprecated 5.1.0
-     */
-    public function setUpFixtureManager()
-    {
-        $this->FixtureManager = new FixtureManager();
-        $this->FixtureInjector = new FixtureInjector($this->FixtureManager);
-        $this->FixtureInjector->startTest($this);
-    }
-
-    /**
-     * tear down FixtureManager
-     * @deprecated 5.1.0
-     * @see setUpFixtureManager
-     * @checked
-     * @unitTest
-     * @noTodo
-     */
-    public function tearDownFixtureManager()
-    {
-        $this->FixtureInjector->endTest($this, 0);
-        $fixtures = $this->FixtureManager->loaded();
-        foreach($fixtures as $fixture) {
-            $fixture->truncate(ConnectionManager::get($fixture->connection()));
-        }
-        self::$fixtureManager = null;
-    }
-
-    /**
      * Set Up
      * @checked
      * @noTodo
@@ -194,10 +128,11 @@ class BcTestCase extends TestCase
         if(filter_var(env('SHOW_TEST_METHOD', false), FILTER_VALIDATE_BOOLEAN)) {
             $this->classMethod();
         }
-        if (!$this->autoFixtures) {
-            $this->setUpFixtureManager();
-        }
         parent::setUp();
+        // phpunit 実行時に、phpunit の実行パスが入ってしまうため調整
+        // BcUtil::baseUrl() / BcUtil::docRoot() BcUtil::siteUrl() に影響あり
+        $_SERVER['SCRIPT_NAME'] = DS . 'webroot' . DS . 'index.php';
+        $_SERVER['SCRIPT_FILENAME'] = ROOT . DS . 'webroot' . DS . 'index.php';
         $this->Application = new Application(CONFIG);
         $this->Application->bootstrap();
         $this->Application->getContainer();
@@ -214,15 +149,21 @@ class BcTestCase extends TestCase
         $container->addServiceProvider(new BcInstallerServiceProvider());
         $container->addServiceProvider(new BcMailServiceProvider());
         $container->addServiceProvider(new BcWidgetAreaServiceProvider());
+        $container->addServiceProvider(new BcThemeFileServiceProvider());
+        $container->addServiceProvider(new BcUploaderServiceProvider());
+        $container->addServiceProvider(new BcCustomContentServiceProvider());
+        $container->addServiceProvider(new BcThemeConfigServiceProvider());
         EventManager::instance(new EventManager());
     }
 
     /**
      * クラスメソッド名を取得する
+     * @checked
+     * @noTodo
      */
     public function classMethod()
     {
-        $test = $this->providedTests[0];
+        $test = $this->provides()[0];
         echo "\n" . $test->getTarget() . ' ';
         ob_end_flush();
         ob_start();
@@ -236,9 +177,6 @@ class BcTestCase extends TestCase
      */
     public function tearDown(): void
     {
-        if (!$this->autoFixtures) {
-            $this->tearDownFixtureManager();
-        }
         BcContainer::clear();
         $_FILES = [];
         parent::tearDown();
@@ -259,6 +197,7 @@ class BcTestCase extends TestCase
         $request->getSession()->start();
         $authentication = $this->BaserCore->getAuthenticationService($request);
         $request = $request->withAttribute('authentication', $authentication);
+        /* @var ServerRequest $request */
         Router::setRequest($request);
         return $request;
     }
@@ -397,8 +336,8 @@ class BcTestCase extends TestCase
      *
      * @param $events
      * @checked
-     * @unitTest
      * @noTodo
+     * @unitTest
      */
     public function attachEvent($events)
     {
@@ -411,8 +350,8 @@ class BcTestCase extends TestCase
     /**
      * イベントをリセットする
      * @checked
-     * @unitTest
      * @noTodo
+     * @unitTest
      */
     public function resetEvent()
     {
@@ -433,9 +372,10 @@ class BcTestCase extends TestCase
      */
     public static function tearDownAfterClass(): void
     {
-        $folder = new Folder();
-        $folder->chmod(LOGS, 0777);
-        $folder->chmod(TMP, 0777);
+        $folder = new BcFolder(LOGS);
+        $folder->chmod( 0777);
+        $folder = new BcFolder(TMP);
+        $folder->chmod(0777);
     }
 
     /**

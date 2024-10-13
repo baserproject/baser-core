@@ -12,8 +12,12 @@
 namespace BaserCore\Database\Migration;
 
 use BaserCore\Utility\BcUtil;
+use Cake\Datasource\ConnectionManager;
 use Migrations\AbstractSeed;
 use Phinx\Db\Table;
+use BaserCore\Annotation\NoTodo;
+use BaserCore\Annotation\Checked;
+use BaserCore\Annotation\UnitTest;
 
 /**
  * BcSeed
@@ -29,10 +33,12 @@ class BcSeed extends AbstractSeed
      * @param string $tableName
      * @param array $options
      * @return Table
+     * @checked
+     * @noTodo
      */
     public function table(string $tableName, array $options = []): Table
     {
-        $prefix = BcUtil::getCurrentDbConfig()['prefix'];
+        $prefix = ConnectionManager::get($this->input->getOption('connection'))->config()['prefix'];
         return parent::table($prefix . $tableName);
     }
 

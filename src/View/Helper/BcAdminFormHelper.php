@@ -18,6 +18,7 @@ use BaserCore\Event\BcEventDispatcherTrait;
 
 /**
  * Class BcAdminFormHelper
+ * @property BcBaserHelper $BcBaser
  */
 class BcAdminFormHelper extends BcFormHelper
 {
@@ -27,16 +28,35 @@ class BcAdminFormHelper extends BcFormHelper
     use BcEventDispatcherTrait;
 
     /**
+     * Helpers
+     * @var string[]
+     */
+    public array $helpers = [
+        'Url',
+        'Js',
+        'Html',
+        'BaserCore.BcHtml',
+        'BaserCore.BcTime',
+        'BaserCore.BcText',
+        'BaserCore.BcUpload',
+        'BaserCore.BcCkeditor',
+        'BaserCore.BcBaser'
+    ];
+
+    /**
      * control
-     * @param string $name
+     * @param string $fieldName
      * @param array $options
      * @return string
      * @checked
      * @noTodo
      * @unitTest
      */
-    public function control(string $name, array $options = []): string
+    public function control(string $fieldName, array $options = []): string
     {
+        if (empty($options['type'])) {
+            $options['type'] = $this->_inputType($fieldName, $options);
+        }
         if (!empty($options['type'])) {
             $options = array_replace_recursive([
                 'label' => false,
@@ -60,7 +80,7 @@ class BcAdminFormHelper extends BcFormHelper
                         'deleteLabel' => ['class' => 'bca-file__delete-label'],
                         'figure' => ['class' => 'bca-file__figure'],
                         'img' => ['class' => 'bca-file__img'],
-                        'figcaption' => ['class' => 'bca-file__figcaption']
+                        'figcaption' => ['class' => 'bca-file__figcaption', 'escape' => true]
                     ], $options);
                     break;
                 case 'dateTimePicker':
@@ -80,6 +100,7 @@ class BcAdminFormHelper extends BcFormHelper
                 case 'datePicker':
                 case 'tel':
                 case 'email':
+                case 'number':
                     $class = 'bca-textbox__input';
                     $containerClass = 'bca-textbox';
                     $labelClass = 'bca-textbox__label';
@@ -93,6 +114,7 @@ class BcAdminFormHelper extends BcFormHelper
                     $class = 'bca-checkbox__input';
                     $containerClass = 'bca-checkbox';
                     $labelClass = 'bca-checkbox__label';
+                    if(empty($options['label'])) $options['label'] = '';
                     break;
                 case 'multiCheckbox':
                     $class = 'bca-checkbox__input';
@@ -131,8 +153,7 @@ class BcAdminFormHelper extends BcFormHelper
 
         }
 
-        return parent::control($name, $options);
-
+        return parent::control($fieldName, $options);
     }
 
     /**
@@ -148,15 +169,30 @@ class BcAdminFormHelper extends BcFormHelper
      */
     public function postLink(string $title, $url = null, array $options = []): string
     {
-        $class = 'bca-submit-token';
+        $submitTokenClass = 'bca-submit-token';
+        $options = array_merge([
+            'forceTitle' => false,
+            'enabled' => true,
+            'class' => $submitTokenClass
+        ], $options);
+
+        $checkUrl = $this->BcBaser->getUrl($url, false, ['escape' => false]);
+        $checkUrl = preg_replace('/^' . preg_quote($this->getView()->getRequest()->getAttribute('base'), '/') . '\//', '/', $checkUrl);
+        if (!$options['enabled'] || !$this->BcBaser->isLinkEnabled($checkUrl)) {
+            if ($options['forceTitle']) {
+                return "<span>$title</span>";
+            } else {
+                return '';
+            }
+        }
         if(!empty($options['class'])) {
             $classes = explode(' ', $options['class']);
-            if(!in_array($class, $classes)) {
-                $classes[] = $class;
+            if(!in_array($submitTokenClass, $classes)) {
+                $classes[] = $submitTokenClass;
             }
             $options['class'] = implode(' ', $classes);
         } else {
-                $options['class'] = $class;
+            $options['class'] = $submitTokenClass;
         }
         return parent::postLink($title, $url, $options);
     }

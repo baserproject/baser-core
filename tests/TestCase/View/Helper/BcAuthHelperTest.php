@@ -11,10 +11,15 @@
 
 namespace BaserCore\Test\TestCase\View\Helper;
 
+use BaserCore\Test\Scenario\SitesScenario;
+use BaserCore\Test\Scenario\UserGroupsScenario;
+use BaserCore\Test\Scenario\UserScenario;
+use BaserCore\Test\Scenario\UsersUserGroupsScenario;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\View\BcAdminAppView;
 use BaserCore\View\Helper\BcAuthHelper;
 use Cake\Core\Configure;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * Class BcAuthHelperTest
@@ -23,17 +28,7 @@ use Cake\Core\Configure;
 class BcAuthHelperTest extends BcTestCase
 {
 
-    /**
-     * Fixtures
-     *
-     * @var array
-     */
-    protected $fixtures = [
-        'plugin.BaserCore.Users',
-        'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.UsersUserGroups',
-        'plugin.BaserCore.Sites',
-    ];
+    use ScenarioAwareTrait;
 
     /**
      * setUp method
@@ -43,6 +38,10 @@ class BcAuthHelperTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
+        $this->loadFixtureScenario(UserScenario::class);
+        $this->loadFixtureScenario(UserGroupsScenario::class);
+        $this->loadFixtureScenario(UsersUserGroupsScenario::class);
+        $this->loadFixtureScenario(SitesScenario::class);
         // adminの場合
         $BcAdminAppView = new BcAdminAppView();
         $BcAdminAppView->setRequest($this->getRequest()->withParam('prefix', 'Admin'));
@@ -139,10 +138,11 @@ class BcAuthHelperTest extends BcTestCase
     /**
      * Test getCurrentUserPrefixes
      * @return void
-     * @todo ucmitz getCurrentUserPrefixSettings() の実装が完了したら別パターンのテストを追加する
+     * @
      */
     public function testGetCurrentUserPrefixes()
     {
+        // TODO getCurrentUserPrefixSettings() の実装が完了したら別パターンのテストを追加する
         $this->loginAdmin($this->getRequest('/baser/admin'));
         $result = $this->BcAuth->getCurrentUserPrefixes();
         $this->assertEquals(['Admin', 'Api/Admin'], $result);
@@ -271,7 +271,7 @@ class BcAuthHelperTest extends BcTestCase
         $this->assertEquals($result, $expected);
     }
 
-    public function isAdminUserDataProvider()
+    public static function isAdminUserDataProvider()
     {
         return [
             // ログインしない場合

@@ -47,25 +47,10 @@ class PermissionGroupsServiceTest extends BcTestCase
     use BcContainerTrait;
 
     /**
-     * Fixtures
-     *
-     * @var array
-     */
-    protected $fixtures = [
-        'plugin.BaserCore.Factory/Permissions',
-        'plugin.BaserCore.Factory/PermissionGroups',
-        'plugin.BaserCore.Factory/UserGroups',
-        'plugin.BaserCore.Factory/Users',
-        'plugin.BaserCore.Factory/Sites',
-        'plugin.BaserCore.Factory/UsersUserGroups',
-    ];
-
-    /**
      * Set Up
      */
     public function setUp(): void
     {
-        $this->setFixtureTruncate();
         parent::setUp();
         $this->PermissionGroups = $this->getService(PermissionGroupsServiceInterface::class);
         $this->Permissions = $this->getService(PermissionsServiceInterface::class);
@@ -278,6 +263,15 @@ class PermissionGroupsServiceTest extends BcTestCase
         $this->PermissionGroups->deleteByUserGroup(99);
         $data2 = $this->PermissionGroups->get(1, 99);
         $this->assertCount(0, $data2->permissions);
+    }
+
+    /**
+     * test getNew
+     */
+    public function test_getNew()
+    {
+        $rs = $this->PermissionGroups->getNew('admin');
+        $this->assertEquals('admin', $rs->type);
     }
 
     /**

@@ -17,12 +17,15 @@ use BaserCore\Error\BcException;
 use BaserCore\Model\Entity\User;
 use BaserCore\Model\Table\LoginStoresTable;
 use BaserCore\Model\Table\UsersTable;
+use BaserCore\Service\SiteConfigsServiceInterface;
+use BaserCore\Utility\BcContainerTrait;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\Configure;
 use Cake\Core\Exception\Exception;
 use Cake\Http\Cookie\Cookie;
 use Cake\Http\ServerRequest;
 use Cake\ORM\Query;
+use Cake\ORM\Table;
 use Cake\ORM\TableRegistry;
 use Cake\Datasource\EntityInterface;
 use BaserCore\Annotation\UnitTest;
@@ -39,6 +42,23 @@ use Cake\Http\Response;
  */
 class UsersService implements UsersServiceInterface
 {
+
+    /**
+     * Trait
+     */
+    use BcContainerTrait;
+
+    /**
+     * Users Table
+     * @var UsersTable|Table
+     */
+    public UsersTable|Table $Users;
+
+    /**
+     * LoginStores Table
+     * @var LoginStoresTable|Table
+     */
+    public LoginStoresTable|Table $LoginStores;
 
     /**
      * UsersService constructor.
@@ -75,16 +95,16 @@ class UsersService implements UsersServiceInterface
      * ユーザーを取得する
      *
      * @param int $id
-     * @return User
+     * @return EntityInterface
      * @checked
      * @noTodo
      * @unitTest
      */
-    public function get($id): User
+    public function get($id): EntityInterface
     {
-        return $this->Users->get($id, [
-            'contain' => ['UserGroups'],
-        ]);
+        return $this->Users->get($id,
+            contain: ['UserGroups'],
+        );
     }
 
     /**
@@ -102,6 +122,9 @@ class UsersService implements UsersServiceInterface
             'contain' => ['UserGroups']
         ], $queryParams);
 
+        if (is_null($queryParams['contain']))
+            $queryParams['contain'] = [];
+
         $query = $this->Users->find()->contain($queryParams['contain']);
 
         if (!empty($queryParams['limit'])) {
@@ -115,6 +138,12 @@ class UsersService implements UsersServiceInterface
         }
         if (!empty($queryParams['name'])) {
             $query->where(['name LIKE' => '%' . $queryParams['name'] . '%']);
+        }
+        if (!empty($queryParams['real_name'])) {
+            $query->where(['OR' => [
+                ['real_name_1 LIKE' => '%' . $queryParams['real_name'] . '%'],
+                ['real_name_2 LIKE' => '%' . $queryParams['real_name'] . '%'],
+            ]]);
         }
         return $query;
     }
@@ -173,6 +202,24 @@ class UsersService implements UsersServiceInterface
             throw new BcException(__d('baser_core', '特権エラーが発生しました。'));
         }
         $user = $this->Users->patchEntity($target, $postData);
+        return $this->Users->saveOrFail($user);
+    }
+
+    /**
+     * パスワードを更新する
+     *
+     * @param EntityInterface $user
+     * @param array $postData
+     * @return EntityInterface
+     * @throws \Cake\ORM\Exception\PersistenceFailedException
+     */
+    public function updatePassword(EntityInterface $user, array $postData): ?EntityInterface
+    {
+        $user = $this->Users->patchEntity(
+            $user,
+            ['password_1' => $postData['password_1'], 'password_2' => $postData['password_2']],
+            ['validate' => 'passwordUpdate']
+        );
         return $this->Users->saveOrFail($user);
     }
 
@@ -299,7 +346,7 @@ class UsersService implements UsersServiceInterface
      */
     public function reLogin(ServerRequest $request, Response $response)
     {
-        $user = BcUtil::loginUser($request->getParam('prefix'));
+        $user = BcUtil::loginUser();
         if (!$user) {
             return false;
         }
@@ -380,6 +427,30 @@ class UsersService implements UsersServiceInterface
     }
 
     /**
+     * ユーザーのパスワード更新日時チェック
+     *
+     * @param ServerRequest $request
+     * @param EntityInterface $user
+     * @return boolean
+     */
+    public function checkPasswordModified(ServerRequest $request, EntityInterface $user)
+    {
+        $siteConfigsService = $this->getService(SiteConfigsServiceInterface::class);
+        $passwordResetDays = $siteConfigsService->getValue('password_reset_days');
+        if (!$passwordResetDays) {
+            return true;
+        }
+        if (!$user['password_modified']) {
+            return false;
+        }
+        // システム基本設定「ログインパスワードの再設定日数」で設定した日数以上パスワードが更新されていない場合
+        if ($user['password_modified']->modify('+' . $passwordResetDays . ' days') <= new DateTime()) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
      * 代理ログインを行う
      *
      * @param ServerRequest $request
@@ -391,7 +462,7 @@ class UsersService implements UsersServiceInterface
      */
     public function loginToAgent(ServerRequest $request, Response $response, $id, $referer = ''): bool
     {
-        $user = BcUtil::loginUser($request->getParam('prefix'));
+        $user = BcUtil::loginUser();
         $target = $this->get($id);
         if(!$user->isEnableLoginAgent($target)) {
             throw new BcException(__d('baser_core', '特権エラーが発生しました。'));
@@ -425,7 +496,7 @@ class UsersService implements UsersServiceInterface
         if (empty($user)) {
             throw new Exception(__d('baser_core', '対象データが見つかりません。'));
         }
-        $currentUser = BcUtil::loginUser($request->getParam('prefix'));
+        $currentUser = BcUtil::loginUser();
         $this->logout($request, $response, $currentUser->id);
         $this->login($request, $response, $user->id);
         $redirectUrl = $session->read('AuthAgent.referer') ?? Router::url(Configure::read('BcPrefixAuth.Admin.loginRedirect'));
@@ -445,7 +516,7 @@ class UsersService implements UsersServiceInterface
     public function reload(ServerRequest $request)
     {
         $prefix = BcUtil::getRequestPrefix($request);
-        $sessionUser = BcUtil::loginUser($prefix);
+        $sessionUser = BcUtil::loginUser();
         if ($sessionUser === false) {
             return true;
         }

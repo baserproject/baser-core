@@ -11,6 +11,7 @@
 
 namespace BaserCore\Utility;
 
+use Cake\Core\Configure;
 use Exception;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
@@ -19,7 +20,8 @@ use BaserCore\Annotation\Checked;
 /**
  * BcComposer
  */
-class BcComposer {
+class BcComposer
+{
 
     /**
      * cd コマンド
@@ -54,11 +56,13 @@ class BcComposer {
      *
      * @param string $php
      * @throws Exception
+     * @checked
+     * @noTodo
      */
-    public static function setup(string $php = '')
+    public static function setup(string $php = '', $dir = '')
     {
         self::checkEnv();
-        self::$cd = "cd " . ROOT . DS . ';';
+        self::$cd = ($dir)? "cd " . $dir . ';': "cd " . ROOT . DS . ';';
         self::$composerDir = ROOT . DS . 'composer' . DS;
         self::$export = "export HOME=" . self::$composerDir . ";";
         self::$php = ($php)?: 'php';
@@ -73,12 +77,14 @@ class BcComposer {
      * Composer がインストールされているかチェックする
      *
      * @throws Exception
+     * @checked
+     * @noTodo
      */
     public static function checkComposer()
     {
-        if(!file_exists(self::$composerDir . 'composer.phar')) {
+        if (!file_exists(self::$composerDir . 'composer.phar')) {
             $result = self::installComposer();
-            if(!file_exists(self::$composerDir . 'composer.phar')) {
+            if (!file_exists(self::$composerDir . 'composer.phar')) {
                 throw new Exception(__d('baser_core', 'composer がインストールできません。{0}', implode("\n", $result['out'])));
             }
             self::selfUpdate();
@@ -89,6 +95,8 @@ class BcComposer {
      * 環境チェック
      *
      * @throws Exception
+     * @checked
+     * @noTodo
      */
     public static function checkEnv()
     {
@@ -108,7 +116,7 @@ class BcComposer {
         if (!is_writable(ROOT . DS . 'logs')) {
             $error = __d('baser_core', '/logs に書き込み権限がありません。書き込み権限を与えてください。');
         }
-        if($error) {
+        if ($error) {
             throw new Exception(implode('\n', $error));
         }
     }
@@ -139,27 +147,44 @@ class BcComposer {
      * @return array
      * @checked
      * @noTodo
-     * @checked
      */
     public static function require(string $package, string $version)
     {
-        return self::execCommand("require baserproject/{$package}:{$version} --with-all-dependencies");
+        if(strpos($package, '/') === false) {
+            $package = 'baserproject/' . $package;
+        }
+        return self::execCommand("require {$package}:{$version} --with-all-dependencies --ignore-platform-req=ext-xdebug");
+    }
+
+    /**
+     * composer update 実行
+     * @return array
+     * @checked
+     * @noTodo
+     */
+    public static function update()
+    {
+        return self::execCommand('update --with-all-dependencies --ignore-platform-req=ext-xdebug');
     }
 
     /**
      * composer install 実行
      *
      * @return array
+     * @checked
+     * @noTodo
      */
     public static function install()
     {
-        return self::execCommand('install');
+        return self::execCommand('install --with-all-dependencies --ignore-platform-req=ext-xdebug');
     }
 
     /**
      * composer self-update 実行
      *
      * @return array
+     * @checked
+     * @noTodo
      */
     public static function selfUpdate()
     {
@@ -167,10 +192,21 @@ class BcComposer {
     }
 
     /**
+     * キャッシュをクリアする
+     * @return array
+     */
+    public static function clearCache()
+    {
+        return self::execCommand('clear-cache');
+    }
+
+    /**
      * コマンド実行
      *
      * @param string $command
      * @return array
+     * @checked
+     * @noTodo
      */
     public static function execCommand(string $command)
     {
@@ -187,10 +223,34 @@ class BcComposer {
      *
      * @param string $command
      * @return string
+     * @checked
+     * @noTodo
      */
     public static function createCommand(string $command)
     {
-        return  self::$cd . ' ' . self::$export . ' ' . self::$php . ' ' . self::$composerDir . 'composer.phar ' . $command . ' 2>&1';
+        return self::$cd . ' ' . self::$export . ' echo y | ' . self::$php . ' ' . self::$composerDir . 'composer.phar ' . $command . ' 2>&1';
+    }
+
+    /**
+     * 配布用に composer.json をセットアップする
+     * @param string $packagePath
+     * @return void
+     * @noTodo
+     * @checked
+     * @unitTest
+     */
+    public static function setupComposerForDistribution(string $packagePath)
+    {
+        $composer = $packagePath . 'composer.json';
+        $file = new BcFile($composer);
+        $data = $file->read();
+        $regex = '/^(.+?)    "replace": {.+?},\n(.+?)/s';
+        $data = preg_replace($regex, "$1$2", $data);
+        $regex = '/^(.+?"cakephp\/cakephp": ".+?",)(.+?)$/s';
+        $setupVersion = Configure::read('BcApp.setupVersion');
+        $replace = "$1\n        \"baserproject/baser-core\": \"{$setupVersion}\",$2";
+        $data = preg_replace($regex, $replace, $data);
+        $file->write($data);
     }
 
 }

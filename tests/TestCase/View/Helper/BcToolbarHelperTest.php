@@ -11,17 +11,25 @@
 
 namespace BaserCore\Test\TestCase\View\Helper;
 
+use BaserCore\Test\Scenario\ContentsScenario;
+use BaserCore\Test\Scenario\SitesScenario;
+use BaserCore\Test\Scenario\UserGroupsScenario;
+use BaserCore\Test\Scenario\UserScenario;
+use BaserCore\Test\Scenario\UsersUserGroupsScenario;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\View\BcAdminAppView;
 use BaserCore\View\Helper\BcToolbarHelper;
 use Cake\Core\Configure;
 use Cake\View\View;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * Class BcToolbarHelperTest
  */
 class BcToolbarHelperTest extends BcTestCase
 {
+    use ScenarioAwareTrait;
+
     /**
      * BcToolbarHelper
      * @var BcToolbarHelper
@@ -29,26 +37,17 @@ class BcToolbarHelperTest extends BcTestCase
     public $BcToolbar;
 
     /**
-     * Fixtures
-     *
-     * @var array
-     */
-    protected $fixtures = [
-        'plugin.BaserCore.Sites',
-        'plugin.BaserCore.Contents',
-        'plugin.BaserCore.Users',
-        'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.UsersUserGroups',
-    ];
-
-//    public $autoFixtures = false;
-
-    /**
      * setUp
      */
     public function setUp(): void
     {
         parent::setUp();
+        $this->loadFixtureScenario(UserScenario::class);
+        $this->loadFixtureScenario(UserGroupsScenario::class);
+        $this->loadFixtureScenario(UsersUserGroupsScenario::class);
+        $this->loadFixtureScenario(ContentsScenario::class);
+        $this->loadFixtureScenario(SitesScenario::class);
+
         $this->BcToolbar = new BcToolbarHelper(new BcAdminAppView($this->getRequest('/')));
     }
 
@@ -139,10 +138,6 @@ class BcToolbarHelperTest extends BcTestCase
         // インストーラーの場合
         $toolbar = new BcToolbarHelper(new View(null, null, null, ['name' => 'Installations']));
         $this->assertFalse($toolbar->isAvailableLogin());
-        // アップデーターの場合
-        Configure::write('BcRequest.isUpdater', true);
-        $this->assertFalse($this->BcToolbar->isAvailableLogin());
-        Configure::write('BcRequest.isUpdater', false);
         // ログイン画面の場合
         $toolbar = new BcToolbarHelper(new View($this->getRequest('/baser/admin/baser-core/users/login')));
         $this->assertFalse($toolbar->isAvailableLogin());
@@ -281,9 +276,8 @@ class BcToolbarHelperTest extends BcTestCase
         $bcToolbar = new BcToolbarHelper(new View($this->getRequest('/baser/admin/baser-core/users/login')));
         $this->assertEquals('normal', $bcToolbar->getLogoType());
         // アップデーター
-        Configure::write('BcRequest.isUpdater', true);
+        $bcToolbar->getView()->setRequest($this->getRequest('/baser/admin/baser-core/plugins/update'));
         $this->assertEquals('update', $bcToolbar->getLogoType());
-        Configure::write('BcRequest.isUpdater', false);
         // インストーラー
         $bcToolbar = new BcToolbarHelper(new View(null, null, null, ['name' => 'Installations']));
         $this->assertEquals('install', $bcToolbar->getLogoType());
@@ -303,14 +297,13 @@ class BcToolbarHelperTest extends BcTestCase
         $bcToolbar = new BcToolbarHelper(new View($this->getRequest('/baser/admin/baser-core/users/login')));
         $this->assertEquals('https://localhost/', $bcToolbar->getLogoLink());
         // アップデーター
-        Configure::write('BcRequest.isUpdater', true);
-        $this->assertEquals('https://wiki.basercms.net/%E3%83%90%E3%83%BC%E3%82%B8%E3%83%A7%E3%83%B3%E3%82%A2%E3%83%83%E3%83%97%E3%82%AC%E3%82%A4%E3%83%89', $bcToolbar->getLogoLink());
-        Configure::write('BcRequest.isUpdater', false);
+        $bcToolbar->getView()->setRequest($this->getRequest('/baser/admin/baser-core/plugins/update'));
+        $this->assertEquals('https://baserproject.github.io/5/operation/update', $bcToolbar->getLogoLink());
         // インストーラー
-        Configure::write('BcRequest.isInstalled', false);
+        Configure::write('BcEnv.isInstalled', false);
         $bcToolbar = new BcToolbarHelper(new View(null, null, null, ['name' => 'Installations']));
-        $this->assertEquals('https://wiki.basercms.net/%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB%E3%82%AC%E3%82%A4%E3%83%89', $bcToolbar->getLogoLink());
-        Configure::write('BcRequest.isInstalled', true);
+        $this->assertEquals('https://baserproject.github.io/5/introduce/', $bcToolbar->getLogoLink());
+        Configure::write('BcEnv.isInstalled', true);
     }
 
     /**
@@ -319,7 +312,7 @@ class BcToolbarHelperTest extends BcTestCase
     public function testGetLogoText()
     {
         // フロントで管理画面利用不可
-        $this->assertEquals('baserCMS', $this->BcToolbar->getLogoText());
+        $this->assertEquals('メインサイト', $this->BcToolbar->getLogoText());
         // フロントで管理画面利用可能
         $this->loginAdmin($this->getRequest('/baser/admin'));
         $this->assertEquals('ダッシュボード', $this->BcToolbar->getLogoText());
@@ -327,9 +320,8 @@ class BcToolbarHelperTest extends BcTestCase
         $bcToolbar = new BcToolbarHelper(new View($this->getRequest('/baser/admin/baser-core/users/login')));
         $this->assertEquals('サイト表示', $bcToolbar->getLogoText());
         // アップデーター
-        Configure::write('BcRequest.isUpdater', true);
+        $bcToolbar->getView()->setRequest($this->getRequest('/baser/admin/baser-core/plugins/update'));
         $this->assertEquals('アップデートマニュアル', $bcToolbar->getLogoText());
-        Configure::write('BcRequest.isUpdater', false);
         // インストーラー
         $bcToolbar = new BcToolbarHelper(new View(null, null, null, ['name' => 'Installations']));
         $this->assertEquals('インストールマニュアル', $bcToolbar->getLogoText());
@@ -342,7 +334,7 @@ class BcToolbarHelperTest extends BcTestCase
     {
         // フロントで管理画面利用不可
         $this->assertEquals([
-            'title' => 'baserCMS',
+            'title' => 'メインサイト',
             'class' => 'bca-toolbar__logo-link',
             'escapeTitle' => false
         ], $this->BcToolbar->getLogoLinkOptions());
@@ -358,11 +350,10 @@ class BcToolbarHelperTest extends BcTestCase
         $this->assertTrue(in_array('bca-toolbar__logo-link', $options));
 
         // アップデーター
-        Configure::write('BcRequest.isUpdater', true);
+        $bcToolbar->getView()->setRequest($this->getRequest('/baser/admin/baser-core/plugins/update'));
         $options = $bcToolbar->getLogoLinkOptions();
         $this->assertTrue(in_array('bca-toolbar__logo-link', $options));
         $this->assertTrue(in_array('_blank', $options));
-        Configure::write('BcRequest.isUpdater', false);
 
         // インストーラー
         $bcToolbar = new BcToolbarHelper(new View(null, null, null, ['name' => 'Installations']));

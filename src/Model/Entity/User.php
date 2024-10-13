@@ -14,12 +14,13 @@ namespace BaserCore\Model\Entity;
 use Authentication\PasswordHasher\DefaultPasswordHasher;
 use Cake\Core\Configure;
 use Cake\Datasource\EntityInterface;
-use Cake\I18n\Time as TimeAlias;
+use Cake\I18n\FrozenTime;
 use Cake\ORM\Entity as EntityAlias;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
 use Cake\Utility\Hash;
+use DateTime;
 
 /**
  * Class User
@@ -31,8 +32,8 @@ use Cake\Utility\Hash;
  * @property string $email
  * @property string $nickname
  * @property bool $status
- * @property TimeAlias $created
- * @property TimeAlias $modified
+ * @property \Cake\I18n\DateTime $created
+ * @property \Cake\I18n\DateTime $modified
  */
 class User extends EntityAlias
 {
@@ -42,7 +43,7 @@ class User extends EntityAlias
      *
      * @var array
      */
-    protected $_accessible = [
+    protected array $_accessible = [
         '*' => true,
         'id' => false
     ];
@@ -52,7 +53,7 @@ class User extends EntityAlias
      *
      * @var array
      */
-    protected $_hidden = [
+    protected array $_hidden = [
         'password'
     ];
 
@@ -68,6 +69,7 @@ class User extends EntityAlias
     protected function _setPassword($value)
     {
         if ($value) {
+            $this->password_modified = new DateTime();
             $hasher = new DefaultPasswordHasher();
             return $hasher->hash($value);
         } else {
@@ -95,6 +97,9 @@ class User extends EntityAlias
      * スーパーユーザーかどうか判定する
      *
      * @return bool
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function isSuper(): bool
     {
@@ -107,6 +112,8 @@ class User extends EntityAlias
      * 利用可能条件
      * - 自身がスーパーユーザーで対象がスーパーユーザーでない場合
      * - 自身がシステム管理ユーザーで対象がシステム管理ユーザーでない場合
+     * @checked
+     * @noTodo
      */
     public function isAddableToAdminGroup(): bool
     {
@@ -122,10 +129,13 @@ class User extends EntityAlias
      * - 自身がシステム管理ユーザーで対象がシステム管理ユーザーでない場合
      * @param EntityInterface|User $targetUser
      * @return bool
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function isEnableLoginAgent(EntityInterface $targetUser): bool
     {
-        if(!$targetUser->status) return false;
+        if (!$targetUser->status) return false;
         return (($this->isSuper() && !$targetUser->isSuper()) ||
             ($this->isAdmin() && !$targetUser->isAdmin()));
     }
@@ -138,11 +148,14 @@ class User extends EntityAlias
      * - 自身がシステム管理ユーザーで対象がシステム管理ユーザーでない場合
      * @param EntityInterface|User $targetUser
      * @return bool
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function isDeletableUser(EntityInterface $targetUser): bool
     {
         return (($this->isSuper() && !$targetUser->isSuper()) ||
-            ($this->isAdmin() && !$targetUser->isAdmin()));
+            ($this->isAdmin() && !$targetUser->isAdmin()) && !$targetUser->isSuper());
     }
 
     /**
@@ -155,11 +168,14 @@ class User extends EntityAlias
      *
      * @param EntityInterface|User $targetUser
      * @return bool
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function isEditableUser(EntityInterface $targetUser): bool
     {
-        if($this->isSuper()) return true;
-        if($this->id === $targetUser->id) return true;
+        if ($this->isSuper()) return true;
+        if ($this->id === $targetUser->id) return true;
         return !$targetUser->isAdmin();
     }
 
@@ -182,13 +198,30 @@ class User extends EntityAlias
         if (!empty($this->real_name_2)) {
             $userName[] = $this->real_name_2;
         }
-        if(count($userName) > 1) {
+        if (count($userName) > 1) {
             return implode(' ', $userName);
-        } elseif(count($userName) === 1) {
+        } elseif (count($userName) === 1) {
             return $userName[0];
         } else {
             return 'undefined';
         }
+    }
+
+    /**
+     * 認証領域のプレフィックスを配列で取得する
+     * @return array
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function getAuthPrefixes(): array
+    {
+        if(!$this->user_groups) return [];
+        $prefixes = [];
+        foreach($this->user_groups as $userGroup) {
+            $prefixes += explode(',', $userGroup->auth_prefix);
+        }
+        return $prefixes;
     }
 
 }

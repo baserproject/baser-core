@@ -28,7 +28,7 @@ class PermissionGroupsScenario implements FixtureScenarioInterface
     /**
      * load
      */
-    public function load(...$args)
+    public function load(...$args): mixed
     {
         PermissionGroupFactory::make([
             'id' => 1,
@@ -53,6 +53,7 @@ class PermissionGroupsScenario implements FixtureScenarioInterface
         ])->persist();
 
         PermissionFactory::make([
+            'id' => 1,
             'no' => 1,
             'sort' => 1,
             'name' => 'システム管理',
@@ -67,6 +68,7 @@ class PermissionGroupsScenario implements FixtureScenarioInterface
         ])->persist();
 
         PermissionFactory::make([
+            'id' => 2,
             'no' => 1,
             'sort' => 1,
             'name' => 'よく使う項目',
@@ -81,6 +83,7 @@ class PermissionGroupsScenario implements FixtureScenarioInterface
         ])->persist();
 
         PermissionFactory::make([
+            'id' => 3,
             'no' => 1,
             'sort' => 1,
             'name' => 'ページ管理',
@@ -93,6 +96,7 @@ class PermissionGroupsScenario implements FixtureScenarioInterface
             'method' => 'ALL',
             'modified' => null,
         ])->persist();
+        return null;
     }
 
 }

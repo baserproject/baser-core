@@ -27,12 +27,14 @@ class BcEvent
      *
      * @param string $plugin
      * @param int $priority
+     * @checked
+     * @noTodo
      */
     public static function registerPluginEvent(string $plugin, int $priority = 100)
     {
         $pluginPath = BcUtil::getPluginPath($plugin);
         // プラグインイベント登録
-        $eventTargets = ['Controller', 'Model', 'View', 'Helper'];
+        $eventTargets = ['Controller', 'Model', 'View', 'Helper', 'Mailer'];
         foreach($eventTargets as $eventTarget) {
             $eventClassName = $plugin . $eventTarget . 'EventListener';
             if (file_exists($pluginPath . 'src' . DS . 'Event' . DS . $eventClassName . '.php')) {
@@ -51,7 +53,7 @@ class BcEvent
                         $pluginEvent->events[$options] = ['priority' => $priority];
                     }
                 }
-                $event->on($pluginEvent, null);
+                $event->on($pluginEvent);
             }
         }
     }

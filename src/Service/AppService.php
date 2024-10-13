@@ -17,6 +17,7 @@ use BaserCore\Annotation\UnitTest;
 use BaserCore\Model\Entity\Site;
 use BaserCore\Utility\BcContainerTrait;
 use BaserCore\Utility\BcUtil;
+use Cake\Database\Exception\MissingConnectionException;
 use Cake\Datasource\EntityInterface;
 use Cake\ORM\TableRegistry;
 use Cake\Routing\Router;
@@ -34,7 +35,7 @@ class AppService
 
     /**
      * アプリケーション全体で必要な変数を取得
-     * 
+     *
      * @return array
      * @checked
      * @noTodo
@@ -42,17 +43,19 @@ class AppService
      */
     public function getViewVarsForAll(): array
     {
+        $user = BcUtil::loginUser();
         return [
             'currentSite' => $this->getCurrentSite(),
             'otherSites' => $this->getOtherSiteList(),
-            'loginUser' => BcUtil::loginUser(),
-            'currentAdminTheme' => BcUtil::getCurrentAdminTheme()
+            'loginUser' => $user,
+            'currentAdminTheme' => BcUtil::getCurrentAdminTheme(),
+            'currentUserAuthPrefixes' => $user ? $user->getAuthPrefixes() : [],
         ];
     }
 
     /**
      * 現在の管理対象のサイトを取得する
-     * 
+     *
      * @return EntityInterface
      * @checked
      * @noTodo
@@ -64,7 +67,11 @@ class AppService
         $site = Router::getRequest()->getAttribute('currentSite');
         if($site) {
             $sitesTable = TableRegistry::getTableLocator()->get('BaserCore.Sites');
-            return $sitesTable->find()->where(['id' => $site->id])->first();
+            try {
+                return $sitesTable->find()->where(['Sites.id' => $site->id])->first();
+            } catch (MissingConnectionException) {
+                return null;
+            }
         } else {
             return null;
         }
@@ -72,7 +79,7 @@ class AppService
 
     /**
      * 現在の管理対象のサイト以外のリストを取得する
-     * 
+     *
      * @return array
      * @checked
      * @noTodo

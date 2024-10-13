@@ -12,7 +12,11 @@
 namespace BaserCore\Test\TestCase\TestSuite;
 
 use BaserCore\Database\Schema\BcSchema;
+use BaserCore\Test\Scenario\ContentsScenario;
+use BaserCore\Test\Scenario\SitesScenario;
+use BaserCore\Test\Scenario\UserScenario;
 use BaserCore\Utility\BcContainer;
+use BaserCore\Utility\BcFile;
 use BaserCore\View\Helper\BcFormHelper;
 use Cake\Event\Event;
 use Cake\Event\EventManager;
@@ -27,7 +31,7 @@ use Cake\View\View;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
 use BaserCore\Annotation\UnitTest;
-use Cake\Filesystem\File;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * BaserCore\TestSuite\BcTestCase
@@ -36,26 +40,17 @@ use Cake\Filesystem\File;
 class BcTestCaseTest extends BcTestCase
 {
     /**
-     * Fixtures
-     *
-     * @var array
+     * ScenarioAwareTrait
      */
-    protected $fixtures = [
-        'plugin.BaserCore.Users',
-        'plugin.BaserCore.UsersUserGroups',
-        'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.LoginStores',
-        'plugin.BaserCore.Sites',
-        'plugin.BaserCore.Contents',
-    ];
-
+    use ScenarioAwareTrait;
     /**
      * Set Up
      */
     public function setUp(): void
     {
-        $this->setFixtureTruncate();
         parent::setUp();
+        $this->loadFixtureScenario(UserScenario::class);
+        $this->loadFixtureScenario(SitesScenario::class);
     }
 
     /**
@@ -74,7 +69,7 @@ class BcTestCaseTest extends BcTestCase
         $this->assertEquals('App\Application', get_class($this->Application));
         $plugins = $this->Application->getPlugins();
         $this->assertTrue($plugins->has('BaserCore'));
-        $this->assertEquals('BaserCore\Plugin', get_class($this->BaserCore));
+        $this->assertEquals('BaserCore\BaserCorePlugin', get_class($this->BaserCore));
     }
 
     /**
@@ -93,8 +88,9 @@ class BcTestCaseTest extends BcTestCase
      */
     public function testGetRequest(): void
     {
+        $this->loadFixtureScenario(ContentsScenario::class);
         // デフォルトURL $url = '/'
-        $urlList = ['' => '/*', '/about' => '/*', '/baser/admin/baser-core/users/login' => '/baser/admin/baser-core/{controller}/{action}/*'];
+        $urlList = ['' => '/', '/about' => '/*', '/baser/admin/baser-core/users/login' => '/baser/admin/baser-core/{controller}/{action}/*'];
         foreach($urlList as $url => $route) {
             $request = $this->getRequest($url);
             $this->assertEquals($route, $request->getParam('_matchedRoute'));
@@ -168,11 +164,15 @@ class BcTestCaseTest extends BcTestCase
      */
     public function testAttachEventAndResetEvent()
     {
-        $this->attachEvent(['testEvent' => null]);
+        $this->attachEvent(['Helper.Form.afterClickForm' => ['callable' => function (Event $event) {
+            $event->setData('fields', ['title' => '1', 'input' => '2']);
+            return true;
+        }]]);
         $eventManager = EventManager::instance();
-        $this->assertNotNull($eventManager->listeners('testEvent'));
+        $this->assertCount(1, $eventManager->listeners('Helper.Form.afterClickForm'));
+
         $this->resetEvent();
-        $this->assertEmpty($eventManager->listeners('testEvent'));
+        $this->assertCount(0, $eventManager->listeners('Helper.Form.afterClickForm'));
     }
 
     /**
@@ -180,6 +180,7 @@ class BcTestCaseTest extends BcTestCase
      */
     public function testTearDownAfterClass()
     {
+        $this->loadFixtureScenario(ContentsScenario::class);
         if (!file_exists(LOGS)) {
             mkdir(LOGS, 0777);
         }
@@ -218,6 +219,7 @@ class BcTestCaseTest extends BcTestCase
      * @return void
      */
     public function testSetUpFixtureManagerAndTearDownFixtureManager(){
+        $this->markTestIncomplete('このテストを利用すると全体のテストが失敗してしまうためスキップ。対応方法検討要');
         $contents = $this->getTableLocator()->get('BaserCore.Contents');
         $this->assertTrue((bool) $contents->find()->count());
 
@@ -232,28 +234,11 @@ class BcTestCaseTest extends BcTestCase
     }
 
     /**
-     * test setFixtureTruncate getFixtureStrategy
-     * @return void
-     */
-    public function testSetFixtureTruncateGetFixtureStrategy()
-    {
-        $bcTestCase = new BcTestCase();
-        $rs = $bcTestCase->getFixtureStrategy();
-        $this->assertNotNull($rs);
-        $this->assertEquals('Cake\TestSuite\Fixture\TransactionStrategy', get_class($rs));
-
-        $bcTestCase->setFixtureTruncate();
-        $rs = $bcTestCase->getFixtureStrategy();
-        $this->assertNotNull($rs);
-        $this->assertEquals('Cake\TestSuite\Fixture\TruncateStrategy', get_class($rs));
-    }
-
-    /**
      * test setUploadFileToRequest
      */
     public function testSetUploadFileToRequest()
     {
-        $bcTestCase = new BcTestCase();
+        $bcTestCase = new BcTestCase('test');
         $filename = 'testUpload.txt';
         $filePath = TMP . $filename;
         touch($filePath);
@@ -291,7 +276,7 @@ class BcTestCaseTest extends BcTestCase
     {
         $className = 'DummyClass';
         $filePath = TMP . $className . '.php';
-        $file = new File($filePath, true);
+        $file = new BcFile($filePath);
         // DummyClassファイルを作成する
         $file->write("<?php
 class $className

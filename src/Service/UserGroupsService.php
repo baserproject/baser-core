@@ -16,6 +16,7 @@ use BaserCore\Model\Table\UserGroupsTable;
 use BaserCore\Utility\BcContainerTrait;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\Configure;
+use Cake\ORM\Table;
 use Cake\ORM\TableRegistry;
 use Cake\Datasource\EntityInterface;
 use Cake\ORM\Query;
@@ -39,7 +40,7 @@ class UserGroupsService implements UserGroupsServiceInterface
      * UserGroups Table
      * @var \Cake\ORM\Table|UserGroupsTable
      */
-    public $UserGroups;
+    public UserGroupsTable|Table $UserGroups;
 
     /**
      * UserGroupsService constructor.
@@ -64,9 +65,7 @@ class UserGroupsService implements UserGroupsServiceInterface
      */
     public function get($id): EntityInterface
     {
-        return $this->UserGroups->get($id, [
-            'contain' => ['Users'],
-        ]);
+        return $this->UserGroups->get($id, contain: ['Users']);
     }
 
     /**
@@ -110,7 +109,7 @@ class UserGroupsService implements UserGroupsServiceInterface
             $query->where(['id <>' => Configure::read('BcApp.adminGroupId')]);
         }
 
-        if(!is_null($options['order'])) $query->order($options['order']);
+        if(!is_null($options['order'])) $query->orderBy($options['order']);
 
         return $query;
     }
@@ -130,7 +129,7 @@ class UserGroupsService implements UserGroupsServiceInterface
         if(!empty($postData['auth_prefix_settings'])) {
             $postData['auth_prefix_settings'] = json_encode($postData['auth_prefix_settings']);
         }
-        $postData['auth_prefix'] = !empty($postData['auth_prefix'])? implode(',', $postData['auth_prefix']) : "Admin";
+        $postData['auth_prefix'] = !empty($postData['auth_prefix'])? implode(',', $postData['auth_prefix']) : "";
         $userGroup = $this->UserGroups->newEmptyEntity();
         $userGroup = $this->UserGroups->patchEntity($userGroup, $postData);
         $userGroup = $this->UserGroups->saveOrFail($userGroup);
@@ -158,7 +157,7 @@ class UserGroupsService implements UserGroupsServiceInterface
             if($current) $postData = array_merge($current, $postData);
             $postData['auth_prefix_settings'] = json_encode($postData['auth_prefix_settings']);
         }
-        $postData['auth_prefix'] = !empty($postData['auth_prefix'])? implode(',', $postData['auth_prefix']) : "Admin";
+        $postData['auth_prefix'] = !empty($postData['auth_prefix'])? implode(',', $postData['auth_prefix']) : "";
         $userGroup = $this->UserGroups->patchEntity($target, $postData);
         return $this->UserGroups->saveOrFail($userGroup);
     }
@@ -188,7 +187,7 @@ class UserGroupsService implements UserGroupsServiceInterface
      */
     public function getList(): array
     {
-        return $this->UserGroups->find('list', ['keyField' => 'id', 'valueField' => 'title'])->toArray();
+        return $this->UserGroups->find('list', keyField: 'id', valueField: 'title')->toArray();
     }
 
     /**

@@ -13,9 +13,11 @@ namespace BaserCore\Model\Behavior;
 
 use ArrayObject;
 use BaserCore\Utility\BcFileUploader;
+use BaserCore\Utility\BcUtil;
 use Cake\ORM\Behavior;
 use Cake\Event\EventInterface;
 use Cake\Datasource\EntityInterface;
+use Cake\Validation\Validator;
 use BaserCore\Annotation\Note;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
@@ -116,19 +118,23 @@ class BcUploadBehavior extends Behavior
     }
 
     /**
-     * アップロード用のリクエストデータを変換する
+     * Before Marshal
      *
      * @param EventInterface $event
      * @param ArrayObject $data
+     * @param ArrayObject $options
      * @checked
      * @noTodo
      * @unitTest
      */
-    public function beforeMarshal(EventInterface $event, ArrayObject $data)
+    public function beforeMarshal(EventInterface $event, ArrayObject $data, ArrayObject $options)
     {
+        // アップロード用のリクエストデータを変換する
         $this->BcFileUploader[$this->table()->getAlias()]->setupRequestData($data);
         $this->BcFileUploader[$this->table()->getAlias()]->setupTmpData($data);
-        $this->oldEntity[$this->table()->getAlias()] = (!empty($data['id']))? $this->getOldEntity($data['id']) : null;
+        $this->oldEntity[$this->table()->getAlias()][$data['_bc_upload_id']] = (!empty($data['id']))? $this->getOldEntity($data['id']) : null;
+        // ファイルアップロード用のフィールドのエンティティ変換を許可する
+        $options['accessibleFields']['_bc_upload_id'] = true;
     }
 
     /**
@@ -139,11 +145,33 @@ class BcUploadBehavior extends Behavior
      * @param EventInterface $event
      * @param EntityInterface $entity
      * @param ArrayObject $options
+     * @checked
+     * @noTodo
      */
     public function afterMarshal(EventInterface $event, EntityInterface $entity, ArrayObject $options)
     {
         if ($entity->getErrors()) {
             $this->BcFileUploader[$this->table()->getAlias()]->rollbackFile($entity);
+        }
+    }
+
+    /**
+     * Build Validator
+     *
+     * @param EventInterface $event
+     * @param Validator $validator
+     * @param string $name
+     */
+    public function buildValidator(EventInterface $event, Validator $validator, $name)
+    {
+        $settings = $this->getSettings();
+        foreach ($settings['fields'] as $field => $fieldSettings) {
+            $validator->add($field, 'checkFilePath', [
+                'rule' => function ($value) {
+                    return (!is_string($value) || !str_contains($value, '../'));
+                },
+                'message' => __d('baser_core', '許可されていないファイルです。')
+            ]);
         }
     }
 
@@ -158,12 +186,14 @@ class BcUploadBehavior extends Behavior
      */
     public function afterSave(EventInterface $event, EntityInterface $entity)
     {
-        if ($entity->id && !empty($this->oldEntity[$this->table()->getAlias()])) {
-            $this->BcFileUploader[$this->table()->getAlias()]->deleteExistingFiles($entity);
+        if ($entity->id && !empty($this->oldEntity[$this->table()->getAlias()][$entity->_bc_upload_id])) {
+            $oldEntity = $this->oldEntity[$this->table()->getAlias()][$entity->_bc_upload_id];
+            $oldEntity->_bc_upload_id = $entity->_bc_upload_id;
+            $this->BcFileUploader[$this->table()->getAlias()]->deleteExistingFiles($oldEntity);
         }
         $this->BcFileUploader[$this->table()->getAlias()]->saveFiles($entity);
-        if ($entity->id && !empty($this->oldEntity[$this->table()->getAlias()])) {
-            $this->BcFileUploader[$this->table()->getAlias()]->deleteFiles($this->oldEntity[$this->table()->getAlias()], $entity);
+        if ($entity->id && !empty($this->oldEntity[$this->table()->getAlias()][$entity->_bc_upload_id])) {
+            $this->BcFileUploader[$this->table()->getAlias()]->deleteFiles($this->oldEntity[$this->table()->getAlias()][$entity->_bc_upload_id], $entity);
         }
         if ($this->BcFileUploader[$this->table()->getAlias()]->isUploaded()) {
             $this->BcFileUploader[$this->table()->getAlias()]->renameToBasenameFields($entity);
@@ -171,21 +201,13 @@ class BcUploadBehavior extends Behavior
         }
         // 保存時にbeforeSaveとafterSaveのループを防ぐ
         $eventManager = $this->table()->getEventManager();
-        $beforeSaveListeners = $eventManager->listeners('Model.beforeSave');
-        $afterSaveListeners = $eventManager->listeners('Model.afterSave');
-        $eventManager->off('Model.beforeSave');
-        $eventManager->off('Model.afterSave');
+        $beforeSaveListeners = BcUtil::offEvent($eventManager, 'Model.beforeSave');
+        $afterSaveListeners = BcUtil::offEvent($eventManager, 'Model.afterSave');
+
         $this->table()->save($entity, ['validate' => false]);
-        foreach($beforeSaveListeners as $listener) {
-            if (get_class($listener['callable'][0]) !== 'BaserCore\Event\BcModelEventDispatcher') {
-                $eventManager->on('Model.beforeSave', [], $listener['callable']);
-            }
-        }
-        foreach($afterSaveListeners as $listener) {
-            if (get_class($listener['callable'][0]) !== 'BaserCore\Event\BcModelEventDispatcher') {
-                $eventManager->on('Model.afterSave', [], $listener['callable']);
-            }
-        }
+
+        BcUtil::onEvent($eventManager, 'Model.beforeSave', $beforeSaveListeners);
+        BcUtil::onEvent($eventManager, 'Model.afterSave', $afterSaveListeners);
     }
 
     /**
@@ -198,7 +220,7 @@ class BcUploadBehavior extends Behavior
      * @noTodo
      * @unitTest
      */
-    public function beforeDelete(EventInterface $event, EntityInterface $entity)
+    public function beforeDelete(EventInterface $event, EntityInterface $entity, \ArrayObject $options)
     {
         $oldEntity = $this->getOldEntity($entity->id);
         $this->BcFileUploader[$this->table()->getAlias()]->deleteFiles($oldEntity, $entity, true);
@@ -212,7 +234,6 @@ class BcUploadBehavior extends Behavior
      * @return mixed false|array
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function saveTmpFiles($data, $tmpId)
     {
@@ -289,7 +310,7 @@ class BcUploadBehavior extends Behavior
     public function getOldEntity($id)
     {
         $table = $this->table();
-        $query = $table->find()->where(['id' => $id]);
+        $query = $table->find()->where([$table->getAlias() . '.id' => $id]);
         if ($table instanceof \BaserCore\Model\Table\ContentsTable) {
             $oldEntity = $query->applyOptions(['withDeleted'])->first();
         } else {

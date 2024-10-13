@@ -14,17 +14,20 @@ namespace BaserCore\Service;
 use BaserCore\Error\BcException;
 use BaserCore\Model\Entity\Site;
 use BaserCore\Utility\BcContainerTrait;
+use BaserCore\Utility\BcFolder;
 use BaserCore\Utility\BcSiteConfig;
 use BaserCore\Utility\BcUtil;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
 use BaserCore\Utility\BcZip;
+use BcMail\Service\MailMessagesServiceInterface;
 use Cake\Core\Configure;
 use Cake\Core\Plugin;
 use Cake\Datasource\EntityInterface;
-use Cake\Filesystem\Folder;
+use Cake\Log\LogTrait;
 use Cake\ORM\TableRegistry;
+use Cake\Routing\Router;
 use Cake\Utility\Inflector;
 use Laminas\Diactoros\UploadedFile;
 
@@ -38,6 +41,7 @@ class ThemesService implements ThemesServiceInterface
      * Trait
      */
     use BcContainerTrait;
+    use LogTrait;
 
     /**
      * 単一データ取得
@@ -93,10 +97,10 @@ class ThemesService implements ThemesServiceInterface
         }
 
         $patterns = [];
-        $Folder = new Folder($dataPath);
-        $files = $Folder->read(true, true);
-        if ($files[0]) {
-            foreach($files[0] as $pattern) {
+        $Folder = new BcFolder($dataPath);
+        $files = $Folder->getFolders();
+        if ($files) {
+            foreach($files as $pattern) {
                 if ($options['useTitle']) {
                     if(BcUtil::isInstalled()) {
                         $pluginsTable = TableRegistry::getTableLocator()->get('BaserCore.Plugins');
@@ -144,21 +148,28 @@ class ThemesService implements ThemesServiceInterface
         }
         $name = $postData['file']->getClientFileName();
         $postData['file']->moveTo(TMP . $name);
-        $srcName = basename($name, '.zip');
         $zip = new BcZip();
         if (!$zip->extract(TMP . $name, TMP)) {
             throw new BcException(__d('baser_core', 'アップロードしたZIPファイルの展開に失敗しました。'));
         }
-
-        $num = 2;
-        $dstName = Inflector::camelize($srcName);
-        while(is_dir(BASER_THEMES . $dstName) || is_dir(BASER_THEMES . Inflector::dasherize($dstName))) {
-            $dstName = Inflector::camelize($srcName) . $num;
-            $num++;
+        $srcDirName = $zip->topArchiveName;
+        $dstName = $srcName = Inflector::camelize($srcDirName);
+        if (preg_match('/^(.+?)([0-9]+)$/', $srcName, $matches)) {
+            $baseName = $matches[1];
+            $num = $matches[2];
+        } else {
+            $baseName = $srcName;
+            $num = null;
         }
-        $folder = new Folder(TMP . $srcName);
-        $folder->move(BASER_THEMES . $dstName, ['mode' => 0777]);
+        while(is_dir(BASER_THEMES . $dstName) || is_dir(BASER_THEMES . Inflector::dasherize($dstName))) {
+            if (is_null($num)) $num = 1;
+            $num++;
+            $dstName = $baseName . $num;
+        }
+        $folder = new BcFolder(TMP . $srcDirName);
+        $folder->move(BASER_THEMES . $dstName);
         unlink(TMP . $name);
+        BcUtil::changePluginClassName($srcName, $dstName);
         BcUtil::changePluginNameSpace($dstName);
         return $dstName;
     }
@@ -227,13 +238,13 @@ class ThemesService implements ThemesServiceInterface
     {
         $info = [];
         $themePath = BcUtil::getPluginPath($theme);
-        $Folder = new Folder($themePath . 'plugins');
-        $files = $Folder->read(true, true, false);
-        if (!empty($files[0])) {
+        $Folder = new BcFolder($themePath . 'plugins');
+        $files = $Folder->getFolders();
+        if (!empty($files)) {
             $info = array_merge($info, [
                 __d('baser_core', 'このテーマは下記のプラグインを同梱しています。')
             ]);
-            foreach($files[0] as $file) {
+            foreach($files as $file) {
                 $info[] = '	・' . $file;
             }
         }
@@ -272,11 +283,11 @@ class ThemesService implements ThemesServiceInterface
      * @unitTest
      * @noTodo
      */
-    private function installThemesPlugins(string $theme)
+    public function installThemesPlugins(string $theme)
     {
         /* @var PluginsService $pluginsService */
         $pluginsService = $this->getService(PluginsServiceInterface::class);
-        $plugins = BcUtil::getCurrentThemesPlugins();
+        $plugins = BcUtil::getThemesPlugins($theme);
         // テーマ梱包のプラグインをインストール
         foreach($plugins as $plugin) {
             $pluginsService->install($plugin);
@@ -312,8 +323,12 @@ class ThemesService implements ThemesServiceInterface
             throw $e;
         }
 
-        // メッセージテーブルの初期化
-        if (!$dbService->initMessageTables()) $result = false;
+        /** @var MailMessagesServiceInterface $mailMessagesService */
+        $mailMessagesService = $this->getService(MailMessagesServiceInterface::class);
+		if (!$mailMessagesService->reconstructionAll()) {
+			$this->log(__d('baser_core', 'メールプラグインのメール受信用テーブルの生成に失敗しました。'));
+			$result = false;
+		}
 
         // システムデータの初期化
         if (!$dbService->initSystemData([
@@ -325,8 +340,13 @@ class ThemesService implements ThemesServiceInterface
             'theme' => $currentTheme,
             'adminTheme' => BcSiteConfig::get('admin_theme')
         ])) {
+            $this->log(__d('baser_core', 'システムデータの初期化に失敗しました。'));
             $result = false;
         }
+
+        // 管理画面のカレントサイトの設定状態を削除
+        $request = Router::getRequest();
+        $request->getSession()->delete('BcApp.Admin.currentSite');
 
         // DBシーケンスの更新
         $dbService->updateSequence();
@@ -346,18 +366,31 @@ class ThemesService implements ThemesServiceInterface
         if (!is_writable(BASER_THEMES)) throw new BcException(BASER_THEMES . ' に書込み権限がありません。');
 
         if (in_array($theme, Configure::read('BcApp.core'))) $theme = Inflector::dasherize($theme);
-        $newTheme = Inflector::camelize($theme, '-') . 'Copy';
+        $oldTheme = Inflector::camelize($theme, '-');
+        $newTheme = $oldTheme . 'Copy';
         while(true) {
             if (!is_dir(BASER_THEMES . $newTheme)) break;
             $newTheme .= 'Copy';
         }
-        $folder = new Folder(BASER_THEMES . $theme);
-        if (!$folder->copy(BASER_THEMES . $newTheme, [
-            'mode' => 0777
-        ])) {
+        $folder = new BcFolder(BASER_THEMES . $theme);
+        if (!$folder->copy(BASER_THEMES . $newTheme)) {
             return false;
         }
-        if(!BcUtil::changePluginNameSpace($newTheme)) return false;
+        if(!file_exists(BASER_THEMES . $newTheme . DS . 'src' . DS . $newTheme . 'Plugin.php')) {
+            if (file_exists(BASER_THEMES . $newTheme . DS . 'src' . DS . 'Plugin.php')) {
+                rename(
+                    BASER_THEMES . $newTheme . DS . 'src' . DS . 'Plugin.php',
+                    BASER_THEMES . $newTheme . DS . 'src' . DS . $newTheme . 'Plugin.php'
+                );
+            } elseif (file_exists(BASER_THEMES . $newTheme . DS . 'src' . DS . $oldTheme . 'Plugin.php')) {
+                rename(
+                    BASER_THEMES . $newTheme . DS . 'src' . DS . $oldTheme . 'Plugin.php',
+                    BASER_THEMES . $newTheme . DS . 'src' . DS . $newTheme . 'Plugin.php'
+                );
+            }
+        }
+        BcUtil::changePluginClassName($oldTheme, $newTheme);
+        BcUtil::changePluginNameSpace($newTheme);
         return true;
     }
 
@@ -373,8 +406,8 @@ class ThemesService implements ThemesServiceInterface
     {
         $path = BcUtil::getPluginPath($theme);
         if (!is_writable($path)) throw new BcException($path . ' に書込み権限がありません。');
-        $folder = new Folder();
-        if (!$folder->delete($path)) {
+        $folder = new BcFolder($path);
+        if (!$folder->delete()) {
             return false;
         }
         return true;
@@ -406,13 +439,11 @@ class ThemesService implements ThemesServiceInterface
     {
         $tmpDir = TMP . 'theme' . DS;
         if (!is_dir($tmpDir)) {
-            $folder = new Folder($tmpDir);
-            $folder->create($tmpDir);
+            $folder = new BcFolder($tmpDir);
+            $folder->create();
         }
-        $folder = new Folder(BcUtil::getPluginPath($theme));
-        $folder->copy($tmpDir . $theme, [
-            'chmod' => 0777
-        ]);
+        $folder = new BcFolder(BcUtil::getPluginPath($theme));
+        $folder->copy($tmpDir . $theme);
         return $tmpDir;
     }
 
@@ -430,20 +461,28 @@ class ThemesService implements ThemesServiceInterface
         ini_set('memory_limit', -1);
         // コアのCSVを生成
         $tmpDir = TMP . 'csv' . DS;
-        $folder = new Folder();
-        $folder->create($tmpDir);
+        $folder = new BcFolder($tmpDir);
+        $folder->create();
         BcUtil::emptyFolder($tmpDir);
         BcUtil::clearAllCache();
         $excludes = ['plugins', 'dblogs', 'users'];
         // プラグインのCSVを生成
         $plugins = Plugin::loaded();
         foreach($plugins as $plugin) {
-            $folder->create($tmpDir . $plugin);
+            (new BcFolder($tmpDir . $plugin))->create();
             BcUtil::emptyFolder($tmpDir . $plugin);
             $this->_writeCsv($plugin, $tmpDir . $plugin . DS, $excludes);
-            $folder = new Folder($tmpDir . $plugin);
-            $files = $folder->read();
-            if (!$files[0] && !$files[1]) $folder->delete($tmpDir . $plugin);
+            $folder = new BcFolder($tmpDir . $plugin);
+            $files = $folder->getFiles();
+            $folders = $folder->getFolders();
+            if (!$files && !$folders) {
+                $folder->delete();
+            } else {
+                $pluginClass = Plugin::getCollection()->get($plugin);
+                if(method_exists($pluginClass, 'modifyDownloadDefaultData')) {
+                    $pluginClass->modifyDownloadDefaultData($tmpDir . $plugin . DS);
+                }
+            }
         }
         // site_configs 調整
         $this->_modifySiteConfigsCsv($tmpDir . 'BaserCore' . DS . 'site_configs.csv');
@@ -529,13 +568,13 @@ class ThemesService implements ThemesServiceInterface
         if (!$path) return false;
         $corePath = BcUtil::getDefaultDataPath(Configure::read('BcApp.coreFrontTheme'), 'default');
 
-        $Folder = new Folder($corePath . DS . 'BaserCore');
-        $files = $Folder->read(true, true);
-        $coreTables = $files[1];
-        $Folder = new Folder($path . DS . 'BaserCore');
-        $files = $Folder->read(true, true);
-        if (empty($files[1])) return false;
-        $targetTables = $files[1];
+        $Folder = new BcFolder($corePath . DS . 'BaserCore');
+        $files = $Folder->getFiles();
+        $coreTables = $files;
+        $Folder = new BcFolder($path . DS . 'BaserCore');
+        $files = $Folder->getFiles();
+        if (empty($files)) return false;
+        $targetTables = $files;
         foreach($coreTables as $coreTable) {
             if (!in_array($coreTable, $targetTables)) {
                 return false;

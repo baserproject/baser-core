@@ -46,12 +46,13 @@ class PermissionsController extends BcAdminAppController
 	 */
 	public function beforeFilter(EventInterface $event)
 	{
-		parent::beforeFilter($event);
+        $response = parent::beforeFilter($event);
+        if($response) return $response;
         $this->viewBuilder()->addHelpers(
             ['BcTime',
             // 'BcFreeze'
         ]);
-        $this->Security->setConfig('unlockedActions', [
+        $this->FormProtection->setConfig('unlockedActions', [
             'update_sort',
             'batch',
         ]);

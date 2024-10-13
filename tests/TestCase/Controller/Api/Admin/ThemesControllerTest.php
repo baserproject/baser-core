@@ -13,8 +13,9 @@ namespace BaserCore\Test\TestCase\Controller\Api\Admin;
 
 use BaserCore\Service\ThemesService;
 use BaserCore\Test\Scenario\InitAppScenario;
+use BaserCore\Test\Scenario\SmallSetContentFoldersScenario;
 use BaserCore\TestSuite\BcTestCase;
-use Cake\Filesystem\Folder;
+use BaserCore\Utility\BcFolder;
 use Cake\TestSuite\IntegrationTestTrait;
 use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 use Composer\Package\Archiver\ZipArchiver;
@@ -27,16 +28,6 @@ class ThemesControllerTest extends BcTestCase
      */
     use ScenarioAwareTrait;
     use IntegrationTestTrait;
-
-    /**
-     * Fixtures
-     *
-     * @var array
-     */
-    public $fixtures = [
-        'plugin.BaserCore.Factory/Users',
-        'plugin.BaserCore.Factory/Sites',
-    ];
 
     /**
      * Access Token
@@ -92,8 +83,8 @@ class ThemesControllerTest extends BcTestCase
         $result = json_decode((string)$this->_response->getBody());
 
         $this->assertCount(3, $result->themes);
-        $this->assertEquals('BcThemeSample', $result->themes[0]->name);
-        $this->assertEquals('BcColumn', $result->themes[1]->name);
+        $this->assertEquals('BcColumn', $result->themes[0]->name);
+        $this->assertEquals('BcThemeSample', $result->themes[1]->name);
     }
 
     /**
@@ -106,9 +97,11 @@ class ThemesControllerTest extends BcTestCase
 
         $path = ROOT . DS . 'plugins' . DS . 'BcPluginSample';
         $zipSrcPath = TMP  . 'zip' . DS;
-        $folder = new Folder();
-        $folder->create($zipSrcPath, 0777);
-        $folder->copy($zipSrcPath . 'BcPluginSample2', ['from' => $path, 'mode' => 0777]);
+        $folder = new BcFolder($zipSrcPath);
+        $folder->create();
+        //copy
+        $folder = new BcFolder($path);
+        $folder->copy($zipSrcPath. 'BcPluginSample2');
         $theme = 'BcPluginSample2';
         $zip = new ZipArchiver();
         $testFile = $zipSrcPath . $theme . '.zip';
@@ -121,9 +114,8 @@ class ThemesControllerTest extends BcTestCase
         $this->assertEquals($theme, $result->theme);
         $this->assertEquals('テーマファイル「' . $theme . '」を追加しました。', $result->message);
 
-        $folder = new Folder();
-        $folder->delete(ROOT . DS . 'plugins' . DS . $theme);
-        $folder->delete($zipSrcPath);
+        (new BcFolder(ROOT . DS . 'plugins' . DS . $theme))->delete();
+        (new BcFolder($zipSrcPath))->delete();
     }
     /**
      * test copy
@@ -177,6 +169,7 @@ class ThemesControllerTest extends BcTestCase
         $this->enableSecurityToken();
         $this->enableCsrfToken();
         $theme = 'BcColumn';
+        $this->loadFixtureScenario(SmallSetContentFoldersScenario::class);
         $this->post('/baser/api/admin/baser-core/themes/apply/1/'. $theme . '.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());
@@ -190,6 +183,7 @@ class ThemesControllerTest extends BcTestCase
      */
     public function test_get_market_themes()
     {
+        $this->markTestIncomplete('baserマーケットのRSSのロードに時間がかかり過ぎるためスキップ。マーケット側を見直してから対応する');
         $this->post('/baser/api/admin/baser-core/themes/get_market_themes.json?token=' . $this->accessToken);
         $this->assertResponseOk();
         $result = json_decode((string)$this->_response->getBody());

@@ -12,13 +12,18 @@
 namespace BaserCore\Test\TestCase\Controller;
 
 use BaserCore\Service\SiteConfigsServiceInterface;
+use BaserCore\Test\Scenario\ContentsScenario;
+use BaserCore\Test\Scenario\InitAppScenario;
+use BaserCore\Test\Scenario\SiteConfigsScenario;
 use BaserCore\Utility\BcContainer;
 use Cake\Core\Configure;
 use Cake\Event\Event;
+use Cake\Http\Exception\BadRequestException;
 use Cake\Http\Response;
 use Cake\TestSuite\IntegrationTestTrait;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Controller\AppController;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 use ReflectionClass;
 
 /**
@@ -29,23 +34,10 @@ class AppControllerTest extends BcTestCase
 {
 
     /**
-     * Fixtures
-     *
-     * @var array
-     */
-    public $fixtures = [
-        'plugin.BaserCore.Sites',
-        'plugin.BaserCore.Contents',
-        'plugin.BaserCore.SiteConfigs',
-        'plugin.BaserCore.Users',
-        'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.UsersUserGroups'
-    ];
-
-    /**
      * Trait
      */
     use IntegrationTestTrait;
+    use ScenarioAwareTrait;
 
     /**
      * set up
@@ -53,6 +45,9 @@ class AppControllerTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
+        $this->loadFixtureScenario(InitAppScenario::class);
+        $this->loadFixtureScenario(SiteConfigsScenario::class);
+        $this->loadFixtureScenario(ContentsScenario::class);
         $this->AppController = new AppController($this->getRequest());
     }
 
@@ -84,11 +79,13 @@ class AppControllerTest extends BcTestCase
     public function testInitialize()
     {
         $this->assertNotEmpty($this->AppController->BcMessage);
-        $this->assertNotEmpty($this->AppController->Security);
-        $this->assertEquals('_blackHoleCallback', $this->AppController->Security->getConfig('blackHoleCallback'));
-        $this->assertTrue($this->AppController->Security->getConfig('validatePost'));
-        $this->assertFalse($this->AppController->Security->getConfig('requireSecure'));
-        $this->assertEquals(['x', 'y', 'MAX_FILE_SIZE'], $this->AppController->Security->getConfig('unlockedFields'));
+        $this->assertNotEmpty($this->AppController->FormProtection);
+        $this->assertTrue($this->AppController->FormProtection->getConfig('validate'));
+        $this->assertEquals(['x', 'y', 'MAX_FILE_SIZE'], $this->AppController->FormProtection->getConfig('unlockedFields'));
+        $callback = $this->AppController->FormProtection->getConfig('validationFailureCallback');
+        $this->expectException("Cake\Http\Exception\BadRequestException");
+        $this->expectExceptionMessage("不正なリクエストと判断されました\nもしくは、システムが受信できるデータ上限より大きなデータが送信された可能性があります。\n不正なリクエストです。");
+        $callback(new BadRequestException('不正なリクエストです。'));
     }
 
     /**
@@ -168,20 +165,6 @@ class AppControllerTest extends BcTestCase
     }
 
     /**
-     * test blackHoleCallback
-     */
-    public function test_blackHoleCallback()
-    {
-        $this->enableCsrfToken();
-        $logPath = ROOT . 'logs' . DS . 'cli-error.log';
-        @unlink($logPath);
-        $this->post('/', [
-            'name' => 'Test_test_Man'
-        ]);
-        $this->assertResponseRegExp('/不正なリクエストと判断されました。/');
-    }
-
-    /**
      * Test setTitle method
      *
      * @return void
@@ -221,35 +204,6 @@ class AppControllerTest extends BcTestCase
         $this->_response = $this->AppController->redirectIfIsRequireMaintenance();
         $this->assertNull($this->_response);
         Configure::write('debug', true);
-    }
-
-    /**
-     * test _autoConvertEncodingByArray
-     */
-    public function test_autoConvertEncodingByArray()
-    {
-        $data = [
-            'test' => [
-                'test' => mb_convert_encoding('あいうえお', 'EUC-JP')
-            ]
-        ];
-        $result = $this->execPrivateMethod($this->AppController, '_autoConvertEncodingByArray', [$data, 'UTF-8']);
-        $this->assertEquals('あいうえお', $result['test']['test']);
-    }
-
-    /**
-     * test __convertEncodingHttpInput
-     */
-    public function test__convertEncodingHttpInput()
-    {
-        $data = [
-            'test' => [
-                'test' => mb_convert_encoding('あいうえお', 'EUC-JP')
-            ]
-        ];
-        $this->AppController->setRequest($this->AppController->getRequest()->withParsedBody($data));
-        $this->execPrivateMethod($this->AppController, '__convertEncodingHttpInput');
-        $this->assertEquals('あいうえお', $this->AppController->getRequest()->getData('test.test'));
     }
 
     /**
@@ -352,4 +306,43 @@ class AppControllerTest extends BcTestCase
         $data = $session->read('BcApp.viewConditions.PagesView.index.data.Content');
         $this->assertEquals(['title' => 'default'], $data);
     }
+
+
+    /**
+     * Test saveDblog
+     *
+     * @return void
+     * @dataProvider saveDblogDataProvider
+     */
+    public function testSaveDblog(string $message, int $userId = null): void
+    {
+        $request =$this->getRequest('/baser/admin/baser-core/users/');
+        if (isset($userId)) $this->loginAdmin($request, $userId);
+
+        $this->execPrivateMethod($this->AppController, 'saveDblog', [$message]);
+
+        $where = [
+            'message' => $message,
+            'controller' => 'Users',
+            'action' => 'index'
+        ];
+        if (isset($userId)) {
+            $where['user_id'] = $userId;
+        } else {
+            $where['user_id IS'] = null;
+        }
+
+        $dblogs = $this->getTableLocator()->get('Dblogs');
+        $query = $dblogs->find()->where($where);
+        $this->assertSame(1, $query->count());
+    }
+
+    public static function saveDblogDataProvider(): array
+    {
+        return [
+            ['dblogs testSaveDblog message guest', null],
+            ['dblogs testSaveDblog message login', 1]
+        ];
+    }
+
 }

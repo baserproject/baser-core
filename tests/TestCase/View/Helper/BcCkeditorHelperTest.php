@@ -14,8 +14,7 @@ namespace BaserCore\Test\TestCase\View\Helper;
 use BaserCore\View\BcAdminAppView;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\View\Helper\BcCkeditorHelper;
-use Cake\Core\Plugin;
-use Cake\Core\PluginCollection;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * text helper library.
@@ -24,25 +23,13 @@ use Cake\Core\PluginCollection;
  */
 class BcCkeditorHelperTest extends BcTestCase
 {
-    /**
-     * Fixtures
-     *
-     * @var array
-     */
-    protected $fixtures = [
-        'plugin.BaserCore.Sites',
-        'plugin.BaserCore.Contents',
-        'plugin.BaserCore.Users',
-        'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.UsersUserGroups',
-        'plugin.BaserCore.Plugins',
-    ];
+    use ScenarioAwareTrait;
+
     /**
      * setUp
      */
     public function setUp(): void
     {
-        $this->setFixtureTruncate();
         parent::setUp();
         $this->BcCkeditor = new BcCkeditorHelper(new BcAdminAppView($this->getRequest('/baser/admin')));
     }
@@ -137,7 +124,7 @@ class BcCkeditorHelperTest extends BcTestCase
             'editorToolType' => 'simple'
         ]);
         $this->assertIsArray($options['editorToolbar']);
-        (new \BcEditorTemplate\Plugin())->install(['connection' => 'test']);
+        (new \BcEditorTemplate\BcEditorTemplatePlugin())->install(['connection' => 'test']);
         $options = $this->BcCkeditor->setEditorToolbar([
             'editorToolbar' => [],
             'editorUseTemplates' => true,
@@ -193,6 +180,21 @@ class BcCkeditorHelperTest extends BcTestCase
     public function testGetThemeEditorCsses()
     {
         $this->markTestIncomplete('このテストは、まだ実装されていません。');
+    }
+
+    /**
+     * Test createDomId
+     */
+
+    public function test_createDomId()
+    {
+        //the field is empty
+        $rs = $this->BcCkeditor->createDomId('');
+        $this->assertEmpty($rs);
+
+        //the field is not empty
+        $rs = $this->BcCkeditor->createDomId('Page.contents');
+        $this->assertEquals('PageContents', $rs);
     }
 
 }

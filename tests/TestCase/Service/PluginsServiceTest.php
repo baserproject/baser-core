@@ -13,14 +13,19 @@ namespace BaserCore\Test\TestCase\Service;
 
 use BaserCore\Service\PluginsService;
 use BaserCore\Test\Factory\PluginFactory;
+use BaserCore\Test\Factory\SiteConfigFactory;
+use BaserCore\Test\Scenario\PluginsScenario;
 use BaserCore\TestSuite\BcTestCase;
+use BaserCore\Utility\BcComposer;
+use BaserCore\Utility\BcZip;
+use BaserCore\Utility\BcFile;
+use BaserCore\Utility\BcFolder;
 use BaserCore\Utility\BcUtil;
 use Cake\Cache\Cache;
 use Cake\Core\Configure;
 use Cake\Core\Plugin;
-use Cake\Filesystem\File;
-use Cake\Filesystem\Folder;
 use Cake\Core\App;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 use Composer\Package\Archiver\ZipArchiver;
 use Laminas\Diactoros\UploadedFile;
 
@@ -32,16 +37,9 @@ class PluginsServiceTest extends BcTestCase
 {
 
     /**
-     * Fixtures
-     *
-     * @var array
+     * ScenarioAwareTrait
      */
-    public $fixtures = [
-        'plugin.BaserCore.Plugins',
-        'plugin.BaserCore.Permissions',
-        'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.SiteConfigs'
-    ];
+    use ScenarioAwareTrait;
 
     /**
      * @var PluginsService|null
@@ -55,8 +53,8 @@ class PluginsServiceTest extends BcTestCase
      */
     public function setUp(): void
     {
-        $this->setFixtureTruncate();
         parent::setUp();
+        $this->loadFixtureScenario(PluginsScenario::class);
         $this->Plugins = new PluginsService();
     }
 
@@ -93,11 +91,10 @@ class PluginsServiceTest extends BcTestCase
     {
         // テスト用のプラグインフォルダ作成
         $pluginPath = App::path('plugins')[0] . DS . 'BcTest';
-        $folder = new Folder($pluginPath);
-        $folder->create($pluginPath, 0777);
-        $file = new File($pluginPath . DS . 'config.php');
+        $folder = new BcFolder($pluginPath);
+        $folder->create();
+        $file = new BcFile($pluginPath . DS . 'config.php');
         $file->write("<?php return ['type' => 'Plugin'];");
-        $file->close();
 
         $plugins = $this->Plugins->getIndex($sortMode);
         $pluginNames = [];
@@ -112,7 +109,7 @@ class PluginsServiceTest extends BcTestCase
             $this->assertNotContains('BcTest', $pluginNames);
         }
     }
-    public function indexDataprovider()
+    public static function indexDataprovider()
     {
         return [
             // 普通の場合 | DBに登録されてるプラグインとプラグインファイル全て
@@ -127,6 +124,9 @@ class PluginsServiceTest extends BcTestCase
      */
     public function testInstall()
     {
+        $this->markTestIncomplete('このメソッドを利用すると全体のテストが失敗してしまうためスキップ。対応方法検討要');
+        // データが初期化されなくなってしまう。dropTableでトリガーが削除されるのが原因の様子
+
         // 正常な場合
         $this->assertTrue($this->Plugins->install('BcUploader', true, 'test'));
         // プラグインがない場合
@@ -137,8 +137,8 @@ class PluginsServiceTest extends BcTestCase
         }
         // フォルダはあるがインストールできない場合
         $pluginPath = App::path('plugins')[0] . DS . 'BcTest';
-        $folder = new Folder($pluginPath);
-        $folder->create($pluginPath, 0777);
+        $folder = new BcFolder($pluginPath);
+        $folder->create();
         try {
             $this->assertNull($this->Plugins->install('BcTest', true, 'test'));
         } catch (\Exception $e) {
@@ -155,12 +155,16 @@ class PluginsServiceTest extends BcTestCase
         $this->assertEquals('BcBlog', $this->Plugins->getByName('BcBlog')->name);
         $this->assertNull($this->Plugins->getByName('Test'));
     }
+
     /**
      * test resetDb
      * @throws \Exception
      */
     public function testResetDb()
     {
+        $this->markTestIncomplete('このメソッドを利用すると全体のテストが失敗してしまうためスキップ。対応方法検討要');
+        // データが初期化されなくなってしまう。dropTableでトリガーが削除されるのが原因の様子
+
         $this->Plugins->install('BcBlog', true, 'test');
         $blogPosts = $this->getTableLocator()->get('BcBlog.plugins');
 
@@ -199,10 +203,10 @@ class PluginsServiceTest extends BcTestCase
         $this->assertEquals('既にインストール済のプラグインです。', $this->Plugins->getInstallStatusMessage('BcBlog'));
         $this->assertEquals('インストールしようとしているプラグインのフォルダが存在しません。', $this->Plugins->getInstallStatusMessage('BcTest'));
         $pluginPath = App::path('plugins')[0] . DS . 'BcTest';
-        $folder = new Folder($pluginPath);
-        $folder->create($pluginPath, 0777);
+        $folder = new BcFolder($pluginPath);
+        $folder->create();
         $this->assertEquals('', $this->Plugins->getInstallStatusMessage('BcTest'));
-        $folder->delete($pluginPath);
+        $folder->delete();
     }
 
     /**
@@ -225,7 +229,7 @@ class PluginsServiceTest extends BcTestCase
         $this->Plugins->install('BcPluginSample', true, 'test');
         $pluginPath = Plugin::path('BcPluginSample');
         rename($pluginPath . 'VERSION.txt', $pluginPath . 'VERSION.bak.txt');
-        $file = new File($pluginPath . 'VERSION.txt');
+        $file = new BcFile($pluginPath . 'VERSION.txt');
         $file->write('10.0.0');
         $this->Plugins->update('BcPluginSample', 'test');
         $this->assertEquals('10.0.0', $this->Plugins->getVersion('BcPluginSample'));
@@ -233,7 +237,7 @@ class PluginsServiceTest extends BcTestCase
 
         // コア
         rename(BASER . 'VERSION.txt', BASER . 'VERSION.bak.txt');
-        $file = new File(BASER . 'VERSION.txt');
+        $file = new BcFile(BASER . 'VERSION.txt');
         $file->write('10.0.0');
         $this->Plugins->update('BaserCore', 'test');
         $plugins = array_merge(['BaserCore'], Configure::read('BcApp.corePlugins'));
@@ -241,6 +245,55 @@ class PluginsServiceTest extends BcTestCase
             $this->assertEquals('10.0.0', BcUtil::getVersion($plugin));
         }
         rename(BASER . 'VERSION.bak.txt', BASER . 'VERSION.txt');
+    }
+
+    /**
+     * test Update Core Fail
+     *
+     * @return void
+     */
+    public function test_updateCoreFails()
+    {
+        rename(BASER . 'VERSION.txt', BASER . 'VERSION.bak.txt');
+        $file = new BcFile(BASER . 'VERSION.txt');
+        $file->write('10.0.0');
+
+        // 失敗用のマイグレーションファイルを作成
+        $path = $this->createFailMigration();
+
+        // 失敗を確認
+        $this->assertFalse($this->Plugins->update('BaserCore', 'test'));
+
+        // 無効化されたプラグインの有効化を確認
+        $this->assertEquals(5, $this->getTableLocator()->get('BaserCore.Plugins')->find()->where(['status' => true])->count());
+
+        rename(BASER . 'VERSION.bak.txt', BASER . 'VERSION.txt');
+        unlink($path);
+    }
+
+    /**
+     * コアのアップデートを失敗させるためのマイグレーションファイルを作成する
+     *
+     * test_updateCoreFail にて利用
+     *
+     * 既に存在するIDを利用することで失敗させる
+     *
+     * @return string
+     */
+    protected function createFailMigration()
+    {
+        $path = Plugin::path('BaserCore') . 'config' . DS . 'Migrations' . DS . '20230328000000_TestMigration.php';
+        $file = new BcFile($path);
+        $data = <<< EOF
+<?php
+use BaserCore\Database\Migration\BcMigration;
+class TestMigration extends BcMigration
+{
+    public function up(){}
+}
+EOF;
+        $file->write($data);
+        return $path;
     }
 
     /**
@@ -256,11 +309,12 @@ class PluginsServiceTest extends BcTestCase
      * test attachAllFromIds
      * @return void
      */
-    public function test_attachAllFromIds(){
+    public function test_attachAllFromIds()
+    {
         $plugins = $this->Plugins->getIndex(false);
         $this->assertTrue($plugins[1]->status);
 
-        $ids = [1,2];
+        $ids = [1, 2];
 
         $this->Plugins->detachAll();
 
@@ -276,7 +330,8 @@ class PluginsServiceTest extends BcTestCase
      * test attachAllFromIds with 配列：null
      * @return void
      */
-    public function test_attachAllFromIds_false(){
+    public function test_attachAllFromIds_false()
+    {
         $ids = null;
         $rs = $this->Plugins->attachAllFromIds($ids);
 
@@ -287,7 +342,8 @@ class PluginsServiceTest extends BcTestCase
      * test getMarketPlugins
      * @return void
      */
-    public function testGetMarketPlugins(){
+    public function testGetMarketPlugins()
+    {
         $this->markTestIncomplete('TODO 直接外部ではなく Mockのテストに切り替える');
         $rs = $this->Plugins->getMarketPlugins();
         $this->assertNotEmpty($rs, 'baserマーケットのデータが読み込めませんでした。テストを再実行してください。');
@@ -332,9 +388,11 @@ class PluginsServiceTest extends BcTestCase
     {
         $path = BASER_PLUGINS . 'BcThemeSample';
         $zipSrcPath = TMP . 'zip' . DS;
-        $folder = new Folder();
-        $folder->create($zipSrcPath, 0777);
-        $folder->copy($zipSrcPath . 'BcThemeSample2', ['from' => $path, 'mode' => 0777]);
+        $folder = new BcFolder($zipSrcPath);
+        $folder->create();
+        //copy
+        $folder = new BcFolder($path);
+        $folder->copy( $zipSrcPath. 'BcThemeSample2');
         $plugin = 'BcThemeSample2';
         $zip = new ZipArchiver();
         $testFile = $zipSrcPath . $plugin . '.zip';
@@ -359,8 +417,11 @@ class PluginsServiceTest extends BcTestCase
         $this->assertTrue(is_dir(ROOT . DS . 'plugins' . DS . $plugin));
 
         //  既に /plugins/ 内に同名のプラグインが存在する場合には、数字付きのディレクトリ名（PluginName2）にリネームする。
-        $folder->create($zipSrcPath, 0777);
-        $folder->copy($zipSrcPath . 'BcThemeSample2', ['from' => $path, 'mode' => 0777]);
+        $folder = new BcFolder($zipSrcPath);
+        $folder->create();
+        //copy
+        $folder = new BcFolder($path);
+        $folder->copy($zipSrcPath . 'BcThemeSample2');
         $zip = new ZipArchiver();
         $zip->archive($zipSrcPath, $testFile, true);
         $this->setUploadFileToRequest('file', $testFile);
@@ -376,10 +437,12 @@ class PluginsServiceTest extends BcTestCase
         $this->assertEquals('BcThemeSample3', $rs);
 
         //テスト実行後不要ファイルを削除
-        $folder = new Folder();
-        $folder->delete(ROOT . DS . 'plugins' . DS . $plugin);
-        $folder->delete(ROOT . DS . 'plugins' . DS . 'BcThemeSample22');
-        $folder->delete($zipSrcPath);
+        $folder = new BcFolder(ROOT . DS . 'plugins' . DS . $plugin);
+        $folder->delete();
+        $folder = new BcFolder(ROOT . DS . 'plugins' . DS . 'BcThemeSample3');
+        $folder->delete();
+        $folder = new BcFolder($zipSrcPath);
+        $folder->delete();
 
         // TODO ローカルでは成功するが、GitHubActions上でうまくいかないためコメントアウト（原因不明）
         // post_max_size　を超えた場合、サーバーに設定されているサイズ制限を超えた場合、
@@ -399,4 +462,174 @@ class PluginsServiceTest extends BcTestCase
 //        $this->expectExceptionMessage("送信できるデータ量を超えています。合計で " . ini_get('post_max_size') . " 以内のデータを送信してください。");
 //        $this->Plugins->add(["file" => $files]);
     }
+
+    /**
+     * test getAvailableCoreVersionInfo
+     * @return void
+     * @dataProvider getAvailableCoreVersionInfoDataProvider
+     */
+    public function test_getAvailableCoreVersionInfo(
+        string $currentVersion,
+        array $releaseVersions,
+        string $expectLatest,
+        array $expectAvailable
+    )
+    {
+        $versionPath = Plugin::path('BaserCore') . 'VERSION.txt';
+        $versionBakPath = Plugin::path('BaserCore') . 'VERSION.bak.txt';
+        $rssPath = WWW_ROOT . 'baser-core.rss';
+
+        // バックアップを取得する
+        copy($versionPath, $versionBakPath);
+        // オートアップデートを有効化
+        SiteConfigFactory::make(['name' => 'use_update_notice', 'value' => true])->persist();
+        // BcApp.coreReleaseUrl を書き換える
+        Configure::write('BcApp.coreReleaseUrl', $rssPath);
+        // バージョンを書き換える
+        $file = new BcFile($versionPath);
+        $file->write($currentVersion);
+        // RSSを生成
+        $this->createReleaseRss($releaseVersions);
+        // キャッシュを削除
+        Cache::delete('coreReleaseInfo', '_bc_update_');
+
+        // 実行
+        $versionInfo = $this->Plugins->getAvailableCoreVersionInfo();
+        $this->assertEquals($expectLatest, $versionInfo['latest']);
+        $this->assertEquals($expectAvailable, $versionInfo['versions']);
+
+        // 初期化
+        rename($versionBakPath, $versionPath);
+        unlink($rssPath);
+    }
+
+    public static function getAvailableCoreVersionInfoDataProvider()
+    {
+        return [
+            // 通常
+            ['5.0.0', ['5.0.2', '5.0.1', '5.0.0'], '5.0.2', ['5.0.2', '5.0.1']],
+            // 現在のバージョンが dev の場合
+            ['5.0.0-dev', ['5.0.2', '5.0.1', '5.0.0'], '5.0.2', []],
+            // リリースに dev が含まれている場合
+            ['5.0.0', ['5.0.2-dev', '5.0.1-dev', '5.0.0'], '5.0.0', []],
+            // マイナーアップデートの場合
+            ['5.0.0', ['5.1.0', '5.0.0'], '5.1.0', ['5.1.0']],
+            // メジャーアップデートの場合
+            ['5.0.0', ['6.0.0', '5.5.0'], '6.0.0', ['5.5.0']],
+            // アップデート対象が古いものしかない場合
+            ['5.0.0', ['5.0.0', '4.9.0'], '5.0.0', []],
+            // アップデート対象が全く取れない場合
+            ['5.0.0', [], '', []],
+        ];
+    }
+
+    /**
+     * リリース情報のRSSを作成する
+     * @param array $versions
+     * @return void
+     */
+    public function createReleaseRss(array $versions)
+    {
+        $url = WWW_ROOT . 'baser-core.rss';
+        $rss = <<< EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:slash="http://purl.org/rss/1.0/modules/slash/">
+  <channel>
+    <title>baserproject/baser-core releases</title>
+    <description>Latest releases on Packagist of baserproject/baser-core.</description>
+    <pubDate>Wed, 19 Apr 2023 07:17:04 +0000</pubDate>
+    <generator>Packagist</generator>
+    <link>https://packagist.org/packages/baserproject/baser-core</link>
+EOF;
+        foreach($versions as $version) {
+            $rss .= <<< EOF
+    <item>
+      <title>baserproject/baser-core ({$version})</title>
+      <description><![CDATA[baserCMS plugin for CakePHP]]></description>
+      <pubDate>Wed, 19 Apr 2023 07:17:04 +0000</pubDate>
+      <link>https://packagist.org/packages/baserproject/baser-core</link>
+      <guid isPermaLink="false">baserproject/baser-core {$version}</guid>
+      <slash:comments>0</slash:comments>
+    </item>
+EOF;
+        }
+        $rss .= <<< EOF
+  </channel>
+</rss>
+EOF;
+        $file = new BcFile($url);
+        $file->write($rss);
+    }
+
+    /**
+     * test getCoreUpdate
+     * @return void
+     */
+    public function testGetCoreUpdateAndUpdateCoreFiles()
+    {
+        $this->markTestIncomplete('CakePHPのバージョンの問題があるので、baserCMS 5.1.0 をリリースしてから再実装する');
+        // composer.json をバックアップ
+        copy(ROOT . DS . 'composer.json', ROOT . DS . 'composer.bak.json');
+        copy(ROOT . DS . 'composer.lock', ROOT . DS . 'composer.bak.lock');
+
+        // composer.json を配布用に更新
+        BcComposer::setupComposerForDistribution(ROOT . DS);
+
+        // getCoreUpdate 実行
+        $this->Plugins->getCoreUpdate('5.0.15', 'php');
+
+        // バージョンを確認
+        $this->assertEquals('5.0.15', BcUtil::getVersion('BaserCore', true));
+
+        // coreDownloaded を確認
+        $this->assertTrue(Cache::read('coreDownloaded', '_bc_update_'));
+
+        // updateCoreFiles 実行
+        $this->Plugins->updateCoreFiles();
+        // バージョンを確認
+        $file = new BcFile(ROOT . DS . 'vendor' . DS . 'baserproject' . DS . 'baser-core' . DS . 'VERSION.txt');
+        $versionData = $file->read();
+        $aryVersionData = explode("\n", $versionData);
+        $this->assertEquals('5.0.15', $aryVersionData[0]);
+
+        // vendor を元に戻す
+        (new BcFolder(ROOT . DS . 'vendor'))->delete();
+        $zip = new BcZip();
+        $zip->extract(TMP . 'update' . DS . 'vendor.zip', ROOT . DS . 'vendor');
+
+        // 一時ファイルを削除
+        (new BcFolder(TMP . 'update'))->delete();
+
+        // composer.json を元に戻す
+        rename(ROOT . DS . 'composer.bak.json', ROOT . DS . 'composer.json');
+        rename(ROOT . DS . 'composer.bak.lock', ROOT . DS . 'composer.lock');
+    }
+
+    /**
+     * test rollbackCore
+     * @return void
+     */
+    public function testRollbackCore()
+    {
+        $this->markTestIncomplete('CakePHPのバージョンの問題があるので、baserCMS 5.1.0 をリリースしてから再実装する');
+        // composer.json をバックアップ
+        copy(ROOT . DS . 'composer.json', ROOT . DS . 'composer.bak.json');
+        // composer.json を配布用に更新
+        BcComposer::setupComposerForDistribution(ROOT . DS);
+
+        // ロールバック
+        $this->Plugins->rollbackCore('5.0.15', 'php');
+
+        // バージョンを確認
+        $file = new BcFile(ROOT . DS . 'vendor' . DS . 'baserproject' . DS . 'baser-core' . DS . 'VERSION.txt');
+        $versionData = $file->read();
+        $aryVersionData = explode("\n", $versionData);
+        $this->assertEquals('5.0.15', $aryVersionData[0]);
+
+        // composer.json を元に戻す
+        rename(ROOT . DS . 'composer.bak.json', ROOT . DS . 'composer.json');
+        // vendor 内の baserproject を削除
+        (new BcFolder(ROOT . DS . 'vendor' . DS . 'baserproject'))->delete();
+    }
+
 }

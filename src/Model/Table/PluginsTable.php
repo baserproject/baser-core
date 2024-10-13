@@ -11,7 +11,6 @@
 
 namespace BaserCore\Model\Table;
 
-use BaserCore\Event\BcEventDispatcherTrait;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\Configure;
 use Cake\ORM\TableRegistry;
@@ -27,12 +26,6 @@ use Cake\Validation\Validator;
  */
 class PluginsTable extends AppTable
 {
-
-    /**
-     * Trait
-     */
-    use BcEventDispatcherTrait;
-
     /**
      * Initialize
      *
@@ -119,7 +112,7 @@ class PluginsTable extends AppTable
         }
 
         $result = $this->find()
-            ->order(['priority'])
+            ->orderBy(['priority'])
             ->where(['name' => $pluginName])
             ->first();
 
@@ -148,6 +141,7 @@ class PluginsTable extends AppTable
                 'core' => $core,
                 'permission' => 1,
                 'registered' => false,
+                'db_init' => false,
                 'screenshot' => $hasScreenshot
             ]);
         }
@@ -155,7 +149,10 @@ class PluginsTable extends AppTable
         // 設定ファイル読み込み
         $appConfigPath = $pluginPath . 'config.php';
         if (file_exists($appConfigPath)) {
-            $this->patchEntity($pluginRecord, include $appConfigPath);
+        	$config = include $appConfigPath;
+        	if(is_array($config)) {
+				$this->patchEntity($pluginRecord, include $appConfigPath);
+			}
         }
         if($name === 'BaserCore') $pluginRecord->title = 'BaserCore';
         return $pluginRecord;

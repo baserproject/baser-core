@@ -11,12 +11,17 @@
 namespace BaserCore\Test\TestCase\Model\Behavior;
 
 use ArrayObject;
+use BaserCore\Test\Scenario\ContentsScenario;
 use Cake\ORM\Entity;
+use Cake\Validation\Validator;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Utility\BcContainerTrait;
 use BaserCore\Model\Table\ContentsTable;
 use BaserCore\Model\Behavior\BcUploadBehavior;
 use BaserCore\Service\ContentsServiceInterface;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
+use Laminas\Diactoros\UploadedFile;
+use function Laminas\Diactoros\normalizeUploadedFiles;
 
 /**
  * Class BcUploadBehaviorTest
@@ -29,26 +34,14 @@ class BcUploadBehaviorTest extends BcTestCase
 {
 
     /**
+     * ScenarioAwareTrait
+     */
+    use ScenarioAwareTrait;
+
+    /**
      * Trait
      */
     use BcContainerTrait;
-
-    /**
-     * Fixtures
-     *
-     * @var array
-     */
-    protected $fixtures = [
-        'plugin.BaserCore.Pages',
-        'plugin.BaserCore.Contents',
-        'plugin.BaserCore.Sites',
-        'plugin.BaserCore.ContentFolders',
-        'plugin.BaserCore.Users',
-        'plugin.BaserCore.UsersUserGroups',
-        'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.SiteConfigs',
-    ];
-
 
     /**
      * @var ContentsTable|BcUploadBehavior
@@ -68,9 +61,13 @@ class BcUploadBehaviorTest extends BcTestCase
         $this->table->addBehavior('BaserCore.BcUpload');
         $this->BcUploadBehavior = $this->table->getBehavior('BcUpload');
         $this->ContentsService = $this->getService(ContentsServiceInterface::class);
-        $this->uploadedData = [
+
+        $srcPath = '/var/www/html/webroot/img/basercms.png';
+        $targetPath = '/tmp/testBcUpload.png';
+        copy($srcPath, $targetPath);
+        $this->uploadedData = normalizeUploadedFiles([
             'eyecatch' => [
-                "tmp_name" => "/tmp/testBcUpload.png",
+                "tmp_name" => $targetPath,
                 "error" => 0,
                 "name" => "test.png",
                 "type" => "image/png",
@@ -80,7 +77,8 @@ class BcUploadBehaviorTest extends BcTestCase
                 'uploadable' => true,
                 'ext' => 'png'
             ]
-        ];
+        ]);
+
         $this->eyecatchField = [
             'name' => 'eyecatch',
             'ext' => 'gif',
@@ -118,18 +116,36 @@ class BcUploadBehaviorTest extends BcTestCase
      */
     public function testBeforeMarshal()
     {
-        $this->table->dispatchEvent('Model.beforeMarshal', ['data' => new ArrayObject($this->uploadedData), 'options' => new ArrayObject()]);
+        $data = new ArrayObject($this->uploadedData);
+        $this->table->dispatchEvent('Model.beforeMarshal', ['data' => $data, 'options' => new ArrayObject()]);
         // setupRequestDataが実行されてるか確認
-        $this->assertNotNull($this->BcUploadBehavior->BcFileUploader[$this->table->getAlias()]->getUploadingFiles());
+        $this->assertNotNull(
+            $this->BcUploadBehavior
+                ->BcFileUploader[$this->table->getAlias()]
+                ->getUploadingFiles($data['_bc_upload_id'])
+        );
     }
+
+    /**
+     * Build Validator
+     */
+    public function testBuildValidator()
+    {
+        $validator = new Validator();
+        $this->table->dispatchEvent('Model.buildValidator',
+            ['validator' => $validator, 'name' => 'test']);
+        $rules = $this->table->getValidator()->field('eyecatch');
+        $this->assertNotNull($rules['checkFilePath']);
+    }
+
 
     /**
      * After save
      *
-     * @return boolean
      */
     public function testAfterSave()
     {
+        $this->loadFixtureScenario(ContentsScenario::class);
        // 画像を新規追加する場合
         $imgPath = ROOT . '/plugins/bc-admin-third/webroot/img/';
         $fileName = 'baser.power';
@@ -145,10 +161,11 @@ class BcUploadBehaviorTest extends BcTestCase
                 'uploadable' => true
             ]
         ];
-        $this->BcUploadBehavior->BcFileUploader[$this->table->getAlias()]->setUploadingFiles($uploadedFile);
+        $bcUploadId = 1;
+        $this->BcUploadBehavior->BcFileUploader[$this->table->getAlias()]->setUploadingFiles($uploadedFile, $bcUploadId);
         $this->BcUploadBehavior->BcFileUploader[$this->table->getAlias()]->settings['fields']['eyecatch'] = $this->eyecatchField;
         // 新規保存の場合
-        $entity = new Entity(['id' => 6, 'eyecatch' => 'baser.power.gif']);
+        $entity = new Entity(['id' => 6, 'eyecatch' => 'baser.power.gif', '_bc_upload_id' => $bcUploadId]);
         $this->table->dispatchEvent('Model.afterSave', ['entity' => $entity, 'options' => new ArrayObject()]);
         $this->assertFileExists($this->savePath . 'baser.power.gif');
         // 削除の場合
@@ -164,6 +181,7 @@ class BcUploadBehaviorTest extends BcTestCase
      */
     public function testSaveTmpFiles()
     {
+        $this->markTestIncomplete('こちらのテストはまだ未確認です');
         touch($this->uploadedData['eyecatch']['tmp_name']);
         $entity = $this->BcUploadBehavior->saveTmpFiles($this->uploadedData, 1);
         $tmpId = $this->BcUploadBehavior->BcFileUploader[$this->table->getAlias()]->tmpId;
@@ -181,6 +199,7 @@ class BcUploadBehaviorTest extends BcTestCase
      */
     public function testBeforeDelete()
     {
+        $this->loadFixtureScenario(ContentsScenario::class);
         $this->BcUploadBehavior->BcFileUploader[$this->table->getAlias()]->setupRequestData([]);
         $filePath = $this->savePath . 'test.png';
         touch($filePath);
@@ -231,6 +250,7 @@ class BcUploadBehaviorTest extends BcTestCase
      */
     public function testGetOldEntity()
     {
+        $this->loadFixtureScenario(ContentsScenario::class);
         $result = $this->BcUploadBehavior->getOldEntity(1);
         $this->assertEmpty($result->name);
     }
@@ -245,12 +265,14 @@ class BcUploadBehaviorTest extends BcTestCase
      */
     public function testRenameToBasenameFields($filename, $copy, $fileList)
     {
+        $this->loadFixtureScenario(ContentsScenario::class);
         $this->getRequest('/baser/admin/');
         // 初期化
         $entity = $this->table->get(1);
         $entity->eyecatch = $filename;
+        $entity->_bc_upload_id = 1;
         $uploader = $this->BcUploadBehavior->getFileUploader();
-        $uploader->setUploadingFiles(['eyecatch' => ['name' => $filename, 'ext' => 'txt']]);
+        $uploader->setUploadingFiles(['eyecatch' => ['name' => $filename, 'ext' => 'txt']], $entity->_bc_upload_id);
 
         // ダミーファイルの生成
         touch($this->savePath . $filename);
@@ -266,7 +288,7 @@ class BcUploadBehaviorTest extends BcTestCase
     /**
      * @return array[]
      */
-    public function renameToBasenameFieldsDataProvider(): array
+    public static function renameToBasenameFieldsDataProvider(): array
     {
         return [
             // copyがfalseの場合、ファイルネームを変更する

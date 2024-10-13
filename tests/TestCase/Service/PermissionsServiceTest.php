@@ -12,10 +12,16 @@
 namespace BaserCore\Test\TestCase\Service;
 
 use BaserCore\Test\Factory\PermissionFactory;
+use BaserCore\Test\Scenario\InitAppScenario;
+use BaserCore\Test\Scenario\PermissionsScenario;
+use BaserCore\Test\Scenario\UserGroupsScenario;
+use BaserCore\Test\Scenario\UserScenario;
+use BaserCore\Test\Scenario\UsersUserGroupsScenario;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Service\PermissionsService;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\Configure;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * BaserCore\Model\Table\PermissionsTable Test Case
@@ -33,16 +39,9 @@ class PermissionsServiceTest extends BcTestCase
     public $Permissions;
 
     /**
-     * Fixtures
-     *
-     * @var array
+     * ScenarioAwareTrait
      */
-    protected $fixtures = [
-        'plugin.BaserCore.Permissions',
-        'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.Users',
-        'plugin.BaserCore.UsersUserGroups',
-    ];
+    use ScenarioAwareTrait;
 
         /**
      * Set Up
@@ -52,6 +51,7 @@ class PermissionsServiceTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
+        $this->loadFixtureScenario(PermissionsScenario::class);
         $this->PermissionsService = new PermissionsService();
     }
 
@@ -90,6 +90,9 @@ class PermissionsServiceTest extends BcTestCase
      */
     public function testGet()
     {
+        $this->loadFixtureScenario(UserGroupsScenario::class);
+        $this->loadFixtureScenario(UsersUserGroupsScenario::class);
+        $this->loadFixtureScenario(UserScenario::class);
         $permission = $this->PermissionsService->get(1);
         $this->assertEquals('システム管理', $permission->name);
         $this->assertEquals(2, $permission->user_group->id);
@@ -299,6 +302,9 @@ class PermissionsServiceTest extends BcTestCase
      */
     public function testCheck($url, $userGroup, $expected)
     {
+        $this->loadFixtureScenario(UserGroupsScenario::class);
+        $this->loadFixtureScenario(UsersUserGroupsScenario::class);
+        $this->loadFixtureScenario(UserScenario::class);
         $this->loadPlugins(['BcBlog']);
         $this->PermissionsService->addCheck("/fuga", false);
         $this->PermissionsService->addCheck("/piyo", true);
@@ -306,7 +312,7 @@ class PermissionsServiceTest extends BcTestCase
         $this->assertEquals($expected, $result);
     }
 
-    public function checkDataProvider()
+    public static function checkDataProvider()
     {
         return [
             ['hoge', [1], true],
@@ -323,6 +329,57 @@ class PermissionsServiceTest extends BcTestCase
         ];
     }
 
+    /**
+     * test check on post
+     * @return void
+     */
+    public function testIsAuthorized()
+    {
+        $this->truncateTable('permissions');
+
+        // ブラックリスト
+        $this->assertTrue($this->PermissionsService->isAuthorized(2, '/', 'GET', []));
+        $this->assertTrue($this->PermissionsService->isAuthorized(2, '/', 'POST', []));
+        $this->assertTrue($this->PermissionsService->isAuthorized(2, '/', 'PUT', []));
+        $this->assertTrue($this->PermissionsService->isAuthorized(2, '/', 'PATCH', []));
+        $this->assertTrue($this->PermissionsService->isAuthorized(2, '/', 'DELETE', []));
+
+        // ホワイトリスト（データなし）
+        $this->assertFalse($this->PermissionsService->isAuthorized(1, '/', 'GET', []));
+
+        // ホワイトリスト（/ に対し 表示 のみ許可）
+        PermissionFactory::make(['url' => '/', 'method' => 'GET', 'auth' => true])->persist();
+        $permissions = PermissionFactory::find()->all()->toArray();
+        $this->assertTrue($this->PermissionsService->isAuthorized(1, '/', 'GET', $permissions));
+        $this->assertFalse($this->PermissionsService->isAuthorized(1, '/', 'POST', $permissions));
+        $this->assertFalse($this->PermissionsService->isAuthorized(1, '/', 'PUT', $permissions));
+        $this->assertFalse($this->PermissionsService->isAuthorized(1, '/', 'PATCH', $permissions));
+        $this->assertFalse($this->PermissionsService->isAuthorized(1, '/', 'DELETE', $permissions));
+
+        // ホワイトリスト（/ に対し表示と編集を許可）
+        // ※ 現在、* と挙動が同じになっている。DELETE を * の場合だけ許可するか検討が必要
+        $this->truncateTable('permissions');
+        PermissionFactory::make(['url' => '/', 'method' => 'POST', 'auth' => true])->persist();
+        $permissions = PermissionFactory::find()->all()->toArray();
+        $this->assertTrue($this->PermissionsService->isAuthorized(1, '/', 'GET', $permissions));
+        $this->assertTrue($this->PermissionsService->isAuthorized(1, '/', 'POST', $permissions));
+        $this->assertTrue($this->PermissionsService->isAuthorized(1, '/', 'PUT', $permissions));
+        $this->assertTrue($this->PermissionsService->isAuthorized(1, '/', 'PATCH', $permissions));
+        $this->assertTrue($this->PermissionsService->isAuthorized(1, '/', 'DELETE', $permissions));
+
+        // ホワイトリスト（/ に対し全て許可）
+        $this->truncateTable('permissions');
+        PermissionFactory::make(['url' => '/', 'method' => '*', 'auth' => true])->persist();
+        $permissions = PermissionFactory::find()->all()->toArray();
+        $this->assertTrue($this->PermissionsService->isAuthorized(1, '/', 'GET', $permissions));
+        $this->assertTrue($this->PermissionsService->isAuthorized(1, '/', 'POST', $permissions));
+        $this->assertTrue($this->PermissionsService->isAuthorized(1, '/', 'PUT', $permissions));
+        $this->assertTrue($this->PermissionsService->isAuthorized(1, '/', 'PATCH', $permissions));
+        $this->assertTrue($this->PermissionsService->isAuthorized(1, '/', 'DELETE', $permissions));
+
+        // ホワイトリスト（クエリパラメーター付き）
+        $this->assertTrue($this->PermissionsService->isAuthorized(1, '/?test=1', 'GET', $permissions));
+    }
 
     /**
      * 権限チェック対象を追加する
@@ -338,7 +395,7 @@ class PermissionsServiceTest extends BcTestCase
         $this->assertEquals($expected, $result);
 
     }
-    public function addCheckDataProvider()
+    public static function addCheckDataProvider()
     {
         return [
             ["/baser/admin/test1/*", false, false],
@@ -422,7 +479,7 @@ class PermissionsServiceTest extends BcTestCase
         $this->assertEquals($this->execPrivateMethod($this->PermissionsService, 'checkDefaultAllow', [$url]), $expect);
     }
 
-    public function setDefaultAllowDataProvider()
+    public static function setDefaultAllowDataProvider()
     {
         return [
             ['/baser/admin/baser-core/dashboard/test', true],
@@ -439,6 +496,7 @@ class PermissionsServiceTest extends BcTestCase
      */
     public function testConvertRegexUrl(): void
     {
+        $this->loadFixtureScenario(InitAppScenario::class);
         $this->loginAdmin($this->getRequest('/'));
         $user = BcUtil::loginUser();
         $url = 'https://www.nhk.or.jp';
@@ -480,6 +538,9 @@ class PermissionsServiceTest extends BcTestCase
      */
     public function testGetControlSource()
     {
+        $this->loadFixtureScenario(UserGroupsScenario::class);
+        $this->loadFixtureScenario(UsersUserGroupsScenario::class);
+        $this->loadFixtureScenario(UserScenario::class);
         $userGroupList = $this->PermissionsService->getControlSource('user_group_id');
         $this->assertGreaterThan(0, count($userGroupList));
         $keyExist = key_exists(Configure::read('BcApp.adminGroupId'), $userGroupList);

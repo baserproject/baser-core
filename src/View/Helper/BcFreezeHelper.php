@@ -38,6 +38,9 @@ class BcFreezeHelper extends BcFormHelper
      * フォームを凍結させる
      *
      * @return void
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function freeze()
     {
@@ -48,34 +51,35 @@ class BcFreezeHelper extends BcFormHelper
      * テキストボックスを表示する
      *
      * @param string $fieldName フィールド文字列
-     * @param array $attributes html属性
+     * @param array $options html属性
      * - 凍結時に、$attributes["value"]が指定されている場合、その値がvalueになる。
      * 　指定されてない場合、$this->request->data[$model][$field]がvalueになる。
-     * @return    string    htmlタグ
-     * @access    public
+     * @return string htmlタグ
+     * @checked
+     * @noTodo
+     * @unitTest
      */
-    public function text($fieldName, $attributes = [])
+    public function text(string $fieldName, array $options = []): string
     {
-
         if ($this->freezed) {
-            if(strpos($fieldName, '.') !== false) {
+            if (strpos($fieldName, '.') !== false) {
                 [, $field] = explode('.', $fieldName);
             } else {
                 $field = $fieldName;
             }
-            if (isset($attributes)) {
-                $attributes = $attributes + ['type' => 'hidden'];
+            if (isset($options)) {
+                $options = $options + ['type' => 'hidden'];
             } else {
-                $attributes = ['type' => 'hidden'];
+                $options = ['type' => 'hidden'];
             }
-            if (isset($attributes["value"])) {
-                $value = $attributes["value"];
+            if (isset($options["value"])) {
+                $value = $options["value"];
             } else {
                 $value = $this->getSourceValue($field);
             }
-            return parent::text($fieldName, $attributes) . h($value);
+            return parent::text($fieldName, $options) . h($value);
         } else {
-            return parent::text($fieldName, $attributes);
+            return parent::text($fieldName, $options);
         }
     }
 
@@ -83,14 +87,15 @@ class BcFreezeHelper extends BcFormHelper
      * select プルダウンメニューを表示
      *
      * @param string $fieldName フィールド文字列
-     * @param array $options コントロールソース
+     * @param iterable $options コントロールソース
      * @param array $attributes html属性
      * - $attributes['cols']が指定されている場合、値の文字の横幅を指定できる
-     * @param array    空データの表示有無
-     * @return    string $showEmpty htmlタグ
-     * @access    public
+     * @return string htmlタグ
+     * @checked
+     * @noTodo
+     * @unitTest
      */
-    public function select($fieldName, $options = [], $attributes = []): string
+    public function select(string $fieldName, iterable $options = [], array $attributes = []): string
     {
         if ($this->freezed) {
             return $this->freezeControll($fieldName, $options, $attributes);
@@ -123,9 +128,7 @@ class BcFreezeHelper extends BcFormHelper
      */
     public function dateTime($fieldName, $dateFormat = 'DMY', $timeFormat = '12', $attributes = []): string
     {
-
         if ($this->freezed) {
-
             $year = $month = $day = $hour = $min = $meridian = $showEmpty = $selected = null;
             if (isset($attributes['selected'])) {
                 $selected = $attributes['selected'];
@@ -233,7 +236,6 @@ class BcFreezeHelper extends BcFormHelper
             }
             return implode($separator, $selects);
         } else {
-
             return parent::dateTime($fieldName, $dateFormat, $timeFormat, $attributes);
         }
     }
@@ -309,21 +311,23 @@ class BcFreezeHelper extends BcFormHelper
      * チェックボックスを表示する
      *
      * @param string $fieldName フィールド文字列
-     * @param array $attributes html属性
+     * @param array $options html属性
      * @return string htmlタグ
+     * @checked
+     * @noTodo
+     * @unitTest
      */
-    public function checkbox($fieldName, $attributes = [])
+    public function checkbox(string $fieldName, array $options = []): array|string
     {
-
         if ($this->freezed) {
             $label = '';
-            if (isset($attributes['label'])) {
-                $label = $attributes['label'];
+            if (isset($options['label'])) {
+                $label = $options['label'];
             }
             $options = [0 => '', 1 => $label];
-            return $this->freezeControll($fieldName, $options, $attributes);
+            return $this->freezeControll($fieldName, $options, $options);
         } else {
-            return parent::checkbox($fieldName, $attributes);
+            return parent::checkbox($fieldName, $options);
         }
     }
 
@@ -333,29 +337,31 @@ class BcFreezeHelper extends BcFormHelper
      * @param string フィールド文字列
      * @param array html属性
      * @return string htmlタグ
+     * @checked
+     * @noTodo
+     * @unitTest
      */
-    public function textarea($fieldName, $attributes = []): string
+    public function textarea($fieldName, $options = []): string
     {
-
         if ($this->freezed) {
-            if(strpos($fieldName, '.') !== false) {
+            if (strpos($fieldName, '.') !== false) {
                 [, $field] = explode('.', $fieldName);
             } else {
                 $field = $fieldName;
             }
-            $attributes = $attributes + ['type' => 'hidden'];
-            if (isset($attributes["value"])) {
-                $value = $attributes["value"];
+            $options = $options + ['type' => 'hidden'];
+            if (isset($options["value"])) {
+                $value = $options["value"];
             } else {
                 $value = $this->getSourceValue($field);
             }
             if ($value) {
-                return parent::text($fieldName, $attributes) . nl2br(h($value));
+                return parent::text($fieldName, $options) . nl2br(h($value));
             } else {
                 return "&nbsp;";
             }
         } else {
-            return parent::textarea($fieldName, $attributes);
+            return parent::textarea($fieldName, $options);
         }
     }
 
@@ -366,10 +372,12 @@ class BcFreezeHelper extends BcFormHelper
      * @param array $options コントロールソース
      * @param array $attributes html属性
      * @return string htmlタグ
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function radio($fieldName, $options = [], $attributes = []): string
     {
-
         if ($this->freezed) {
             return $this->freezeControll($fieldName, $options, $attributes);
         } else {
@@ -383,6 +391,8 @@ class BcFreezeHelper extends BcFormHelper
      * @param string $fieldName
      * @param array $options
      * @return string
+     * @checked
+     * @noTodo
      */
     public function file($fieldName, $options = []): string
     {
@@ -411,6 +421,8 @@ class BcFreezeHelper extends BcFormHelper
      * @param array $attributes html属性
      * @param array $imageAttributes 画像属性
      * @return string htmlタグ
+     * @checked
+     * @noTodo
      */
     public function image($fieldName, $attributes = [], $imageAttributes = [])
     {
@@ -465,8 +477,10 @@ class BcFreezeHelper extends BcFormHelper
      *
      * @param string $fieldName フィールド文字列
      * @param array $attributes html属性
-     * @return    string    htmlタグ
-     * @access    public
+     * @return string htmlタグ
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function tel($fieldName, $attributes = [])
     {
@@ -482,72 +496,77 @@ class BcFreezeHelper extends BcFormHelper
         }
     }
 
-	/**
-	 * テキストボックスを表示する
-	 *
-	 * @param string $fieldName フィールド文字列
-	 * @param array $attributes html属性
-	 * @return	string	htmlタグ
-	 * @access	public
-	 */
-	public function email($fieldName, $attributes = [])
-	{
-		if ($this->freezed) {
-			if (isset($attributes["value"])) {
-				$value = $attributes["value"];
-			} else {
-				$value = $this->getSourceValue($fieldName);
-			}
-			return parent::hidden($fieldName, $attributes) . h($value);
-		} else {
-			return parent::email($fieldName, $attributes);
-		}
-	}
+    /**
+     * テキストボックスを表示する
+     *
+     * @param string $fieldName フィールド文字列
+     * @param array $options html属性
+     * @return    string    htmlタグ
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function email($fieldName, $options = [])
+    {
+        if ($this->freezed) {
+            if (isset($options["value"])) {
+                $value = $options["value"];
+            } else {
+                $value = $this->getSourceValue($fieldName);
+            }
+            return parent::hidden($fieldName, $options) . h($value);
+        } else {
+            return parent::email($fieldName, $options);
+        }
+    }
 
-	/**
-	 * 数値ボックスを表示する
-	 *
-	 * @param string $fieldName フィールド文字列
-	 * @param array $attributes html属性
-	 * @return    string    htmlタグ
-	 * @access    public
-	 */
-	public function number($fieldName, $attributes = [])
-	{
-		if ($this->freezed) {
-			if (isset($attributes["value"])) {
-				$value = $attributes["value"];
-			} else {
-			    $value = $this->getSourceValue($fieldName);
-			}
-			return parent::hidden($fieldName, $attributes) . h($value);
-		} else {
-			return parent::number($fieldName, $attributes);
-		}
-	}
+    /**
+     * 数値ボックスを表示する
+     *
+     * @param string $fieldName フィールド文字列
+     * @param array $options html属性
+     * @return    string    htmlタグ
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function number($fieldName, $options = [])
+    {
+        if ($this->freezed) {
+            if (isset($options["value"])) {
+                $value = $options["value"];
+            } else {
+                $value = $this->getSourceValue($fieldName);
+            }
+            return parent::hidden($fieldName, $options) . h($value);
+        } else {
+            return parent::number($fieldName, $options);
+        }
+    }
 
     /**
      * パスワードボックスを表示する
      *
      * @param string $fieldName フィールド文字列
-     * @param array $attributes html属性
+     * @param array $options html属性
      * - 凍結時に、valueはマスクして表示する。
      * @return    string    htmlタグ
      * @checked
      * @noTodo
+     * @unitTest
      */
-    public function password($fieldName, $attributes = [])
+    public function password($fieldName, $options = [])
     {
         if ($this->freezed) {
-            if (isset($attributes["value"])) {
-                $value = $attributes["value"];
+            if (isset($options["value"])) {
+                $value = $options["value"];
             } else {
                 $value = $this->getSourceValue($fieldName);
             }
-            $value = preg_replace('/./', '*', $value);
-            return parent::hidden($fieldName, $attributes) . h($value);
+            $value = $value !== null ? preg_replace('/./', '*', $value) : '';
+            return parent::hidden($fieldName, $options) . h($value);
         } else {
-            return parent::password($fieldName, $attributes);
+            return parent::password($fieldName, $options);
         }
     }
 
@@ -556,26 +575,29 @@ class BcFreezeHelper extends BcFormHelper
      * jquery-ui-1.7.2 必須
      *
      * @param string $fieldName フィールド文字列
-     * @param array $attributes HTML属性
+     * @param array $options HTML属性
      * @return string html
+     * @checked
+     * @noTodo
+     * @unitTest
      */
-    public function datepicker($fieldName, $attributes = [])
+    public function datepicker($fieldName, $options = [])
     {
 
         if ($this->freezed) {
-            if (isset($attributes)) {
-                $attributes = array_merge($attributes, ['type' => 'hidden']);
+            if (isset($options)) {
+                $options = array_merge($options, ['type' => 'hidden']);
             } else {
-                $attributes = ['type' => 'hidden'];
+                $options = ['type' => 'hidden'];
             }
             if (!empty($this->getSourceValue($fieldName))) {
                 $value = date('Y/m/d', strtotime($this->getSourceValue($fieldName)));
             } else {
                 $value = "";
             }
-            return parent::text($fieldName, $attributes) . $value;
+            return parent::text($fieldName, $options) . $value;
         } else {
-            return parent::datepicker($fieldName, $attributes);
+            return parent::datepicker($fieldName, $options);
         }
     }
 
@@ -585,32 +607,20 @@ class BcFreezeHelper extends BcFormHelper
      * @param array $options コントロールソース
      * @param array $attributes html属性
      * @return string htmlタグ
+     * @checked
+     * @noTodo
      */
-    public function freezeControll($fieldName, $options, $attributes = [])
+    public function freezeControll(string $fieldName, array $options, array $attributes = [])
     {
-
-        $attributes = array_merge(['class' => ''], $attributes);
-        if (preg_match_all("/\./", $fieldName, $regs) == 2) {
-            [$model, $field, $detail] = explode('.', $fieldName);
-        } else {
-            if(strpos($fieldName, '.') !== false) {
-                [$model, $field] = explode('.', $fieldName);
-            } else {
-                $field = $fieldName;
-            }
-        }
+        $attributes = array_merge([
+            'class' => ''
+        ], $attributes);
 
         // 値を取得
         if (isset($attributes["value"])) {
             $value = $attributes["value"];
         } else {
-            // HABTAM
-            if (!empty($attributes["multiple"]) && $attributes["multiple"] !== 'checkbox') {
-                // TODO ucmitz 未検証
-                $value = $this->request->data[$model];
-            } else {
-                $value = $this->getSourceValue($field);
-            }
+            $value = $this->getSourceValue($fieldName);
         }
 
         // optionsによるソース有 「0」は通す
@@ -618,15 +628,14 @@ class BcFreezeHelper extends BcFormHelper
 
             // HABTAM
             if (!empty($attributes["multiple"]) && $attributes["multiple"] !== 'checkbox') {
-                $_value = "";
-                foreach($value as $data) {
-                    if (isset($data['id']) && isset($options[$data['id']])) {
-                        $_value .= sprintf($this->Html->_tags['li'], null, $options[$data['id']]);
+                $li = [];
+                foreach($value as $id) {
+                    if ($id && isset($options[$id])) {
+                        $li[] = $this->Html->tag('li', $options[$id]);
                     }
                 }
-                $value = sprintf($this->Html->_tags['ul'], " " . $this->_parseAttributes($attributes, null, '', ' '), $_value);
-
-                $out = parent::hidden($fieldName, $attributes) . $value;
+                $out = $this->Html->tag('ul', implode('', $li), array_merge($attributes, ['escape' => false]));
+                $out = parent::hidden($fieldName, $attributes) . $out;
 
                 // マルチチェック
             } elseif (!empty($attributes["multiple"]) && $attributes["multiple"] === 'checkbox') {

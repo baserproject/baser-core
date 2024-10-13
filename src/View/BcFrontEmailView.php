@@ -33,11 +33,13 @@ class BcFrontEmailView extends View
      *
      * @checked
      * @unitTest
+     * @noTodo
+     * @unitTest
      */
     public function initialize(): void
     {
         parent::initialize();
-        $this->loadHelper('BaserCore.BcHtml');
+        $this->addHelper('BaserCore.BcHtml');
     }
 
 }

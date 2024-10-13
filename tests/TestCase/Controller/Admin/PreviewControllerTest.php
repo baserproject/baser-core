@@ -34,29 +34,12 @@ class PreviewControllerTest extends BcTestCase
     use BcContainerTrait;
 
     /**
-     * Fixtures
-     *
-     * @var array
-     */
-    public $fixtures = [
-        'plugin.BaserCore.Factory/Sites',
-        'plugin.BaserCore.Factory/SiteConfigs',
-        'plugin.BaserCore.Factory/Users',
-        'plugin.BaserCore.Factory/UsersUserGroups',
-        'plugin.BaserCore.Factory/UserGroups',
-        'plugin.BaserCore.Factory/Contents',
-        'plugin.BaserCore.Factory/ContentFolders',
-        'plugin.BaserCore.Factory/Pages',
-    ];
-
-    /**
      * set up
      *
      * @return void
      */
     public function setUp(): void
     {
-        $this->setFixtureTruncate();
         parent::setUp();
         $this->PreviewController = new PreviewController($this->getRequest());
     }
@@ -78,7 +61,7 @@ class PreviewControllerTest extends BcTestCase
      */
     public function testInitialize()
     {
-        $this->assertEquals(['view'], $this->PreviewController->Security->getConfig('unlockedActions'));
+        $this->assertEquals(['view'], $this->PreviewController->FormProtection->getConfig('unlockedActions'));
     }
 
     /**
@@ -98,7 +81,7 @@ class PreviewControllerTest extends BcTestCase
         $page->contents = "<p>test</p>";
         $page->title = "testView title";
         $page->content['title'] = "testView title";
-        $page->content['created_date'] = date('Y-m-d');
+        $page->content['created_date'] = date('Y-m-d H:i:s');
 
         $this->enableCsrfToken();
         $this->post('/baser/admin/baser-core/preview/view?url=https://localhost/&preview=default', $page->toArray());
@@ -129,4 +112,19 @@ class PreviewControllerTest extends BcTestCase
         $this->assertEquals(1, $result->getParam('entityId'));
         $this->assertEquals('Pages', $result->getParam('controller'));
     }
+
+    /**
+     * test encodePath
+     */
+    public function test_encodePath()
+    {
+        //正常系実行
+        $url = 'https://localhost/こんにちは/xin-chao?name=こんにちは';
+        $result = $this->PreviewController->encodePath($url);
+        $this->assertEquals('https://localhost/%E3%81%93%E3%82%93%E3%81%AB%E3%81%A1%E3%81%AF/xin-chao?name=こんにちは', $result);
+        $url = 'https://localhost/abc-test-/xin-chao/';
+        $result = $this->PreviewController->encodePath($url);
+        $this->assertEquals('https://localhost/abc-test-/xin-chao/', $result);
+    }
+
 }

@@ -12,10 +12,15 @@
 namespace BaserCore\Test\TestCase\Controller\Admin;
 
 use BaserCore\Test\Factory\PermissionGroupFactory;
+use BaserCore\Test\Scenario\ContentsScenario;
+use BaserCore\Test\Scenario\InitAppScenario;
+use BaserCore\Test\Scenario\PermissionsScenario;
+use BaserCore\Test\Scenario\SiteConfigsScenario;
 use Cake\Event\Event;
 use BaserCore\TestSuite\BcTestCase;
 use Cake\TestSuite\IntegrationTestTrait;
 use BaserCore\Controller\Admin\PermissionsController;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 
 /**
@@ -23,30 +28,22 @@ use BaserCore\Controller\Admin\PermissionsController;
  */
 class PermissionsControllerTest extends BcTestCase
 {
-    use IntegrationTestTrait;
-
     /**
-     * Fixtures
-     *
-     * @var array
+     * Trait
      */
-    public $fixtures = [
-        'plugin.BaserCore.Users',
-        'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.UsersUserGroups',
-        'plugin.BaserCore.Permissions',
-        'plugin.BaserCore.SiteConfigs',
-        'plugin.BaserCore.Sites',
-        'plugin.BaserCore.Contents',
-    ];
+    use IntegrationTestTrait;
+    use ScenarioAwareTrait;
 
     /**
      * set up
      */
     public function setUp(): void
     {
-        $this->setFixtureTruncate();
         parent::setUp();
+        $this->loadFixtureScenario(PermissionsScenario::class);
+        $this->loadFixtureScenario(SiteConfigsScenario::class);
+        $this->loadFixtureScenario(ContentsScenario::class);
+        $this->loadFixtureScenario(InitAppScenario::class);
         $request = $this->getRequest('/baser/admin/baser-core/users/');
         $request = $this->loginAdmin($request);
         $this->PermissionsController = new PermissionsController($request);
@@ -71,7 +68,7 @@ class PermissionsControllerTest extends BcTestCase
         $this->PermissionsController->beforeFilter($event);
         $this->assertNotEmpty($this->PermissionsController->viewBuilder()->getHelpers('BcTime'));
 
-        $unLockActions = $this->PermissionsController->Security->getConfig("unlockedActions");
+        $unLockActions = $this->PermissionsController->FormProtection->getConfig("unlockedActions");
         $this->assertEquals($unLockActions, [
             0 => 'update_sort',
             1 => 'batch',
@@ -101,7 +98,7 @@ class PermissionsControllerTest extends BcTestCase
         $this->enableCsrfToken();
         $data = [
             'name' => 'テストルール名',
-            'url' => '/baser/admin/baser-core/users/index/?test',
+            'url' => '/baser/admin/baser-core/users/index',
             'method' => '*',
             'status' => 1,
         ];

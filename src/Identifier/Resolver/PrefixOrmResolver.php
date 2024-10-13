@@ -14,6 +14,9 @@ namespace BaserCore\Identifier\Resolver;
 use Authentication\Identifier\Resolver\OrmResolver;
 use Authentication\Identifier\Resolver\ResolverInterface;
 use Cake\Datasource\EntityInterface;
+use BaserCore\Annotation\UnitTest;
+use BaserCore\Annotation\NoTodo;
+use BaserCore\Annotation\Checked;
 
 /**
  * PrefixOrmResolver
@@ -29,22 +32,28 @@ class PrefixOrmResolver extends OrmResolver implements ResolverInterface
      * @param array $conditions
      * @param string $type
      * @return array|EntityInterface|null
+     * @checked
+     * @noTodo
      */
-    public function find(array $conditions, $type = self::TYPE_AND)
+    public function find(array $conditions, $type = self::TYPE_AND): \ArrayAccess|array|null
     {
         $prefix = '';
-        foreach ($conditions as $field => $value) {
-            if($field === 'id') {
+        foreach($conditions as $field => $value) {
+            if ($field === 'id') {
                 [$prefix, $value] = explode('_', $value);
                 $conditions[$field] = $value;
             }
         }
 
+        if ($prefix !== $this->_config['prefix']) {
+            return null;
+        }
+
         $table = $this->getTableLocator()->get($this->_config['userModel']);
 
-        $query = $table->query();
+        $query = $table->selectQuery();
         $finders = (array)$this->_config['finder'];
-        foreach ($finders as $finder => $options) {
+        foreach($finders as $finder => $options) {
             if (is_string($options)) {
                 $query->find($options, ['prefix' => $prefix]);
             } else {
@@ -53,7 +62,7 @@ class PrefixOrmResolver extends OrmResolver implements ResolverInterface
         }
 
         $where = [];
-        foreach ($conditions as $field => $value) {
+        foreach($conditions as $field => $value) {
             $field = $table->aliasField($field);
             if (is_array($value)) {
                 $field = $field . ' IN';
@@ -63,4 +72,5 @@ class PrefixOrmResolver extends OrmResolver implements ResolverInterface
 
         return $query->where([$type => $where])->first();
     }
+
 }

@@ -12,7 +12,12 @@
 namespace BaserCore\View\Helper;
 
 use BaserCore\Event\BcEventDispatcherTrait;
+use Cake\ORM\Query;
+use Cake\ORM\ResultSet;
 use Cake\View\Helper;
+use BaserCore\Annotation\UnitTest;
+use BaserCore\Annotation\NoTodo;
+use BaserCore\Annotation\Checked;
 
 /**
  * BcArrayHelper
@@ -29,14 +34,23 @@ class BcArrayHelper extends Helper
     /**
      * 配列の最初の要素かどうか調べる
      *
-     * @param array $array 配列
-     * @param mixed $key 現在のキー
+     * @param mixed $array 配列
+     * @param int $key 現在のキー
      * @return boolean
+     * @checked
+     * @noTodo
+     * @unitTest
      */
-    public function first($array, $key)
+    public function first($array, int $key)
     {
-        reset($array);
-        $first = key($array);
+        if($array instanceof Query) {
+            $iterator = clone $array->getIterator();
+            $iterator->first();
+            $first = $iterator->key();
+        } else {
+            reset($array);
+            $first = key($array);
+        }
         if ($key === $first) {
             return true;
         } else {
@@ -47,14 +61,21 @@ class BcArrayHelper extends Helper
     /**
      * 配列の最後の要素かどうか調べる
      *
-     * @param array $array 配列
-     * @param mixed $key 現在のキー
+     * @param mixed $array 配列
+     * @param int $key 現在のキー
      * @return boolean
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function last($array, $key)
     {
-        end($array);
-        $end = key($array);
+        if($array instanceof Query) {
+            $end = $array->count() - 1;
+        } else {
+            end($array);
+            $end = key($array);
+        }
         if ($key === $end) {
             return true;
         } else {
@@ -68,8 +89,10 @@ class BcArrayHelper extends Helper
      * @param array $array
      * @param string $prefix
      * @param string $suffix
-     * @return    array
-     * @access    public
+     * @return array
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function addText($array, $prefix = '', $suffix = '')
     {
@@ -85,7 +108,9 @@ class BcArrayHelper extends Helper
      * @param string $value
      * @param string $key
      * @param string $add
-     * @access    private
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     private function __addText(&$value, $key, $add)
     {

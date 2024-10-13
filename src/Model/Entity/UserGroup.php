@@ -28,8 +28,8 @@ use Cake\ORM\Entity;
  * @property string|null $auth_prefix
  * @property bool|null $use_move_contents
  * @property string $auth_prefix_settings
- * @property FrozenTime|null $modified
- * @property FrozenTime|null $created
+ * @property \Cake\I18n\DateTime|null $modified
+ * @property \Cake\I18n\DateTime|null $created
  * @property User[] $users
  */
 class UserGroup extends Entity
@@ -40,7 +40,7 @@ class UserGroup extends Entity
      *
      * @var array
      */
-    protected $_accessible = [
+    protected array $_accessible = [
         '*' => true,
     ];
 
@@ -48,6 +48,9 @@ class UserGroup extends Entity
      * 管理グループかどうか判定
      *
      * @return bool
+     * @checked
+     * @noTodo
+     * @unitTest
      */
     public function isAdmin(): bool
     {
@@ -61,6 +64,7 @@ class UserGroup extends Entity
      * @return bool
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function isAuthPrefixAvailabled(string $prefix): bool
     {
@@ -73,10 +77,11 @@ class UserGroup extends Entity
      * @return string[]
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function getAuthPrefixArray(): array
     {
-        if($this->auth_prefix) {
+        if ($this->auth_prefix) {
             return explode(',', $this->auth_prefix);
         } else {
             return [];
@@ -89,10 +94,11 @@ class UserGroup extends Entity
      * @return array
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function getAuthPrefixSettingsArray(): array
     {
-        if($this->auth_prefix_settings) {
+        if ($this->auth_prefix_settings) {
             return json_decode($this->auth_prefix_settings, true);
         } else {
             return [];
@@ -110,7 +116,7 @@ class UserGroup extends Entity
     public function getAuthPrefixSettings(string $prefix): array
     {
         $settings = $this->getAuthPrefixSettingsArray();
-        if(isset($settings[$prefix])) {
+        if (isset($settings[$prefix])) {
             return $settings[$prefix];
         } else {
             return [];
@@ -129,7 +135,7 @@ class UserGroup extends Entity
     public function getAuthPrefixSetting(string $prefix, string $name): string
     {
         $settings = $this->getAuthPrefixSettings($prefix);
-        if(isset($settings[$name])) {
+        if (isset($settings[$name])) {
             return $settings[$name];
         } else {
             return '';

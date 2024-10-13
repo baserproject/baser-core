@@ -19,6 +19,7 @@ use BaserCore\Utility\BcContainerTrait;
 use Cake\Core\Configure;
 use Cake\Http\ServerRequest;
 use Cake\ORM\Query;
+use Cake\ORM\Table;
 use Cake\ORM\TableRegistry;
 use Cake\Datasource\EntityInterface;
 use BaserCore\Utility\BcUtil;
@@ -45,7 +46,7 @@ class PermissionsService implements PermissionsServiceInterface
      * Permissions Table
      * @var \Cake\ORM\Table
      */
-    public $Permissions;
+    public PermissionsTable|Table $Permissions;
 
     /**
      * @var string
@@ -122,9 +123,7 @@ class PermissionsService implements PermissionsServiceInterface
      */
     public function get($id): EntityInterface
     {
-        return $this->Permissions->get($id, [
-            'contain' => ['UserGroups', 'PermissionGroups'],
-        ]);
+        return $this->Permissions->get($id, contain: ['UserGroups', 'PermissionGroups']);
     }
 
     /**
@@ -152,10 +151,12 @@ class PermissionsService implements PermissionsServiceInterface
         if (!empty($queryParams['permission_group_type'])) {
             $conditions['PermissionGroups.type'] = $queryParams['permission_group_type'];
         }
+        if (is_null($queryParams['contain']))
+            $queryParams['contain'] = [];
         $query = $this->Permissions->find()
             ->contain($queryParams['contain'])
             ->where($conditions)
-            ->order('sort', 'ASC');
+            ->orderBy('sort', 'ASC');
         return $query;
     }
 
@@ -324,16 +325,21 @@ class PermissionsService implements PermissionsServiceInterface
     }
 
     /**
-     * 権限チェックを行う
+     * URLとメソッドに対してのアクセス権限チェックを行う
+     *
+     * ユーザーが複数のグループに所属する前提として、
+     * 各所属グループごとにURLとメソッドに対してのアクセス権限を確認し、
+     * 一つでもアクセス可であれば、対象URLとメソッドについてアクセス権限があるとみなす
      *
      * @param string $url
      * @param array $userGroupId
+     * @param string $method
      * @return bool
      * @checked
      * @unitTest
      * @noTodo
      */
-    public function check(string $url, array $userGroupId): bool
+    public function check(string $url, array $userGroupId, string $method = 'GET'): bool
     {
         if (in_array(Configure::read('BcApp.adminGroupId'), $userGroupId)) return true;
         if ($this->checkDefaultDeny($url)) return false;
@@ -348,12 +354,12 @@ class PermissionsService implements PermissionsServiceInterface
                 if($userGroupId) {
                     $userGroup = $userGroupsService->get($userGroupId);
                 }
-                if ($this->checkGroup($url, $permissionGroup, $userGroup)) {
+                if ($this->checkGroup($url, $permissionGroup, $userGroup, $method)) {
                     return true;
                 }
             }
         } else {
-            if ($this->checkGroup($url, [], null)) {
+            if ($this->checkGroup($url, [], null, $method)) {
                 return true;
             }
         }
@@ -421,17 +427,22 @@ class PermissionsService implements PermissionsServiceInterface
      * @param string $url
      * @param array $groupPermission
      * @param UserGroup|EntityInterface|null $userGroup
+     * @param string $method
      * @return boolean
      * @checked
      * @unitTest
      * @noTodo
      */
-    private function checkGroup(string $url, array $groupPermission, $userGroup): bool
+    private function checkGroup(
+        string $url,
+        array $groupPermission,
+        ?EntityInterface $userGroup,
+        string $method = 'GET'): bool
     {
         // ドメイン部分を除外
         if(preg_match('/^(http(s|):\/\/[^\/]+?\/)(.*?)$/', $url, $matches)) {
-            if(in_array($matches[1], [Configure::read('BcEnv.siteUrl'), Configure::read('BcEnv.sslUrl')])) {
-                $url = str_replace([Configure::read('BcEnv.siteUrl'), Configure::read('BcEnv.sslUrl')], '', $url);
+            if(in_array($matches[1], [Configure::read('BcEnv.siteUrl')])) {
+                $url = str_replace([Configure::read('BcEnv.siteUrl')], '', $url);
                 if(!$url) $url = '/';
             } else {
                 return true;
@@ -484,17 +495,42 @@ class PermissionsService implements PermissionsServiceInterface
             $url = preg_replace($regex, '/baser/' . Inflector::underscore($key) . '/', $url);
         }
 
-        // permissionType
-        // 1: ホワイトリスト（全部拒否して一部許可を設定）
-        // 2: ブラックリスト（全部許可して一部拒否を設定）
-        $ret = ((int) $prefixAuthSetting['permissionType'] === 2);
+        return $this->isAuthorized($prefixAuthSetting['permissionType'], $url, $method, $groupPermission);
+    }
+
+    /**
+     * URLとメソッドについて許可されているか確認
+     *
+     * @param int $permissionType
+     *  - 1: ホワイトリスト（全部拒否して一部許可を設定）
+     *  - 2: ブラックリスト（全部許可して一部拒否を設定）
+     * @param string $url
+     * @param string $method
+     * @param array $groupPermission
+     * @return bool
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function isAuthorized(int $permissionType, string $url, string $method, array $groupPermission)
+    {
+        [$url] = explode('?', $url);
+        $ret = ($permissionType === 2);
         foreach($groupPermission as $permission) {
             $pattern = $this->convertRegexUrl($permission->url);
             if (preg_match($pattern, $url)) {
-                $ret = $permission->auth;
+                if(!$permission->auth) {
+                    $ret = false;
+                } else {
+                    if($permission->method === 'GET' && $method !== 'GET') {
+                        $ret = false;
+                    } else {
+                        $ret = true;
+                    }
+                }
             }
         }
-        return (boolean)$ret;
+        return $ret;
     }
 
     /**
@@ -510,6 +546,10 @@ class PermissionsService implements PermissionsServiceInterface
         if(strpos($url, '{loginUserId}') !== false) {
             $user = BcUtil::loginUser();
             $url = str_replace('{loginUserId}', $user->id, $url);
+        }
+        $prefix = BcUtil::getPrefix();
+        if($prefix !== '/baser/admin') {
+            $url = preg_replace('/^\/baser\/admin/', BcUtil::getPrefix(), $url);
         }
         $pattern = preg_quote($url, '/');
         $pattern = str_replace('\*', '.*?', $pattern);
@@ -568,7 +608,7 @@ class PermissionsService implements PermissionsServiceInterface
 
         $result = $this->Permissions->find()
             ->where($conditions)
-            ->order($order)
+            ->orderBy($order)
             ->limit(abs($offset) + 1)
             ->all();
 
@@ -647,10 +687,9 @@ class PermissionsService implements PermissionsServiceInterface
             return BcUtil::getAuthPrefixList();
         } elseif($field === 'user_group_id') {
             $userGroups = TableRegistry::getTableLocator()->get('BaserCore.UserGroups');
-            $groupList = $userGroups->find('list', [
-                'keyField' => 'id',
-                'valueField' => 'title',
-            ])->where([
+            $groupList = $userGroups->find('list',
+            keyField: 'id',
+            valueField: 'title')->where([
                 'UserGroups.id !=' => Configure::read('BcApp.adminGroupId')
             ]);
             return $groupList->toArray();

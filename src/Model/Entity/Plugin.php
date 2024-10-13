@@ -16,6 +16,9 @@ namespace BaserCore\Model\Entity;
 use Cake\Core\Configure;
 use Cake\I18n\FrozenTime;
 use Cake\ORM\Entity;
+use BaserCore\Annotation\UnitTest;
+use BaserCore\Annotation\NoTodo;
+use BaserCore\Annotation\Checked;
 
 /**
  * Class Plugin
@@ -26,8 +29,8 @@ use Cake\ORM\Entity;
  * @property bool $status
  * @property bool $db_init
  * @property int $priority
- * @property FrozenTime|null $modified
- * @property FrozenTime|null $created
+ * @property \Cake\I18n\DateTime|null $modified
+ * @property \Cake\I18n\DateTime|null $created
  */
 class Plugin extends Entity
 {
@@ -37,7 +40,7 @@ class Plugin extends Entity
      *
      * @var array
      */
-    protected $_accessible = [
+    protected array $_accessible = [
         'name' => true,
         'title' => true,
         'type' => true,
@@ -59,36 +62,71 @@ class Plugin extends Entity
         'screenshot' => true
     ];
 
-    public function isPlugin()
+    /**
+     * プラグインかどうか判定する
+     * @return bool
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function isPlugin(): bool
     {
         return $this->hasType(['CorePlugin', 'Plugin']);
     }
 
+    /**
+     * コアプラグインかどうか判定する
+     * @return bool
+     * @checked
+     * @noTodo
+     */
     public function isCorePlugin()
     {
         return (
-            $this->hasType(['CorePlugin', 'Plugin'] &&
-            in_array($this->name, Configure::read('BcApp.corePlugins')))
+            $this->hasType(['CorePlugin', 'Plugin']) &&
+            in_array($this->name, Configure::read('BcApp.corePlugins'))
         );
     }
 
+    /**
+     * テーマかどうか判定する
+     * @return bool
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
     public function isTheme()
     {
         return $this->hasType(['Theme']);
     }
 
-    public function isAdminTheme()
+    /**
+     * 管理画面用テーマかどうか判定する
+     * @return bool
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function isAdminTheme(): bool
     {
         return $this->hasType(['AdminTheme']);
     }
 
-    public function hasType($types)
+    /**
+     * 指定したタイプを持っているかどうか判定する
+     * @param $types
+     * @return bool
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function hasType(array|string $types): bool
     {
         $type = $this->type;
-        if(!$type) return false;
-        if(!is_array($type)) $type = [$type];
+        if (!$type) return false;
+        if (!is_array($type)) $type = [$type];
         foreach($type as $value) {
-            if(in_array($value, $types)) return true;
+            if (in_array($value, $types)) return true;
         }
         return false;
     }
