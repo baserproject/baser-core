@@ -26,7 +26,7 @@ class ContentFolder extends Entity
      *
      * @var array
      */
-    protected array $_accessible = [
+    protected $_accessible = [
         '*' => true,
         'id' => false
     ];

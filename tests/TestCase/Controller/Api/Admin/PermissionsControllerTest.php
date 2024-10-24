@@ -12,14 +12,9 @@
 namespace BaserCore\Test\TestCase\Controller\Api\Admin;
 
 use BaserCore\Service\PermissionsService;
-use BaserCore\Test\Scenario\ContentsScenario;
-use BaserCore\Test\Scenario\InitAppScenario;
-use BaserCore\Test\Scenario\PermissionsScenario;
-use BaserCore\Test\Scenario\SiteConfigsScenario;
 use BaserCore\TestSuite\BcTestCase;
 use Cake\Core\Configure;
 use Cake\TestSuite\IntegrationTestTrait;
-use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * BaserCore\Controller\Api\PermissionsController Test Case
@@ -27,7 +22,20 @@ use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 class PermissionsControllerTest extends BcTestCase
 {
     use IntegrationTestTrait;
-    use ScenarioAwareTrait;
+
+    /**
+     * Fixtures
+     *
+     * @var array
+     */
+    public $fixtures = [
+        'plugin.BaserCore.Users',
+        'plugin.BaserCore.UsersUserGroups',
+        'plugin.BaserCore.UserGroups',
+        'plugin.BaserCore.Permissions',
+        'plugin.BaserCore.Sites',
+        'plugin.BaserCore.SiteConfigs',
+    ];
 
     /**
      * Access Token
@@ -47,10 +55,6 @@ class PermissionsControllerTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
-        $this->loadFixtureScenario(PermissionsScenario::class);
-        $this->loadFixtureScenario(SiteConfigsScenario::class);
-        $this->loadFixtureScenario(ContentsScenario::class);
-        $this->loadFixtureScenario(InitAppScenario::class);
         $token = $this->apiLoginAdmin(1);
         $this->accessToken = $token['access_token'];
         $this->refreshToken = $token['refresh_token'];

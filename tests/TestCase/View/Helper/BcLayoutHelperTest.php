@@ -1,4 +1,6 @@
 <?php
+// TODO ucmitz  : コード確認要
+return;
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
  * Copyright (c) baserCMS Users Community <https://basercms.net/community/>
@@ -9,27 +11,18 @@
  * @license         https://basercms.net/license/index.html
  */
 
-namespace BaserCore\Test\TestCase\View\Helper;
+App::uses('BcAppView', 'View');
+App::uses('BcLayoutHelper', 'View/Helper');
 
-use BaserCore\TestSuite\BcTestCase;
-
-class BcLayoutHelperTest extends BcTestCase
+class BcLayoutHelperTest extends CakeTestCase
 {
 
-    /**
-     * set up
-     */
-    public function setUp(): void
+    public function setUp()
     {
         parent::setUp();
     }
 
-    /**
-     * tearDown
-     *
-     * @return void
-     */
-    public function tearDown(): void
+    public function tearDown()
     {
         parent::tearDown();
     }

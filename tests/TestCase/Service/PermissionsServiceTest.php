@@ -12,16 +12,10 @@
 namespace BaserCore\Test\TestCase\Service;
 
 use BaserCore\Test\Factory\PermissionFactory;
-use BaserCore\Test\Scenario\InitAppScenario;
-use BaserCore\Test\Scenario\PermissionsScenario;
-use BaserCore\Test\Scenario\UserGroupsScenario;
-use BaserCore\Test\Scenario\UserScenario;
-use BaserCore\Test\Scenario\UsersUserGroupsScenario;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Service\PermissionsService;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\Configure;
-use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * BaserCore\Model\Table\PermissionsTable Test Case
@@ -39,9 +33,16 @@ class PermissionsServiceTest extends BcTestCase
     public $Permissions;
 
     /**
-     * ScenarioAwareTrait
+     * Fixtures
+     *
+     * @var array
      */
-    use ScenarioAwareTrait;
+    protected $fixtures = [
+        'plugin.BaserCore.Permissions',
+        'plugin.BaserCore.UserGroups',
+        'plugin.BaserCore.Users',
+        'plugin.BaserCore.UsersUserGroups',
+    ];
 
         /**
      * Set Up
@@ -51,7 +52,6 @@ class PermissionsServiceTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
-        $this->loadFixtureScenario(PermissionsScenario::class);
         $this->PermissionsService = new PermissionsService();
     }
 
@@ -90,9 +90,6 @@ class PermissionsServiceTest extends BcTestCase
      */
     public function testGet()
     {
-        $this->loadFixtureScenario(UserGroupsScenario::class);
-        $this->loadFixtureScenario(UsersUserGroupsScenario::class);
-        $this->loadFixtureScenario(UserScenario::class);
         $permission = $this->PermissionsService->get(1);
         $this->assertEquals('システム管理', $permission->name);
         $this->assertEquals(2, $permission->user_group->id);
@@ -302,9 +299,6 @@ class PermissionsServiceTest extends BcTestCase
      */
     public function testCheck($url, $userGroup, $expected)
     {
-        $this->loadFixtureScenario(UserGroupsScenario::class);
-        $this->loadFixtureScenario(UsersUserGroupsScenario::class);
-        $this->loadFixtureScenario(UserScenario::class);
         $this->loadPlugins(['BcBlog']);
         $this->PermissionsService->addCheck("/fuga", false);
         $this->PermissionsService->addCheck("/piyo", true);
@@ -312,7 +306,7 @@ class PermissionsServiceTest extends BcTestCase
         $this->assertEquals($expected, $result);
     }
 
-    public static function checkDataProvider()
+    public function checkDataProvider()
     {
         return [
             ['hoge', [1], true],
@@ -395,7 +389,7 @@ class PermissionsServiceTest extends BcTestCase
         $this->assertEquals($expected, $result);
 
     }
-    public static function addCheckDataProvider()
+    public function addCheckDataProvider()
     {
         return [
             ["/baser/admin/test1/*", false, false],
@@ -479,7 +473,7 @@ class PermissionsServiceTest extends BcTestCase
         $this->assertEquals($this->execPrivateMethod($this->PermissionsService, 'checkDefaultAllow', [$url]), $expect);
     }
 
-    public static function setDefaultAllowDataProvider()
+    public function setDefaultAllowDataProvider()
     {
         return [
             ['/baser/admin/baser-core/dashboard/test', true],
@@ -496,7 +490,6 @@ class PermissionsServiceTest extends BcTestCase
      */
     public function testConvertRegexUrl(): void
     {
-        $this->loadFixtureScenario(InitAppScenario::class);
         $this->loginAdmin($this->getRequest('/'));
         $user = BcUtil::loginUser();
         $url = 'https://www.nhk.or.jp';
@@ -538,9 +531,6 @@ class PermissionsServiceTest extends BcTestCase
      */
     public function testGetControlSource()
     {
-        $this->loadFixtureScenario(UserGroupsScenario::class);
-        $this->loadFixtureScenario(UsersUserGroupsScenario::class);
-        $this->loadFixtureScenario(UserScenario::class);
         $userGroupList = $this->PermissionsService->getControlSource('user_group_id');
         $this->assertGreaterThan(0, count($userGroupList));
         $keyExist = key_exists(Configure::read('BcApp.adminGroupId'), $userGroupList);

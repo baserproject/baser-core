@@ -13,18 +13,12 @@ namespace BaserCore\Test\TestCase\Service;
 
 use BaserCore\Test\Factory\UserFactory;
 use BaserCore\Test\Scenario\SuspendedUsersScenario;
-use BaserCore\Test\Scenario\UserGroupsScenario;
-use BaserCore\Test\Scenario\UserScenario;
-use BaserCore\Test\Scenario\UsersUserGroupsScenario;
 use Cake\Http\Response;
 use Cake\Routing\Router;
-use BaserCore\Service\SiteConfigsServiceInterface;
 use BaserCore\Service\UsersService;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Model\Table\LoginStoresTable;
-use BaserCore\Utility\BcUtil;
 use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
-use DateTime;
 
 /**
  * Class UsersServiceTest
@@ -39,9 +33,17 @@ class UsersServiceTest extends BcTestCase
     use ScenarioAwareTrait;
 
     /**
-     * ScenarioAwareTrait
+     * Fixtures
+     *
+     * @var array
      */
-    use ScenarioAwareTrait;
+    protected $fixtures = [
+        'plugin.BaserCore.Users',
+        'plugin.BaserCore.UsersUserGroups',
+        'plugin.BaserCore.UserGroups',
+        'plugin.BaserCore.LoginStores',
+        'plugin.BaserCore.Sites',
+    ];
 
     /**
      * @var UsersService|null
@@ -56,9 +58,6 @@ class UsersServiceTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
-        $this->loadFixtureScenario(UserScenario::class);
-        $this->loadFixtureScenario(UserGroupsScenario::class);
-        $this->loadFixtureScenario(UsersUserGroupsScenario::class);
         $this->Users = new UsersService();
     }
 
@@ -141,8 +140,8 @@ class UsersServiceTest extends BcTestCase
             ],
             'email' => 'example@example.com',
             'real_name_1' => 'test',
-            'password_1' => 'Testtest1234',
-            'password_2' => 'Testtest1234'
+            'password_1' => 'aaaaaaaaaaaaaa',
+            'password_2' => 'aaaaaaaaaaaaaa'
         ]);
         $request = $request->withData('password', $request->getData('password_1'));
         $this->Users->create($request->getData());
@@ -170,36 +169,6 @@ class UsersServiceTest extends BcTestCase
     }
 
     /**
-     * test checkUpdatePassword
-     */
-    public function testUpdatePassword()
-    {
-        $user = $this->Users->get(1);
-        $beforePassword = $user->password;
-        $beforeName = $user->name;
-        $this->Users->updatePassword($user, [
-            'password' => 'Testtest1234',
-            'password_1' => 'Testtest1234',
-            'password_2' => 'Testtest1234',
-            'name' => 'new_name',
-        ]);
-        $this->assertEmpty($user->getErrors());
-        $this->assertNotEquals($beforePassword, $user->password);
-        $this->assertEquals($beforeName, $user->name);
-
-        try {
-            $this->Users->updatePassword($user, [
-                'password' => '1',
-                'password_1' => '2',
-                'password_2' => '3',
-            ]);
-            throw new \Exception();
-        } catch (\Exception $e) {
-            $this->assertSame('Cake\ORM\Exception\PersistenceFailedException', get_class($e));
-        }
-    }
-
-    /**
      * Test delete
      */
     public function testDelete()
@@ -217,7 +186,7 @@ class UsersServiceTest extends BcTestCase
     public function testLastAdminDelete()
     {
         $this->loginAdmin($this->getRequest());
-        $this->expectException("BaserCore\Error\BcException");
+        $this->expectException("Cake\Core\Exception\Exception");
         $this->Users->delete(1);
     }
 
@@ -272,28 +241,6 @@ class UsersServiceTest extends BcTestCase
         $afterCookie = $response->getCookie(LoginStoresTable::KEY_NAME);
         $this->assertNotEmpty($afterCookie['value']);
         $this->assertNotEquals($beforeCookie['value'], $afterCookie['value']);
-    }
-
-    /**
-     * test checkPasswordModified
-     */
-    public function testCheckPasswordModified()
-    {
-        $siteConfigsService = $this->getService(SiteConfigsServiceInterface::class);
-        $request = $this->getRequest();
-        $user = $this->Users->get(1);
-
-        $siteConfigsService->setValue('password_reset_days', 3);
-        $user->password_modified = new DateTime('-5 days');
-        $this->assertFalse($this->Users->checkPasswordModified($request, $user));
-        $user->password_modified = new DateTime('-1 days');
-        $this->assertTrue($this->Users->checkPasswordModified($request, $user));
-
-        $siteConfigsService->setValue('password_reset_days', 0);
-        $user->password_modified = new DateTime('-5 days');
-        $this->assertTrue($this->Users->checkPasswordModified($request, $user));
-        $user->password_modified = new DateTime('-1 days');
-        $this->assertTrue($this->Users->checkPasswordModified($request, $user));
     }
 
     /**

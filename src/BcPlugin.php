@@ -18,7 +18,6 @@ use BaserCore\Service\BcDatabaseServiceInterface;
 use BaserCore\Service\PermissionGroupsService;
 use BaserCore\Service\PermissionGroupsServiceInterface;
 use BaserCore\Utility\BcContainerTrait;
-use BaserCore\Utility\BcFolder;
 use BaserCore\Utility\BcPluginUtil;
 use BaserCore\Utility\BcUpdateLog;
 use BaserCore\Utility\BcUtil;
@@ -27,6 +26,7 @@ use Cake\Core\Configure;
 use Cake\Core\Configure\Engine\PhpConfig;
 use Cake\Core\PluginApplicationInterface;
 use Cake\Datasource\ConnectionManager;
+use Cake\Filesystem\Folder;
 use Cake\Http\ServerRequestFactory;
 use Cake\I18n\FrozenTime;
 use Cake\Log\LogTrait;
@@ -145,11 +145,11 @@ class BcPlugin extends BasePlugin
                 $permissionGroupsService->buildByPlugin($pluginName);
             }
 
-            BcUtil::clearAllCache();
-            $result = $plugins->install($pluginName);
-            TableRegistry::getTableLocator()->clear();
             $this->createAssetsSymlink();
-            return $result;
+
+            BcUtil::clearAllCache();
+            TableRegistry::getTableLocator()->clear();
+            return $plugins->install($pluginName);
         } catch (BcException $e) {
             $this->log($e->getMessage());
             $this->migrations->rollback($options);
@@ -254,12 +254,12 @@ class BcPlugin extends BasePlugin
 
         // 有効化されていない可能性があるため CakePlugin::path() は利用しない
         $path = BcUtil::getPluginPath($name, $isUpdateTmp) . 'config' . DS . 'update';
-        $folder = new BcFolder($path);
-        $files = $folder->getFolders();
+        $folder = new Folder($path);
+        $files = $folder->read(true, true);
         $updaters = [];
         $updateVerPoints = [];
-        if (!empty($files)) {
-            foreach($files as $folder) {
+        if (!empty($files[0])) {
+            foreach($files[0] as $folder) {
                 $updateVersion = $folder;
                 $updateVerPoints[$updateVersion] = BcUtil::verpoint($updateVersion);
             }
@@ -302,12 +302,12 @@ class BcPlugin extends BasePlugin
 
         // 有効化されていない可能性があるため CakePlugin::path() は利用しない
         $path = BcUtil::getPluginPath($name, $isUpdateTmp) . 'config' . DS . 'update';
-        $folder = new BcFolder($path);
-        $files = $folder->getFolders();
+        $folder = new Folder($path);
+        $files = $folder->read(true, true);
         $messages = [];
         $updateVerPoints = [];
-        if (!empty($files)) {
-            foreach($files as $folder) {
+        if (!empty($files[0])) {
+            foreach($files[0] as $folder) {
                 $updateVersion = $folder;
                 $updateVerPoints[$updateVersion] = BcUtil::verpoint($updateVersion);
             }
@@ -349,8 +349,8 @@ class BcPlugin extends BasePlugin
 
         $pluginPath = BcUtil::getPluginPath($pluginName);
         if ($pluginPath) {
-            $Folder = new BcFolder($pluginPath);
-            $Folder->delete();
+            $Folder = new Folder();
+            $Folder->delete($pluginPath);
         }
         /** @var PermissionGroupsService $permissionGroupsService */
         $permissionGroupsService = $this->getService(PermissionGroupsServiceInterface::class);
@@ -437,13 +437,6 @@ class BcPlugin extends BasePlugin
             $routes = $this->frontPageRouting($routes, $plugin);
         }
 
-        // CSRFトークンの場合は高速化のためここで処理を終了
-        $request = Router::getRequest();
-        if($request && !$request->is('requestview')) {
-            parent::routes($routes);
-            return;
-        }
-
         // プレフィックスルーティング
         $routes = $this->prefixRouting($routes, $plugin);
 
@@ -475,7 +468,7 @@ class BcPlugin extends BasePlugin
                 $routes->setRouteClass('BaserCore.BcContentsRoute');
                 $routes->connect('/', []);
                 $routes->connect('/{controller}/index', []);
-                $routes->connect('/{controller}/{action}/*', []);
+                $routes->connect('/:controller/:action/*', []);
             }
         );
         return $routes;
@@ -608,10 +601,10 @@ class BcPlugin extends BasePlugin
      */
     public function applyAsTheme(Site $site, string $theme)
     {
+        $this->createAssetsSymlink();
         $site->theme = $theme;
         $siteConfigsTable = TableRegistry::getTableLocator()->get('BaserCore.Sites');
         $siteConfigsTable->save($site);
-        $this->createAssetsSymlink();
     }
 
     /**
@@ -641,7 +634,7 @@ class BcPlugin extends BasePlugin
             foreach($entities as $entity) {
                 $array = $entity->toArray();
                 foreach($fields as $field) {
-                    $array[$field] = \Cake\I18n\DateTime::now();
+                    $array[$field] = FrozenTime::now();
                 }
                 $entity = $table->patchEntity($entity, $array);
                 $table->save($entity);

@@ -12,10 +12,7 @@
 namespace BaserCore\Test\TestCase\Controller\Api\Admin;
 
 use BaserCore\Service\SiteConfigsService;
-use BaserCore\Test\Scenario\InitAppScenario;
-use BaserCore\Test\Scenario\SiteConfigsScenario;
 use Cake\TestSuite\IntegrationTestTrait;
-use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 class SiteConfigsControllerTest extends \BaserCore\TestSuite\BcTestCase
 {
@@ -24,7 +21,19 @@ class SiteConfigsControllerTest extends \BaserCore\TestSuite\BcTestCase
      * IntegrationTestTrait
      */
     use IntegrationTestTrait;
-    use ScenarioAwareTrait;
+
+    /**
+     * Fixtures
+     *
+     * @var array
+     */
+    public $fixtures = [
+        'plugin.BaserCore.Users',
+        'plugin.BaserCore.UsersUserGroups',
+        'plugin.BaserCore.UserGroups',
+        'plugin.BaserCore.SiteConfigs',
+        'plugin.BaserCore.Sites',
+    ];
 
     /**
      * Access Token
@@ -44,8 +53,6 @@ class SiteConfigsControllerTest extends \BaserCore\TestSuite\BcTestCase
     public function setUp(): void
     {
         parent::setUp();
-        $this->loadFixtureScenario(InitAppScenario::class);
-        $this->loadFixtureScenario(SiteConfigsScenario::class);
         $token = $this->apiLoginAdmin(1);
         $this->accessToken = $token['access_token'];
         $this->refreshToken = $token['refresh_token'];

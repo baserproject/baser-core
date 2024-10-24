@@ -14,12 +14,10 @@ namespace BaserCore\Model\Table;
 use ArrayObject;
 use Authentication\Authenticator\SessionAuthenticator;
 use BaserCore\Utility\BcUtil;
-use Cake\Core\Configure;
 use Cake\ORM\Query;
 use Cake\Event\Event;
 use Cake\ORM\TableRegistry;
 use Cake\Routing\Router;
-use Cake\Utility\Hash;
 use Cake\Validation\Validator;
 use BaserCore\Model\Entity\User;
 use BaserCore\View\BcAdminAppView;
@@ -29,11 +27,18 @@ use Cake\ORM\Behavior\TimestampBehavior;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
 use BaserCore\Annotation\UnitTest;
-use BaserCore\Service\SiteConfigsService;
 
 /**
  * Class UsersTable
  * @property BelongsTo $UserGroups
+ * @method User get($primaryKey, $options = [])
+ * @method User newEntity($data = null, array $options = [])
+ * @method User[] newEntities(array $data, array $options = [])
+ * @method User|bool save(EntityInterface $entity, $options = [])
+ * @method User patchEntity(EntityInterface $entity, array $data, array $options = [])
+ * @method User[] patchEntities($entities, array $data, array $options = [])
+ * @method User findOrCreate($search, callable $callback = null, $options = [])
+ * @mixin TimestampBehavior
  */
 class UsersTable extends AppTable
 {
@@ -106,10 +111,10 @@ class UsersTable extends AppTable
      * @noTodo
      * @unitTest
      */
-    public function afterSave(\Cake\Event\EventInterface $event, EntityInterface $entity, ArrayObject $options)
+    public function afterSave(Event $event, EntityInterface $entity, ArrayObject $options)
     {
         // ユーザデータが変更された場合は自動ログインのデータを削除する
-        $loginStores = TableRegistry::getTableLocator()->get('BaserCore.LoginStores');
+        $loginStores = TableRegistry::get('BaserCore.LoginStores');
         $loginStores->deleteAll([
             'user_id' => $entity->id
         ]);
@@ -195,8 +200,22 @@ class UsersTable extends AppTable
                     'provider' => 'table',
                     'message' => __d('baser_core', '既に登録のあるEメールです。')
                 ]]);
-
-        $this->validationPassword($validator);
+        $validator
+            ->scalar('password')
+            ->minLength('password', 6, __d('baser_core', 'パスワードは6文字以上で入力してください。'))
+            ->maxLength('password', 255, __d('baser_core', 'パスワードは255文字以内で入力してください。'))
+            ->add('password', [
+                'passwordAlphaNumericPlus' => [
+                    'rule' => ['alphaNumericPlus', ' \.:\/\(\)#,@\[\]\+=&;\{\}!\$\*'],
+                    'provider' => 'bc',
+                    'message' => __d('baser_core', 'パスワードは半角英数字(英字は大文字小文字を区別)とスペース、記号(._-:/()#,@[]+=&;{}!$*)のみで入力してください。')
+                ]])
+            ->add('password', [
+                'passwordConfirm' => [
+                    'rule' => ['confirm', ['password_1', 'password_2']],
+                    'provider' => 'bc',
+                    'message' => __d('baser_core', 'パスワードが同じものではありません。')
+                ]]);
 
         return $validator;
     }
@@ -218,91 +237,6 @@ class UsersTable extends AppTable
     }
 
     /**
-     * validationPassword
-     * @param Validator $validator
-     * @return Validator
-     * @checked
-     * @unitTest
-     * @noTodo
-     */
-    public function validationPassword(Validator $validator): Validator
-    {
-        $symbol = ' ._-:/()#,@[]+=&;{}!$*';
-        $quotedSymbol = preg_quote($symbol, '/');
-
-        $validator
-            ->scalar('password')
-            ->minLength('password', 6, __d('baser_core', 'パスワードは6文字以上で入力してください。'))
-            ->maxLength('password', 255, __d('baser_core', 'パスワードは255文字以内で入力してください。'))
-            ->add('password', [
-                'passwordAlphaNumericPlus' => [
-                    'rule' => ['alphaNumericPlus', $quotedSymbol],
-                    'provider' => 'bc',
-                    'message' => __d('baser_core', 'パスワードは半角英数字(英字は大文字小文字を区別)とスペース、記号(' . trim($symbol) . ')のみで入力してください。')
-                ]])
-            ->add('password', [
-                'passwordConfirm' => [
-                    'rule' => ['confirm', ['password_1', 'password_2']],
-                    'provider' => 'bc',
-                    'message' => __d('baser_core', 'パスワードが同じものではありません。')
-                ]]);
-
-        // 複雑性のチェック
-        $SiteConfigsService = new SiteConfigsService();
-        if (!$SiteConfigsService->getValue('allow_simple_password')) {
-            // 最小文字数
-            $minLength = Configure::read('BcApp.passwordRule.minLength');
-            if ($minLength && is_numeric($minLength)) {
-                $validator->minLength('password', $minLength,
-                    __d('baser_core', 'パスワードは{0}文字以上で入力してください。', $minLength));
-            }
-
-            // 入力必須な文字種
-            $requiredCharacterTypePatterns = [
-                'numeric' => [
-                    'name' => __d('baser_core', '数字'),
-                    'pattern' => '\d',
-                ],
-                'uppercase' => [
-                    'name' => __d('baser_core', '大文字英字'),
-                    'pattern' => '[A-Z]',
-                ],
-                'lowercase' => [
-                    'name' => __d('baser_core', '小文字英字'),
-                    'pattern' => '[a-z]',
-                ],
-                'symbol' => [
-                    'name' => __d('baser_core', '記号'),
-                    'pattern' => '[' . $quotedSymbol . ']',
-                ],
-            ];
-
-            // 無効な文字種を削除
-            $requiredCharacterTypes = Configure::read('BcApp.passwordRule.requiredCharacterTypes');
-            foreach ($requiredCharacterTypePatterns as $key => $name) {
-                if (!in_array($key, $requiredCharacterTypes)) {
-                    unset($requiredCharacterTypePatterns[$key]);
-                }
-            }
-
-            // AND条件の正規表現
-            $patterns = array_map(function($pattern) {
-                return '(?=.*' . $pattern . ')';
-            }, Hash::extract($requiredCharacterTypePatterns, '{s}.pattern'));
-            $pattern = '/^' . implode('', $patterns) . '.*$/';
-
-            $validator->add('password', [
-                'passwordRequiredCharacterType' => [
-                    'rule' => ['custom', $pattern],
-                    'message' => __d('baser_core', 'パスワードは{0}を含む必要があります。',
-                        implode('・', Hash::extract($requiredCharacterTypePatterns, '{s}.name'))),
-                ]]);
-        }
-
-        return $validator;
-    }
-
-    /**
      * validationPasswordUpdate
      * @param Validator $validator
      * @return Validator
@@ -312,9 +246,24 @@ class UsersTable extends AppTable
      */
     public function validationPasswordUpdate(Validator $validator): Validator
     {
-        return $this->validationPassword($validator)
-            ->requirePresence('password', true, __d('baser_core', 'パスワードを入力してください。'))
-            ->notEmptyString('password', __d('baser_core', 'パスワードを入力してください。'));
+        $validator
+            ->scalar('password')
+            ->minLength('password', 6, __d('baser_core', 'パスワードは6文字以上で入力してください。'))
+            ->maxLength('password', 255, __d('baser_core', 'パスワードは255文字以内で入力してください。'))
+            ->add('password', [
+                'passwordAlphaNumericPlus' => [
+                    'rule' => ['alphaNumericPlus', ' \.:\/\(\)#,@\[\]\+=&;\{\}!\$\*'],
+                    'provider' => 'bc',
+                    'message' => __d('baser_core', 'パスワードは半角英数字(英字は大文字小文字を区別)とスペース、記号(._-:/()#,@[]+=&;{}!$*)のみで入力してください。')
+                ]])
+            ->add('password', [
+                'passwordConfirm' => [
+                    'rule' => ['confirm', ['password_1', 'password_2']],
+                    'provider' => 'bc',
+                    'message' => __d('baser_core', 'パスワードが同じものではありません。')
+                ]]);
+
+        return $validator;
     }
 
     /**
@@ -331,14 +280,16 @@ class UsersTable extends AppTable
     {
         switch($field) {
             case 'id':
-                $controlSources['id'] = $this->find('list',
-                keyField: 'id',
-                valueField: 'real_name_1');
+                $controlSources['id'] = $this->find('list', [
+                    'keyField' => 'id',
+                    'valueField' => 'real_name_1'
+                ]);
                 break;
             case 'user_group_id':
-                $controlSources['user_group_id'] = $this->UserGroups->find('list',
-                keyField: 'id',
-                valueField: 'title');
+                $controlSources['user_group_id'] = $this->UserGroups->find('list', [
+                    'keyField' => 'id',
+                    'valueField' => 'title'
+                ]);
                 break;
         }
         if (isset($controlSources[$field])) {
@@ -360,13 +311,14 @@ class UsersTable extends AppTable
      */
     public function getUserList($conditions = [])
     {
-        $users = $this->find("all",
-        fields: ['id', 'real_name_1', 'real_name_2', 'nickname'],
-        conditions: $conditions);
+        $users = $this->find("all", [
+            'fields' => ['id', 'real_name_1', 'real_name_2', 'nickname'],
+            'conditions' => $conditions,
+        ]);
         $list = [];
         if ($users) {
             $appView = new BcAdminAppView();
-            $appView->loadHelper('BcBaser', ['className' => 'BaserCore.BcBaser']);
+            $appView->loadHelper('BaserCore.BcBaser');
             foreach($users as $user) {
                 $list[$user->id] = $appView->BcBaser->getUserName($user);
             }

@@ -15,9 +15,6 @@ use Cake\ORM\RulesChecker;
 use Cake\Datasource\EntityInterface;
 use BaserCore\Error\MissingColumnException;
 
-/**
- * SoftDeleteTrait
- */
 trait SoftDeleteTrait
 {
 
@@ -73,21 +70,21 @@ trait SoftDeleteTrait
     }
 
     /**
-     * Select Query
+     * Query
      *
      * 論理削除用の SelectQuery を返却する
      * TreeBehavior を利用して、アイテムを移動する場合、
      * 論理削除されたアイテムも対象としなければツリー構造が壊れてしまうため、
      * SoftDeleteTrait を、利用不可にすることで、オリジナルの SelectQueryを返却できるようにしている
      *
-     * @return \BaserCore\ORM\SelectQuery|\Cake\ORM\Query\SelectQuery
+     * @return \BaserCore\ORM\Query
      */
-    public function SelectQuery(): \BaserCore\ORM\SelectQuery|\Cake\ORM\Query\SelectQuery
+    public function query(): \Cake\ORM\Query
     {
         if($this->enabled) {
-            return new \BaserCore\ORM\SelectQuery($this);
+            return new \BaserCore\ORM\Query($this->getConnection(), $this);
         } else {
-            return new \Cake\ORM\Query\SelectQuery($this);
+            return new \Cake\ORM\Query($this->getConnection(), $this);
         }
     }
 
@@ -137,9 +134,9 @@ trait SoftDeleteTrait
             ['_primary' => false] + $options->getArrayCopy()
         );
 
-        $query = $this->updateQuery();
+        $query = $this->query();
         $conditions = (array)$entity->extract($primaryKey);
-        $statement = $query->update($this->getTable())
+        $statement = $query->update()
             ->set([$this->getSoftDeleteField() => date('Y-m-d H:i:s')])
             ->where($conditions)
             ->execute();
@@ -167,8 +164,9 @@ trait SoftDeleteTrait
         if(!$this->enabled) {
             return parent::deleteAll($conditions);
         }
-        $query = $this->updateQuery()
-            ->update($this->getTable())
+
+        $query = $this->query()
+            ->update()
             ->set([$this->getSoftDeleteField() => date('Y-m-d H:i:s')])
             ->where($conditions);
         $statement = $query->execute();
@@ -190,9 +188,9 @@ trait SoftDeleteTrait
             return false;
         }
         $primaryKey = (array)$this->getPrimaryKey();
-        $query = $this->deleteQuery();
+        $query = $this->query();
         $conditions = (array)$entity->extract($primaryKey);
-        $statement = $query->delete($this->getTable())
+        $statement = $query->delete()
             ->where($conditions)
             ->execute();
 
@@ -214,7 +212,7 @@ trait SoftDeleteTrait
         if(!$this->enabled) {
             throw new \BadMethodCallException('SoftDeleteTrait is not enabled');
         }
-        $query = $this->deleteQuery()
+        $query = $this->query()
             ->delete()
             ->where([
                 $this->getSoftDeleteField() . ' IS NOT NULL',

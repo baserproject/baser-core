@@ -22,11 +22,11 @@ use BaserCore\Test\Factory\UsersUserGroupFactory;
 use BaserCore\Test\Scenario\InitAppScenario;
 use BaserCore\Test\Scenario\SmallSetContentFoldersScenario;
 use BaserCore\Utility\BcContainerTrait;
-use BaserCore\Utility\BcFile;
-use BaserCore\Utility\BcFolder;
 use BaserCore\Utility\BcSiteConfig;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\Configure;
+use Cake\Filesystem\File;
+use Cake\Filesystem\Folder;
 use Cake\ORM\TableRegistry;
 use Cake\Routing\Router;
 use Cake\TestSuite\IntegrationTestTrait;
@@ -78,11 +78,9 @@ class ThemesServiceTest extends \BaserCore\TestSuite\BcTestCase
     {
         $path = ROOT . DS . 'plugins' . DS . 'BcPluginSample';
         $zipSrcPath = TMP . 'zip' . DS;
-        $folder = new BcFolder($zipSrcPath);
-        $folder->create();
-        //copy
-        $folder = new BcFolder($path);
-        $folder->copy( $zipSrcPath . 'BcPluginSample2');
+        $folder = new Folder();
+        $folder->create($zipSrcPath, 0777);
+        $folder->copy($zipSrcPath . 'BcPluginSample2', ['from' => $path, 'mode' => 0777]);
         $theme = 'BcPluginSample2';
         $zip = new ZipArchiver();
         $testFile = $zipSrcPath . $theme . '.zip';
@@ -109,11 +107,8 @@ class ThemesServiceTest extends \BaserCore\TestSuite\BcTestCase
         $this->assertTrue(is_dir(ROOT . DS . 'plugins' . DS . $theme));
 
         // 既に存在するテーマと同じテーマをアップロードした場合の戻り値の変化
-        $folder = new BcFolder($zipSrcPath);
-        $folder->create();
-        //copy
-        $folder = new BcFolder($path);
-        $folder->copy($zipSrcPath . 'BcPluginSample2');
+        $folder->create($zipSrcPath, 0777);
+        $folder->copy($zipSrcPath . 'BcPluginSample2', ['from' => $path, 'mode' => 0777]);
         $zip = new ZipArchiver();
         $zip->archive($zipSrcPath, $testFile, true);
         $this->setUploadFileToRequest('file', $testFile);
@@ -129,9 +124,10 @@ class ThemesServiceTest extends \BaserCore\TestSuite\BcTestCase
         $this->assertEquals('BcPluginSample3', $rs);
 
         //テスト実行後不要ファイルを削除
-        (new BcFolder(ROOT . DS . 'plugins' . DS . $theme))->delete();
-        (new BcFolder(ROOT . DS . 'plugins' . DS . 'BcPluginSample3'))->delete();
-        (new BcFolder($zipSrcPath))->delete();
+        $folder = new Folder();
+        $folder->delete(ROOT . DS . 'plugins' . DS . $theme);
+        $folder->delete(ROOT . DS . 'plugins' . DS . 'BcPluginSample3');
+        $folder->delete($zipSrcPath);
 
         // 失敗した場合の Exception メッセージ
         $this->expectException("Laminas\Diactoros\Exception\UploadedFileAlreadyMovedException");
@@ -171,10 +167,11 @@ class ThemesServiceTest extends \BaserCore\TestSuite\BcTestCase
         $this->assertTrue(is_dir(BASER_THEMES . 'BcFrontCopy'), 'テーマのコピーが確認できませんでした。');
 
         $pluginPath = BcUtil::getPluginPath('BcFrontCopy');
-        $file = new BcFile($pluginPath . 'src' . DS . 'BcFrontCopyPlugin.php');
+        $file = new File($pluginPath . 'src' . DS . 'BcFrontCopyPlugin.php');
         $data = $file->read();
         //namespaceの書き換えを確認
         $this->assertTrue(str_contains($data, 'namespace BcFrontCopy;'), 'namespace の書き換えが確認できませんでした。');
+        $file->close();
 
         $this->ThemesService->delete('BcFrontCopy');
     }
@@ -201,13 +198,13 @@ class ThemesServiceTest extends \BaserCore\TestSuite\BcTestCase
         mkdir($themePath . 'plugins', 0777);
         mkdir($themePath . 'plugins/test', 0777);
 
-        $file = new BcFile($themePath . 'plugins/test/test.txt');
-        $file->create();
+        $file = new File($themePath . 'plugins/test/test.txt');
         $file->write('test file plugin');
+        $file->close();
 
-        $file = new BcFile($themePath . 'plugins/test2.txt');
-        $file->create();
+        $file = new File($themePath . 'plugins/test2.txt');
         $file->write('test file 2');
+        $file->close();
 
         $info = [
             'このテーマは下記のプラグインを同梱しています。',
@@ -224,7 +221,8 @@ class ThemesServiceTest extends \BaserCore\TestSuite\BcTestCase
         $rs = $this->execPrivateMethod($this->ThemesService, 'getThemesDefaultDataInfo', [$theme, $info]);
         $this->assertEquals($expected, $rs);
 
-        (new BcFolder($themePath . 'plugins'))->delete();
+        $folder = new Folder();
+        $folder->delete($themePath . 'plugins');
     }
 
     /**
@@ -252,7 +250,8 @@ class ThemesServiceTest extends \BaserCore\TestSuite\BcTestCase
         $this->assertEquals($tmpDir, $result);
         $this->assertTrue(is_dir($tmpThemeDir));
 
-        (new BcFolder($tmpThemeDir))->delete();
+        $folder = new Folder();
+        $folder->delete($tmpThemeDir);
     }
 
     /**
@@ -263,18 +262,18 @@ class ThemesServiceTest extends \BaserCore\TestSuite\BcTestCase
     {
         $theme = Configure::read('BcApp.coreFrontTheme');
         $configDataPath = BASER_THEMES . Inflector::dasherize($theme) . DS . 'config' . DS . 'data';
-        $Folder = new BcFolder($configDataPath . DS . 'default' . DS . 'BaserCore');
-        $coreTables = $Folder->getFiles();
+        $Folder = new Folder($configDataPath . DS . 'default' . DS . 'BaserCore');
+        $files = $Folder->read(true, true);
+        $coreTables = $files[1];
 
         // 一つ目のダミーフォルダを作る
         $pattern = 'dummy1';
-        $dummyFolder = new BcFolder($configDataPath . DS . $pattern);
-        $dummyFolder->create();
+        $dummyFolder = new Folder($configDataPath . DS . $pattern, true);
         // BaserCoreフォルダを作る
-        (new BcFolder($configDataPath . DS . $pattern . DS . 'BaserCore'))->create();
+        new Folder($configDataPath . DS . $pattern . DS . 'BaserCore', true);
         // テーブルファイルを作る
         foreach ($coreTables as $table) {
-            (new BcFile($configDataPath . DS . $pattern . DS . 'BaserCore' . DS . $table))->create();
+            new File($configDataPath . DS . $pattern . DS . 'BaserCore' . DS . $table, true);
         }
         $result = $this->ThemesService->checkDefaultDataPattern($theme, $pattern);
         $dummyFolder->delete();
@@ -283,8 +282,7 @@ class ThemesServiceTest extends \BaserCore\TestSuite\BcTestCase
 
         // 二つ目のダミーフォルダを作る
         $pattern = 'dummy2';
-        $dummyFolder = new BcFolder($configDataPath . DS . $pattern);
-        $dummyFolder->create();
+        $dummyFolder = new Folder($configDataPath . DS . $pattern, true);
         $result = $this->ThemesService->checkDefaultDataPattern($theme, $pattern);
         $dummyFolder->delete();
         // 失敗を確認
@@ -300,11 +298,12 @@ class ThemesServiceTest extends \BaserCore\TestSuite\BcTestCase
         $this->ThemesService->createDownloadDefaultDataPatternToTmp();
         $tmpDir = TMP . 'csv' . DS;
         // CSVファイルが作成されている事を確認
-        $baserCoreFolder = new BcFolder($tmpDir . 'BaserCore' . DS);
+        $baserCoreFolder = new Folder($tmpDir . 'BaserCore' . DS);
         $csvFiles = $baserCoreFolder->find('.*\.csv');
         $this->assertNotEmpty($csvFiles);
         // 作成されたディレクトリを削除
-        (new BcFolder($tmpDir))->delete();
+        $folder = new Folder();
+        $folder->delete($tmpDir);
     }
 
     /**
@@ -324,14 +323,15 @@ class ThemesServiceTest extends \BaserCore\TestSuite\BcTestCase
         $theme = 'BcFront';
         $themePath = BcUtil::getPluginPath($theme);
         $pluginName = 'test';
-        $folder = new BcFolder($themePath . 'plugins/' . $pluginName);
-        $folder->create();
+        $folder = new Folder();
+        $folder->create($themePath . 'plugins/' . $pluginName);
 
         $pluginsInfo = $this->execPrivateMethod($this->ThemesService, 'getThemesPluginsInfo', [$theme]);
         $this->assertEquals('このテーマは下記のプラグインを同梱しています。', $pluginsInfo[0]);
         $this->assertEquals('	・' . $pluginName, $pluginsInfo[1]);
 
-        (new BcFolder($themePath . 'plugins'))->delete();
+        $folder = new Folder();
+        $folder->delete($themePath . 'plugins');
     }
 
     /**
@@ -366,11 +366,10 @@ class ThemesServiceTest extends \BaserCore\TestSuite\BcTestCase
         $dbService = $this->getService(BcDatabaseServiceInterface::class);
         $tableList = $dbService->getAppTableList($plugin);
         $path = TMP . 'testWriteCsv' . DS;
-        $csvFolder = new BcFolder($path);
-        $csvFolder->create();
+        $csvFolder = new Folder($path, true, 0777);
         BcUtil::emptyFolder($path);
         $this->execPrivateMethod($this->ThemesService, '_writeCsv', [$plugin, $path]);
-        $files = $csvFolder->getFiles();
+        $files = $csvFolder->find();
         foreach ($tableList as $table) {
             $this->assertTrue(in_array($table . '.csv', $files));
         }
@@ -410,8 +409,9 @@ class ThemesServiceTest extends \BaserCore\TestSuite\BcTestCase
         // --- 初期データ読み込みを確認 start ---
         $path = BcUtil::getDefaultDataPath($theme, $pattern);
         $this->assertNotNull($path);
-        $Folder = new BcFolder($path . DS . $plugin);
-        $csvList = $Folder->getFiles(['full'=>true]);
+        $Folder = new Folder($path . DS . $plugin);
+        $files = $Folder->read(true, true, true);
+        $csvList = $files[1];
         $BcDatabaseService = new BcDatabaseService();
         $tableList = $BcDatabaseService->getAppTableList($plugin);
         foreach ($csvList as $path) {

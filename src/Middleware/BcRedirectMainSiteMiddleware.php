@@ -12,6 +12,7 @@
 namespace BaserCore\Middleware;
 
 use BaserCore\Utility\BcUtil;
+use Cake\Core\Configure;
 use Cake\Http\Response;
 use Cake\ORM\TableRegistry;
 use Psr\Http\Message\ResponseInterface;
@@ -48,10 +49,7 @@ class BcRedirectMainSiteMiddleware implements MiddlewareInterface
         RequestHandlerInterface $handler
     ): ResponseInterface
     {
-        if ($request->is('admin')
-            || !BcUtil::isInstalled()
-            || !$request->is('requestview')
-        ) {
+        if ($request->is('admin') || !BcUtil::isInstalled()) {
             return $handler->handle($request);
         }
         $sites = TableRegistry::getTableLocator()->get('BaserCore.Sites');

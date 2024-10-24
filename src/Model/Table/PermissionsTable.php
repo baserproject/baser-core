@@ -229,7 +229,7 @@ class PermissionsTable extends AppTable
                     'PermissionGroups.status IS' => null
                 ]
             ])
-            ->orderBy([
+            ->order([
                 'user_group_id' => 'asc',
                 'sort' => 'asc',
             ]);

@@ -34,7 +34,7 @@ class BcFormFailedException extends CakeException {
     /**
      * @inheritDoc
      */
-    protected string $_messageTemplate = 'Form %s failure.';
+    protected $_messageTemplate = 'Form %s failure.';
 
     /**
      * Constructor.

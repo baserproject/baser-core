@@ -29,7 +29,6 @@ class BcSiteConfig
      * @return mixed
      * @checked
      * @noTodo
-     * @unitTest
      */
     public static function get($key)
     {

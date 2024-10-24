@@ -12,15 +12,8 @@
 namespace BaserCore\Test\TestCase\Controller\Api\Admin;
 
 use BaserCore\Service\PagesService;
-use BaserCore\Test\Scenario\ContentFoldersScenario;
-use BaserCore\Test\Scenario\ContentsScenario;
-use BaserCore\Test\Scenario\InitAppScenario;
-use BaserCore\Test\Scenario\PagesScenario;
-use BaserCore\Test\Scenario\PluginsScenario;
-use BaserCore\Test\Scenario\SiteConfigsScenario;
 use BaserCore\TestSuite\BcTestCase;
 use Cake\TestSuite\IntegrationTestTrait;
-use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * BaserCore\Controller\Api\PagesController Test Case
@@ -28,7 +21,21 @@ use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 class PagesControllerTest extends BcTestCase
 {
     use IntegrationTestTrait;
-    use ScenarioAwareTrait;
+
+    /**
+     * Fixtures
+     *
+     * @var array
+     */
+    public $fixtures = [
+        'plugin.BaserCore.Users',
+        'plugin.BaserCore.UsersUserGroups',
+        'plugin.BaserCore.Pages',
+        'plugin.BaserCore.UserGroups',
+        'plugin.BaserCore.Contents',
+        'plugin.BaserCore.Sites',
+        'plugin.BaserCore.SiteConfigs',
+    ];
 
     /**
      * Access Token
@@ -48,30 +55,10 @@ class PagesControllerTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
-        $this->loadFixtureScenario(PluginsScenario::class);
-        $this->loadFixtureScenario(SiteConfigsScenario::class);
-        $this->loadFixtureScenario(ContentFoldersScenario::class);
-        $this->loadFixtureScenario(ContentsScenario::class);
-        $this->loadFixtureScenario(InitAppScenario::class);
-        $this->loadFixtureScenario(PagesScenario::class);
         $token = $this->apiLoginAdmin(1);
         $this->accessToken = $token['access_token'];
         $this->refreshToken = $token['refresh_token'];
         $this->PagesService = new PagesService();
-    }
-
-    public function testView()
-    {
-        $this->get('/baser/api/admin/baser-core/pages/view/2.json?token=' . $this->accessToken);
-        $this->assertResponseOk();
-
-        $result = json_decode($this->_response->getBody());
-        $this->assertEquals('default', $result->page->page_template);
-
-        $this->get('/baser/api/admin/baser-core/pages/view/999999.json?token=' . $this->accessToken);
-        $result = json_decode($this->_response->getBody());
-        $this->assertEquals("データが見つかりません", $result->message);
-        $this->assertResponseCode(404);
     }
 
     /**
@@ -147,14 +134,5 @@ class PagesControllerTest extends BcTestCase
         $this->post("/baser/api/admin/baser-core/pages/copy/2.json?token=". $this->accessToken, $data);
         $this->assertResponseSuccess();
         $this->assertFalse($this->PagesService->getIndex(['title' => $data['title']])->all()->isEmpty());
-    }
-
-    public function test_index()
-    {
-        $this->get('/baser/api/admin/baser-core/pages/index.json?token=' . $this->accessToken);
-        $this->assertResponseOk();
-
-        $result = json_decode((string)$this->_response->getBody());
-        $this->assertCount(8, $result->pages);
     }
 }

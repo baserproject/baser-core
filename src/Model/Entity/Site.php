@@ -13,7 +13,7 @@ namespace BaserCore\Model\Entity;
 
 use BaserCore\Error\BcException;
 use BaserCore\Utility\BcUtil;
-use Cake\I18n\FrozenTime;
+use Cake\I18n\Time as TimeAlias;
 use Cake\ORM\Entity as EntityAlias;
 use Cake\ORM\TableRegistry;
 use BaserCore\Annotation\UnitTest;
@@ -41,8 +41,8 @@ use Psr\Http\Message\ServerRequestInterface;
  * @property bool $auto_link
  * @property bool $use_subdomain
  * @property int $domain_type
- * @property \Cake\I18n\DateTime $created
- * @property \Cake\I18n\DateTime $modified
+ * @property TimeAlias $created
+ * @property TimeAlias $modified
  */
 class Site extends EntityAlias
 {
@@ -52,7 +52,7 @@ class Site extends EntityAlias
      *
      * @var array
      */
-    protected array $_accessible = [
+    protected $_accessible = [
         '*' => true,
         'id' => false
     ];

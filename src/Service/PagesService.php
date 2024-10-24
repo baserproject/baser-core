@@ -126,9 +126,10 @@ class PagesService implements PagesServiceInterface
      */
     public function getList(): array
     {
-        return $this->Pages->find('list',
-        keyField: 'id',
-        valueField: 'content.title')->contain(['Contents'])->toArray();
+        return $this->Pages->find('list', [
+            'keyField' => 'id',
+            'valueField' => 'content.title'
+        ])->contain(['Contents'])->toArray();
     }
 
     /**
@@ -153,9 +154,10 @@ class PagesService implements PagesServiceInterface
         if ($options['status'] === 'publish') {
             $conditions = $this->Pages->Contents->getConditionAllowPublish();
         }
-        $entity = $this->Pages->get($id,
-        contain: $options['contain'],
-        conditions: $conditions);
+        $entity = $this->Pages->get($id, [
+            'contain' => $options['contain'],
+            'conditions' => $conditions,
+        ]);
         if($options['draft'] === false) {
             unset($entity->draft);
         }

@@ -43,7 +43,6 @@ class BcLang extends BcAbstractDetector
      * @return void
      * @checked
      * @noTodo
-     * @unitTest
      */
     protected function _setConfig(array $config)
     {
@@ -56,7 +55,6 @@ class BcLang extends BcAbstractDetector
      * @return array
      * @checked
      * @noTodo
-     * @unitTest
      */
     protected function _getDefaultConfig()
     {
@@ -71,7 +69,6 @@ class BcLang extends BcAbstractDetector
      * @return string
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function getDetectorRegex()
     {
@@ -85,7 +82,6 @@ class BcLang extends BcAbstractDetector
      * @return bool
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function isMatchDecisionKey()
     {
@@ -103,7 +99,6 @@ class BcLang extends BcAbstractDetector
      * @return array|string
      * @checked
      * @noTodo
-     * @unitTest
      */
     static public function parseLang($acceptLanguage)
     {
@@ -126,5 +121,5 @@ class BcLang extends BcAbstractDetector
         }
         return $langs[0];
     }
-
+    
 }

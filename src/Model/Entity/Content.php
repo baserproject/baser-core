@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 namespace BaserCore\Model\Entity;
 
-use Cake\I18n\FrozenTime;
+use Cake\I18n\FrozenDate;
 use Cake\ORM\Entity;
 
 /**
@@ -37,20 +37,20 @@ use Cake\ORM\Entity;
  * @property integer $author_id
  * @property string $layout_template
  * @property bool $status
- * @property \Cake\I18n\DateTime $publish_begin
- * @property \Cake\I18n\DateTime $publish_end
+ * @property FrozenDate $publish_begin
+ * @property FrozenDate $publish_end
  * @property bool $self_status
- * @property \Cake\I18n\DateTime $self_publish_begin
- * @property \Cake\I18n\DateTime $self_publish_end
+ * @property FrozenDate $self_publish_begin
+ * @property FrozenDate $self_publish_end
  * @property bool $exclude_search
- * @property \Cake\I18n\DateTime $created_date
- * @property \Cake\I18n\DateTime $modified_date
+ * @property FrozenDate $created_date
+ * @property FrozenDate $modified_date
  * @property bool $site_root
- * @property \Cake\I18n\DateTime $deleted_date
+ * @property FrozenDate $deleted_date
  * @property bool $exclude_menu
  * @property bool $blank_link
- * @property \Cake\I18n\DateTime $created
- * @property \Cake\I18n\DateTime $modified
+ * @property FrozenDate $created
+ * @property FrozenDate $modified
  * @property Site $site
  */
 class Content extends Entity
@@ -61,7 +61,7 @@ class Content extends Entity
      *
      * @var array
      */
-    protected array $_accessible = [
+    protected $_accessible = [
         '*' => true
     ];
 

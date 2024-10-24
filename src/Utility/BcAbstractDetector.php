@@ -77,7 +77,6 @@ abstract class BcAbstractDetector
      * @return BcAbstractDetector|null
      * @checked
      * @noTodo
-     * @unitTest
      */
     public static function find($name)
     {
@@ -94,7 +93,6 @@ abstract class BcAbstractDetector
      * @return BcAbstractDetector[]
      * @checked
      * @noTodo
-     * @unitTest
      */
     public static function findAll()
     {
@@ -118,7 +116,6 @@ abstract class BcAbstractDetector
      * @return BcAbstractDetector|null
      * @checked
      * @noTodo
-     * @unitTest
      */
     public static function findCurrent()
     {

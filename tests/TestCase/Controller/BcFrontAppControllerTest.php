@@ -13,11 +13,9 @@ namespace BaserCore\Test\TestCase\Controller;
 
 use BaserCore\Controller\BcFrontAppController;
 use BaserCore\Test\Factory\PluginFactory;
-use BaserCore\Test\Scenario\InitAppScenario;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Utility\BcContainer;
 use Cake\Core\Configure;
-use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * BcFrontAppControllerTest
@@ -25,10 +23,17 @@ use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
  */
 class BcFrontAppControllerTest extends BcTestCase
 {
+
     /**
-     * Trait
+     * Fixtures
+     *
+     * @var array
      */
-    use ScenarioAwareTrait;
+    public $fixtures = [
+        'plugin.BaserCore.Sites',
+        'plugin.BaserCore.Contents',
+        'plugin.BaserCore.SiteConfigs'
+    ];
 
     /**
      * set up
@@ -36,7 +41,6 @@ class BcFrontAppControllerTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
-        $this->loadFixtureScenario(InitAppScenario::class);
         $this->BcFrontAppController = new BcFrontAppController($this->getRequest());
     }
 

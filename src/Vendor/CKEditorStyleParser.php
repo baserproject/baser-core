@@ -44,7 +44,6 @@ class CKEditorStyleParser
      * @return array
      * @checked
      * @noTodo
-     * @unitTest
      */
     public static function parse($css)
     {
@@ -85,7 +84,6 @@ class CKEditorStyleParser
      * @return array
      * @checked
      * @noTodo
-     * @unitTest
      */
     private static function parseCode($code)
     {
@@ -123,7 +121,6 @@ class CKEditorStyleParser
      * @return string
      * @checked
      * @noTodo
-     * @unitTest
      */
     private static function readString($target, $body, $size, &$i)
     {

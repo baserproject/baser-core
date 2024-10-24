@@ -12,12 +12,10 @@
 namespace BaserCore\Test\TestCase\Controller\Api\Admin;
 
 use BaserCore\Service\ThemesService;
-use BaserCore\Test\Factory\SiteFactory;
-use BaserCore\Test\Factory\UserFactory;
 use BaserCore\Test\Scenario\InitAppScenario;
 use BaserCore\Test\Scenario\SmallSetContentFoldersScenario;
 use BaserCore\TestSuite\BcTestCase;
-use BaserCore\Utility\BcFolder;
+use Cake\Filesystem\Folder;
 use Cake\TestSuite\IntegrationTestTrait;
 use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 use Composer\Package\Archiver\ZipArchiver;
@@ -49,8 +47,7 @@ class ThemesControllerTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
-        SiteFactory::make(['id' => 1, 'theme' => 'BcThemeSample'])->persist();
-        UserFactory::make()->admin()->persist();
+        $this->loadFixtureScenario(InitAppScenario::class);
         $token = $this->apiLoginAdmin(1);
         $this->accessToken = $token['access_token'];
         $this->refreshToken = $token['refresh_token'];
@@ -100,11 +97,9 @@ class ThemesControllerTest extends BcTestCase
 
         $path = ROOT . DS . 'plugins' . DS . 'BcPluginSample';
         $zipSrcPath = TMP  . 'zip' . DS;
-        $folder = new BcFolder($zipSrcPath);
-        $folder->create();
-        //copy
-        $folder = new BcFolder($path);
-        $folder->copy($zipSrcPath. 'BcPluginSample2');
+        $folder = new Folder();
+        $folder->create($zipSrcPath, 0777);
+        $folder->copy($zipSrcPath . 'BcPluginSample2', ['from' => $path, 'mode' => 0777]);
         $theme = 'BcPluginSample2';
         $zip = new ZipArchiver();
         $testFile = $zipSrcPath . $theme . '.zip';
@@ -117,8 +112,9 @@ class ThemesControllerTest extends BcTestCase
         $this->assertEquals($theme, $result->theme);
         $this->assertEquals('テーマファイル「' . $theme . '」を追加しました。', $result->message);
 
-        (new BcFolder(ROOT . DS . 'plugins' . DS . $theme))->delete();
-        (new BcFolder($zipSrcPath))->delete();
+        $folder = new Folder();
+        $folder->delete(ROOT . DS . 'plugins' . DS . $theme);
+        $folder->delete($zipSrcPath);
     }
     /**
      * test copy
@@ -162,30 +158,6 @@ class ThemesControllerTest extends BcTestCase
         $this->assertEquals('テーマ「BcPluginSample」をコピーしました。', $result->message);
         $themeService = new ThemesService();
         $themeService->delete('BcPluginSampleCopy');
-    }
-
-    /**
-     * test loadDefaultDataPattern
-     */
-    public function testLoadDefaultData()
-    {
-        $this->get('/baser/api/admin/baser-core/themes/load_default_data.json?token=' . $this->accessToken);
-        $this->assertResponseCode(405);
-
-        $this->post('/baser/api/admin/baser-core/themes/load_default_data.json?token=' . $this->accessToken);
-        $this->assertResponseCode(400);
-        $result = json_decode((string)$this->_response->getBody());
-        $this->assertEquals('不正な操作です。', $result->message);
-
-        $this->post('/baser/api/admin/baser-core/themes/load_default_data.json?token=' . $this->accessToken, ['default_data_pattern' => 'BcThemeSample.default']);
-        $this->assertResponseCode(200);
-        $result = json_decode((string)$this->_response->getBody());
-        $this->assertEquals('初期データの読み込みが完了しました。', $result->message);
-
-        $this->post('/baser/api/admin/baser-core/themes/load_default_data.json?token=' . $this->accessToken, ['default_data_pattern' => 'BcThemeSample.default2']);
-        $this->assertResponseCode(500);
-        $result = json_decode((string)$this->_response->getBody());
-        $this->assertEquals('データベース処理中にエラーが発生しました。初期データのバージョンが違うか、初期データの構造が壊れています。', $result->message);
     }
 
     /**

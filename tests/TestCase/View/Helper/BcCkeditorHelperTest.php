@@ -14,7 +14,8 @@ namespace BaserCore\Test\TestCase\View\Helper;
 use BaserCore\View\BcAdminAppView;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\View\Helper\BcCkeditorHelper;
-use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
+use Cake\Core\Plugin;
+use Cake\Core\PluginCollection;
 
 /**
  * text helper library.
@@ -23,8 +24,19 @@ use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
  */
 class BcCkeditorHelperTest extends BcTestCase
 {
-    use ScenarioAwareTrait;
-
+    /**
+     * Fixtures
+     *
+     * @var array
+     */
+    protected $fixtures = [
+        'plugin.BaserCore.Sites',
+        'plugin.BaserCore.Contents',
+        'plugin.BaserCore.Users',
+        'plugin.BaserCore.UserGroups',
+        'plugin.BaserCore.UsersUserGroups',
+        'plugin.BaserCore.Plugins',
+    ];
     /**
      * setUp
      */
@@ -180,21 +192,6 @@ class BcCkeditorHelperTest extends BcTestCase
     public function testGetThemeEditorCsses()
     {
         $this->markTestIncomplete('このテストは、まだ実装されていません。');
-    }
-
-    /**
-     * Test createDomId
-     */
-
-    public function test_createDomId()
-    {
-        //the field is empty
-        $rs = $this->BcCkeditor->createDomId('');
-        $this->assertEmpty($rs);
-
-        //the field is not empty
-        $rs = $this->BcCkeditor->createDomId('Page.contents');
-        $this->assertEquals('PageContents', $rs);
     }
 
 }

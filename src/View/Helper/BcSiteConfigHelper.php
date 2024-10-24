@@ -24,7 +24,6 @@ use Cake\View\Helper;
  * BcSiteConfigHelper
  * @property SiteConfigsService $SiteConfigsService
  */
-#[\AllowDynamicProperties]
 class BcSiteConfigHelper extends Helper
 {
 

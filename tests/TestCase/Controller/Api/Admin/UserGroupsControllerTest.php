@@ -12,17 +12,8 @@
 namespace BaserCore\Test\TestCase\Controller\Api\Admin;
 
 use BaserCore\Service\UserGroupsService;
-use BaserCore\Test\Scenario\LoginStoresScenario;
-use BaserCore\Test\Scenario\PermissionsScenario;
-use BaserCore\Test\Scenario\SiteConfigsScenario;
-use BaserCore\Test\Scenario\SitesScenario;
-use BaserCore\Test\Scenario\UserGroupsPaginationsScenario;
-use BaserCore\Test\Scenario\UserGroupsScenario;
-use BaserCore\Test\Scenario\UsersScenario;
-use BaserCore\Test\Scenario\UsersUserGroupsScenario;
 use BaserCore\TestSuite\BcTestCase;
 use Cake\TestSuite\IntegrationTestTrait;
-use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * BaserCore\Controller\Api\UserGroupsController Test Case
@@ -30,7 +21,20 @@ use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 class UserGroupsControllerTest extends BcTestCase
 {
     use IntegrationTestTrait;
-    use ScenarioAwareTrait;
+
+    /**
+     * Fixtures
+     *
+     * @var array
+     */
+    public $fixtures = [
+        'plugin.BaserCore.Users',
+        'plugin.BaserCore.UsersUserGroups',
+        'plugin.BaserCore.UserGroups',
+        'plugin.BaserCore.LoginStores',
+        'plugin.BaserCore.Sites',
+        'plugin.BaserCore.SiteConfigs'
+    ];
 
     /**
      * Access Token
@@ -50,14 +54,6 @@ class UserGroupsControllerTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
-        $this->loadFixtureScenario(SitesScenario::class);
-        $this->loadFixtureScenario(SiteConfigsScenario::class);
-        $this->loadFixtureScenario(UserGroupsScenario::class);
-        $this->loadFixtureScenario(UsersUserGroupsScenario::class);
-        $this->loadFixtureScenario(UsersScenario::class);
-        $this->loadFixtureScenario(LoginStoresScenario::class);
-        $this->loadFixtureScenario(PermissionsScenario::class);
-        $this->loadFixtureScenario(UserGroupsPaginationsScenario::class);
         $token = $this->apiLoginAdmin(1);
         $this->accessToken = $token['access_token'];
         $this->refreshToken = $token['refresh_token'];

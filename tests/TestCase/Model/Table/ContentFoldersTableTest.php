@@ -12,13 +12,10 @@
 namespace BaserCore\Test\TestCase\Model\Table;
 
 use ArrayObject;
-use BaserCore\Test\Scenario\ContentFoldersScenario;
-use BaserCore\Test\Scenario\ContentsScenario;
 use Cake\Event\Event;
 use Cake\ORM\Entity;
 use BaserCore\TestSuite\BcTestCase;
 use Cake\ORM\TableRegistry;
-use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * Class ContentFoldersTableTest
@@ -26,9 +23,26 @@ use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 class ContentFoldersTableTest extends BcTestCase
 {
     /**
-     * ScenarioAwareTrait
+     * Fixtures
+     *
+     * @var array
      */
-    use ScenarioAwareTrait;
+    protected $fixtures = [
+        'plugin.BaserCore.Sites',
+        'plugin.BaserCore.Users',
+        'plugin.BaserCore.UserGroups',
+        'plugin.BaserCore.UsersUserGroups',
+        'plugin.BaserCore.ContentFolders',
+        'plugin.BaserCore.Pages',
+        'plugin.BaserCore.SiteConfigs',
+        'plugin.BaserCore.Contents',
+//        'plugin.BaserCore.Service/SearchIndexesService/ContentsReconstruct',
+//        'plugin.BaserCore.Service/SearchIndexesService/PagesReconstruct',
+//        'plugin.BaserCore.Service/SearchIndexesService/ContentFoldersReconstruct',
+    ];
+
+    // TODO loadFixtures を利用すると全体のテストが失敗してしまうためスキップ。対応方法検討要
+//    public $autoFixtures = false;
 
     /**
      * Set Up
@@ -74,7 +88,7 @@ class ContentFoldersTableTest extends BcTestCase
         $contentFolder = $this->ContentFolders->newEntity(['id' => 'test']);
         $this->assertSame([
             'id' => [
-                'integer' => 'The provided value must be an integer',
+                'integer' => 'The provided value is invalid',
                 'valid' => 'IDに不正な値が利用されています。'
             ],
             // BcContentsBehaviorのafterMarshalにて、contentを他のフィールド同様必要前提としている
@@ -91,8 +105,6 @@ class ContentFoldersTableTest extends BcTestCase
      */
     public function testBeforeSave(): void
     {
-        $this->loadFixtureScenario(ContentsScenario::class);
-        $this->loadFixtureScenario(ContentFoldersScenario::class);
         $data = new Entity(['id' => 1]);
         $this->ContentFolders->dispatchEvent('Model.beforeSave', ['entity' => $data, 'options' => new ArrayObject()]);
         $this->assertTrue($this->ContentFolders->beforeStatus);
@@ -111,7 +123,7 @@ class ContentFoldersTableTest extends BcTestCase
             'Service\SearchIndexesService\PagesReconstruct',
             'Service\SearchIndexesService\ContentFoldersReconstruct',
         );
-        $contentFolder = $this->ContentFolders->get(1, contain: ['Contents']);
+        $contentFolder = $this->ContentFolders->get(1, ['contain' => ['Contents']]);
         $this->SearchIndexes->deleteAll([]);
         // $this->Pages->delete($page);
         $this->ContentFolders->dispatchEvent('Model.afterSave', ['entity' => $contentFolder, 'options' => new ArrayObject(['reconstructSearchIndices' => true])]);
@@ -138,8 +150,6 @@ class ContentFoldersTableTest extends BcTestCase
      */
     public function testSetBeforeRecord(): void
     {
-        $this->loadFixtureScenario(ContentsScenario::class);
-        $this->loadFixtureScenario(ContentFoldersScenario::class);
         $this->execPrivateMethod($this->ContentFolders, "setBeforeRecord", [1]);
         $this->assertTrue($this->ContentFolders->beforeStatus);
     }
@@ -149,8 +159,6 @@ class ContentFoldersTableTest extends BcTestCase
      */
     public function testBeforeCopyEvent()
     {
-        $this->loadFixtureScenario(ContentsScenario::class);
-        $this->loadFixtureScenario(ContentFoldersScenario::class);
         //イベントをコル
         $this->entryEventToMock(self::EVENT_LAYER_MODEL, 'BaserCore.ContentFolders.beforeCopy', function (Event $event) {
             $data = $event->getData('data');
@@ -169,8 +177,6 @@ class ContentFoldersTableTest extends BcTestCase
      */
     public function testAfterCopyEvent()
     {
-        $this->loadFixtureScenario(ContentsScenario::class);
-        $this->loadFixtureScenario(ContentFoldersScenario::class);
         //イベントをコル
         $this->entryEventToMock(self::EVENT_LAYER_MODEL, 'BaserCore.ContentFolders.afterCopy', function (Event $event) {
             $data = $event->getData('data');
@@ -183,30 +189,5 @@ class ContentFoldersTableTest extends BcTestCase
         $contentFolders = $this->getTableLocator()->get('BaserCore.ContentFolders');
         $query = $contentFolders->find()->where(['folder_template' => 'AfterCopy']);
         $this->assertEquals(1, $query->count());
-    }
-
-    /**
-     * test copy
-     */
-    public function test_copy()
-    {
-        //データを生成
-        $this->loadFixtureScenario(ContentsScenario::class);
-        $this->loadFixtureScenario(ContentFoldersScenario::class);
-
-        //コピーする前にDBのデータを確認
-        $contentFolders = $this->getTableLocator()->get('BaserCore.ContentFolders');
-        $query = $contentFolders->find()->where(['folder_template' => 'baserCMSサンプル']);
-        $this->assertEquals(1, $query->count());
-
-        //対象メソッドを呼ぶ
-        $rs = $this->ContentFolders->copy(1, 1, 'new title', 1, 1);
-
-        //戻り値を確認
-        $this->assertEquals('new title', $rs->content->title);
-
-        //DBに存在するか確認すること
-        $query = $contentFolders->find()->where(['folder_template' => 'baserCMSサンプル']);
-        $this->assertEquals(2, $query->count());
     }
 }

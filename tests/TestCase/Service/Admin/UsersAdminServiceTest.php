@@ -12,13 +12,8 @@
 namespace BaserCore\Test\TestCase\Service\Admin;
 
 use BaserCore\Service\Admin\UsersAdminService;
-use BaserCore\Test\Scenario\SitesScenario;
-use BaserCore\Test\Scenario\UserGroupsScenario;
-use BaserCore\Test\Scenario\UserScenario;
-use BaserCore\Test\Scenario\UsersUserGroupsScenario;
 use BaserCore\TestSuite\BcTestCase;
 use Cake\Routing\Router;
-use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * Class UsersAdminServiceTest
@@ -28,9 +23,16 @@ class UsersAdminServiceTest extends BcTestCase
 {
 
     /**
-     * ScenarioAwareTrait
+     * Fixtures
+     *
+     * @var array
      */
-    use ScenarioAwareTrait;
+    protected $fixtures = [
+        'plugin.BaserCore.Users',
+        'plugin.BaserCore.UsersUserGroups',
+        'plugin.BaserCore.UserGroups',
+        'plugin.BaserCore.Sites',
+    ];
 
     /**
      * @var UsersAdminService|null
@@ -45,10 +47,6 @@ class UsersAdminServiceTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
-        $this->loadFixtureScenario(UserScenario::class);
-        $this->loadFixtureScenario(UserGroupsScenario::class);
-        $this->loadFixtureScenario(UsersUserGroupsScenario::class);
-        $this->loadFixtureScenario(SitesScenario::class);
         $this->Users = new UsersAdminService();
     }
 
@@ -88,7 +86,7 @@ class UsersAdminServiceTest extends BcTestCase
         $this->assertEquals($expected, $result);
     }
 
-    public static function isEditableDataProvider()
+    public function isEditableDataProvider()
     {
         return [
             [null, null, false],  // 未ログイン新規
@@ -116,7 +114,7 @@ class UsersAdminServiceTest extends BcTestCase
         $this->assertEquals($expected, $result);
     }
 
-    public static function isDeletableDataProvider()
+    public function isDeletableDataProvider()
     {
         return [
             [null, null, false],  // 未ログインデータ不完全
@@ -145,7 +143,7 @@ class UsersAdminServiceTest extends BcTestCase
         $this->assertEquals($expected, $result);
     }
 
-    public static function isSelfUpdateDataProvider()
+    public function isSelfUpdateDataProvider()
     {
         return [
             [1, 1, true],        // 自身を更新

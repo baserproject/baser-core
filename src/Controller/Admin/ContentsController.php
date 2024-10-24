@@ -65,7 +65,7 @@ class ContentsController extends BcAdminAppController
     {
         $response = parent::beforeFilter($event);
         if($response) return $response;
-        $this->FormProtection->setConfig('unlockedActions', ['delete', 'batch', 'trash_return']);
+        $this->Security->setConfig('unlockedActions', ['delete', 'batch', 'trash_return']);
     }
 
     /**
@@ -96,6 +96,8 @@ class ContentsController extends BcAdminAppController
 
         switch($this->getRequest()->getQuery('list_type')) {
             case 1:
+                // 並び替え最終更新時刻をリセット
+                $siteConfigService->resetValue('contents_sort_last_modified');
                 $contents = $service->getTreeIndex($this->getRequest()->getQueryParams());
                 break;
             case 2:

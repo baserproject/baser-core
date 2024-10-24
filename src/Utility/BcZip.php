@@ -11,6 +11,7 @@
 
 namespace BaserCore\Utility;
 
+use Cake\Filesystem\Folder;
 use ZipArchive;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
@@ -74,10 +75,10 @@ class BcZip
         }
         if ($result) {
             $extractedPath = $target . $this->topArchiveName;
-            $Folder = new BcFolder($extractedPath);
-            $Folder->chmod( 0777);
+            $Folder = new Folder();
+            $Folder->chmod($extractedPath, 0777);
             if ($this->Zip) $this->Zip->close();
-            return $this->topArchiveName;
+            return true;
         } else {
             return false;
         }
@@ -91,7 +92,6 @@ class BcZip
      * @return bool
      * @checked
      * @noTodo
-     * @unitTest
      */
     protected function _extractByPhpLib($source, $target)
     {
@@ -144,7 +144,6 @@ class BcZip
      * @return string
      * @checked
      * @noTodo
-     * @unitTest
      */
     protected function _escapePath($path)
     {
@@ -163,7 +162,6 @@ class BcZip
      * @return void
      * @checked
      * @noTodo
-     * @unitTest
      */
     public function create($sorce, $dist)
     {
@@ -182,7 +180,6 @@ class BcZip
      * @return void
      * @checked
      * @noTodo
-     * @unitTest
      */
     private function zipSub($za, $path, $parentPath = '')
     {

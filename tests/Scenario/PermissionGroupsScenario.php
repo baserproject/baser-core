@@ -28,7 +28,7 @@ class PermissionGroupsScenario implements FixtureScenarioInterface
     /**
      * load
      */
-    public function load(...$args): mixed
+    public function load(...$args)
     {
         PermissionGroupFactory::make([
             'id' => 1,
@@ -96,7 +96,6 @@ class PermissionGroupsScenario implements FixtureScenarioInterface
             'method' => 'ALL',
             'modified' => null,
         ])->persist();
-        return null;
     }
 
 }

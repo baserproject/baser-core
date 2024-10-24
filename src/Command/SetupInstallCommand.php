@@ -11,13 +11,12 @@
 
 namespace BaserCore\Command;
 
-use BaserCore\Error\BcException;
 use BaserCore\Service\SiteConfigsServiceInterface;
 use BaserCore\Utility\BcContainerTrait;
-use BaserCore\Utility\BcFolder;
 use Cake\Command\Command;
 use Cake\Console\Arguments;
 use Cake\Console\ConsoleIo;
+use Cake\Filesystem\Folder;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
@@ -50,7 +49,8 @@ class SetupInstallCommand extends Command
             unlink(ROOT . DS . 'config' . DS . 'install.php');
         }
         if(is_dir(ROOT . DS . 'db' . DS . 'sqlite')) {
-            (new BcFolder(ROOT . DS . 'db' . DS . 'sqlite'))->delete();
+            $folder = new Folder(ROOT . DS . 'db' . DS . 'sqlite');
+            $folder->delete();
         }
         $io->out(__d('baser_core', 'インストールの準備ができました。'));
     }

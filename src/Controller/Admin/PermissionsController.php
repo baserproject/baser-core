@@ -52,7 +52,7 @@ class PermissionsController extends BcAdminAppController
             ['BcTime',
             // 'BcFreeze'
         ]);
-        $this->FormProtection->setConfig('unlockedActions', [
+        $this->Security->setConfig('unlockedActions', [
             'update_sort',
             'batch',
         ]);

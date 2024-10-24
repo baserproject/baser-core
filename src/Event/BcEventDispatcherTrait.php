@@ -23,7 +23,7 @@ trait BcEventDispatcherTrait
      *
      * @var \Cake\View\View
      */
-    protected \Cake\View\View $_View;
+    protected $_View;
 
     /**
      * イベントを発火
