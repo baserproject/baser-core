@@ -20,6 +20,7 @@ use BaserCore\Annotation\UnitTest;
 /**
  * Class BcTextHelper
  */
+#[\AllowDynamicProperties]
 class BcTextHelper extends TextHelper
 {
 // CUSTOMIZE ADD 2021/04/24 ryuring
@@ -41,7 +42,12 @@ class BcTextHelper extends TextHelper
 // >>>
 //protected $helpers = ['Html'];
 // ---
-    protected $helpers = ['BaserCore.BcTime', 'BaserCore.BcForm', 'Html', 'BaserCore.BcAdminForm'];
+    protected array $helpers = [
+        'BaserCore.BcTime',
+        'BaserCore.BcForm',
+        'Html',
+        'BaserCore.BcAdminForm'
+    ];
 // <<<
 
 // CUSTOMIZE ADD 2014/07/03 ryuring
@@ -53,6 +59,7 @@ class BcTextHelper extends TextHelper
      * @return string ○ または ―
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function booleanMark($value)
     {
@@ -69,6 +76,7 @@ class BcTextHelper extends TextHelper
      * @return array マークリスト（ - ○ ）
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function booleanMarkList()
     {
@@ -81,6 +89,7 @@ class BcTextHelper extends TextHelper
      * @return array 「有」「無」リスト
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function booleanExistsList()
     {
@@ -93,6 +102,7 @@ class BcTextHelper extends TextHelper
      * @return array 可/不可リスト
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function booleanAllowList()
     {
@@ -106,6 +116,7 @@ class BcTextHelper extends TextHelper
      * @return array [〜する/〜しない]形式のリスト
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function booleanDoList($doText = null)
     {
@@ -123,6 +134,7 @@ class BcTextHelper extends TextHelper
      * @return string
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function booleanDo($value, $doText = null)
     {
@@ -136,6 +148,7 @@ class BcTextHelper extends TextHelper
      * @return array 都道府県リスト
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function prefList($empty = '')
     {
@@ -166,6 +179,7 @@ class BcTextHelper extends TextHelper
      * @return string
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function sex($value = 1)
     {
@@ -184,6 +198,7 @@ class BcTextHelper extends TextHelper
      * @return string    〒マーク、ハイフン付きの郵便番号
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function zipFormat($value, $prefix = "〒 ")
     {
@@ -204,6 +219,7 @@ class BcTextHelper extends TextHelper
      * @return string 都道府県名
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function pref($value, $noValue = '')
     {
@@ -222,6 +238,7 @@ class BcTextHelper extends TextHelper
      * @return mixed そのままのデータ/空の場合のデータ
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function noValue($value, $noValue)
     {
@@ -242,6 +259,7 @@ class BcTextHelper extends TextHelper
      * @return    string    可/不可
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function booleanAllow($value)
     {
@@ -256,6 +274,7 @@ class BcTextHelper extends TextHelper
      * @return string 有/無
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function booleanExists($value)
     {
@@ -271,6 +290,7 @@ class BcTextHelper extends TextHelper
      * @return string
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function moneyFormat($value, $prefix = '¥')
     {
@@ -296,6 +316,7 @@ class BcTextHelper extends TextHelper
      * @return string 日付（例）2015/8/11
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function dateTime($arrDate)
     {
@@ -314,6 +335,7 @@ class BcTextHelper extends TextHelper
      * @return    string    変換後の文字列
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function format($format, $value, $noValue = '')
     {
@@ -332,15 +354,18 @@ class BcTextHelper extends TextHelper
      * @return string 表示用データ
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function listValue($field, $value)
     {
         $list = $this->BcAdminForm->getControlSource($field);
-        if ($list && isset($list[$value])) {
-            return $list[$value];
-        } else {
+        if (!$list) {
             return false;
         }
+        if (!is_array($list)) {
+            $list = $list->toArray();
+        }
+        return $list[$value] ?? false;
     }
 
     /**
@@ -352,6 +377,7 @@ class BcTextHelper extends TextHelper
      * @return mixed
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function arrayValue($key, $array, $noValue = '')
     {
@@ -374,6 +400,7 @@ class BcTextHelper extends TextHelper
      * @return string
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function arrayValues($glue, $keys, $array)
     {
@@ -399,6 +426,7 @@ class BcTextHelper extends TextHelper
      * @return mixed
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function age($birthday, $suffix = '歳', $noValue = '不明')
     {
@@ -424,6 +452,7 @@ class BcTextHelper extends TextHelper
      * @return array 可/不可リスト
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function booleanStatusList()
     {
@@ -437,6 +466,7 @@ class BcTextHelper extends TextHelper
      * @return string 無効/有効
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function booleanStatus($value)
     {

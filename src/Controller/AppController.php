@@ -25,8 +25,6 @@ use BaserCore\Service\PermissionsServiceInterface;
 use BaserCore\Utility\BcContainerTrait;
 use BaserCore\Utility\BcSiteConfig;
 use BaserCore\Utility\BcUtil;
-use Cake\Controller\Component\PaginatorComponent;
-use Cake\Controller\Component\SecurityComponent;
 use Cake\Controller\ComponentRegistry;
 use Cake\Core\Configure;
 use Cake\Event\EventInterface;
@@ -44,8 +42,6 @@ use Psr\Http\Message\ResponseInterface;
 /**
  * Class AppController
  * @property BcMessageComponent $BcMessage
- * @property SecurityComponent $Security
- * @property PaginatorComponent $Paginator
  * @property AuthenticationComponent $Authentication
  */
 class AppController extends BaseController
@@ -77,6 +73,9 @@ class AppController extends BaseController
     )
     {
         parent::__construct($request, $response, $name, $eventManager, $components);
+
+        // CSRFトークンの場合は高速化のためここで処理を終了
+        if(!$request->is('requestview')) return;
 
         $request->getSession()->start();
 
@@ -121,11 +120,12 @@ class AppController extends BaseController
     {
         parent::initialize();
         $this->loadComponent('BaserCore.BcMessage');
-        $this->loadComponent('Security', [
-            'blackHoleCallback' => '_blackHoleCallback',
-            'validatePost' => true,
-            'requireSecure' => false,
-            'unlockedFields' => ['x', 'y', 'MAX_FILE_SIZE']
+        $this->loadComponent('FormProtection', [
+            'unlockedFields' => ['x', 'y', 'MAX_FILE_SIZE'],
+            'validationFailureCallback' => function (BadRequestException $exception) {
+                $message = __d('baser_core', "不正なリクエストと判断されました\nもしくは、システムが受信できるデータ上限より大きなデータが送信された可能性があります。") . "\n" . $exception->getMessage();
+                throw new BadRequestException($message);
+            }
         ]);
     }
 
@@ -510,6 +510,7 @@ class AppController extends BaseController
      * @deprecated since 5.0.5 このメソッドは非推奨です。
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function ajaxError(int $errorNo = 500, $message = '')
     {

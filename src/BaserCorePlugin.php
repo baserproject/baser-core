@@ -17,10 +17,12 @@ use Authentication\AuthenticationServiceProviderInterface;
 use Authentication\Authenticator\SessionAuthenticator;
 use Authentication\Middleware\AuthenticationMiddleware;
 use BaserCore\Command\ComposerCommand;
+use BaserCore\Command\CreateJwtCommand;
 use BaserCore\Command\CreateReleaseCommand;
 use BaserCore\Command\SetupInstallCommand;
 use BaserCore\Command\SetupTestCommand;
 use BaserCore\Command\UpdateCommand;
+use BaserCore\Event\BcAuthenticationEventListener;
 use BaserCore\Event\BcContainerEventListener;
 use BaserCore\Event\BcControllerEventDispatcher;
 use BaserCore\Event\BcModelEventDispatcher;
@@ -38,6 +40,7 @@ use Cake\Core\Configure;
 use Cake\Core\ContainerInterface;
 use Cake\Core\Exception\MissingPluginException;
 use Cake\Core\PluginApplicationInterface;
+use Cake\Database\Exception\MissingConnectionException;
 use Cake\Event\EventManager;
 use Cake\Http\Middleware\CsrfProtectionMiddleware;
 use Cake\Http\MiddlewareQueue;
@@ -150,16 +153,22 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
         /**
          * プラグインロード
          */
+        if (!filter_var(env('USE_DEBUG_KIT', true), FILTER_VALIDATE_BOOLEAN)) {
+            // 明示的に指定がない場合、DebugKitは重すぎるのでデバッグモードでも利用しない
+            \Cake\Core\Plugin::getCollection()->remove('DebugKit');
+        }
+
+        // CSRFトークンの場合は高速化のためここで処理を終了
+        if(!empty($_SERVER['REQUEST_URI']) && preg_match('/\?requestview=false$/', $_SERVER['REQUEST_URI'])) {
+            return;
+        }
+
         if (BcUtil::isTest()) $app->addPlugin('CakephpFixtureFactories');
         $app->addPlugin('Authentication');
         $app->addPlugin('Migrations');
 
         $this->addTheme($app);
 
-        if (!filter_var(env('USE_DEBUG_KIT', true), FILTER_VALIDATE_BOOLEAN)) {
-            // 明示的に指定がない場合、DebugKitは重すぎるのでデバッグモードでも利用しない
-            \Cake\Core\Plugin::getCollection()->remove('DebugKit');
-        }
         $plugins = BcUtil::getEnablePlugins();
         if ($plugins) {
             foreach($plugins as $plugin) {
@@ -182,6 +191,7 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
         $event->on(new BcModelEventDispatcher());
         $event->on(new BcViewEventDispatcher());
         $event->on(new BcContainerEventListener());
+        $event->on(new BcAuthenticationEventListener());
     }
 
     /**
@@ -199,7 +209,12 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
         $application->addPlugin(Inflector::camelize(Configure::read('BcApp.coreFrontTheme'), '-'));
         if (!BcUtil::isInstalled()) return;
         $sitesTable = TableRegistry::getTableLocator()->get('BaserCore.Sites');
-        $sites = $sitesTable->find()->where(['Sites.status' => true]);
+        try {
+            $sites = $sitesTable->find()->where(['Sites.status' => true]);
+        } catch (MissingConnectionException) {
+            return;
+        }
+
         $path = [];
         foreach($sites as $site) {
             if ($site->theme) {
@@ -233,20 +248,12 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
     {
         $admin = Configure::read('BcApp.coreAdminTheme');
         $front = Configure::read('BcApp.coreFrontTheme');
-        if (BcUtil::isAdminSystem() && empty($_REQUEST['preview'])) {
-            Configure::write('App.paths.templates', array_merge([
-                ROOT . DS . 'plugins' . DS . $admin . DS . 'templates' . DS,
-                ROOT . DS . 'vendor' . DS . 'baserproject' . DS . $admin . DS . 'templates' . DS
-            ], Configure::read('App.paths.templates')));
-        } else {
-            Configure::write('App.paths.templates', array_merge([
-                ROOT . DS . 'plugins' . DS . $front . DS . 'templates' . DS,
-                ROOT . DS . 'vendor' . DS . 'baserproject' . DS . $front . DS . 'templates' . DS,
-                ROOT . DS . 'plugins' . DS . $admin . DS . 'templates' . DS,
-                ROOT . DS . 'vendor' . DS . 'baserproject' . DS . $admin . DS . 'templates' . DS
-            ], Configure::read('App.paths.templates')));
-        }
-
+        Configure::write('App.paths.templates', array_merge([
+            ROOT . DS . 'plugins' . DS . $front . DS . 'templates' . DS,
+            ROOT . DS . 'vendor' . DS . 'baserproject' . DS . $front . DS . 'templates' . DS,
+            ROOT . DS . 'plugins' . DS . $admin . DS . 'templates' . DS,
+            ROOT . DS . 'vendor' . DS . 'baserproject' . DS . $admin . DS . 'templates' . DS
+        ], Configure::read('App.paths.templates')));
     }
 
     /**
@@ -328,6 +335,7 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
      * @return array
      * @noTodo
      * @checked
+     * @unitTest
      */
     protected function getSkipCsrfUrl(): array
     {
@@ -392,6 +400,7 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
      * @return bool
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function isRequiredAuthentication(array $authSetting)
     {
@@ -426,6 +435,25 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
             ],
             'loginUrl' => Router::url($authSetting['loginAction']),
         ]);
+
+        $passwordHasher = null;
+        if(!empty($authSetting['passwordHasher'])) {
+            $passwordHasher = $authSetting['passwordHasher'];
+        } elseif(env('HASH_TYPE') === 'sha1') {
+            // .env に HASH_TYPE で sha1が設定されている場合 4系のハッシュアルゴリズムを使用
+            $passwordHasher = [
+                'className' => 'Authentication.Fallback',
+                'hashers' => [
+                    'Authentication.Default',
+                    [
+                        'className' => 'Authentication.Legacy',
+                        'hashType' => 'sha1',
+                        'salt' => true
+                    ]
+                ]
+            ];
+        }
+
         $service->loadIdentifier('Authentication.Password', [
             'fields' => [
                 'username' => $authSetting['username'],
@@ -436,6 +464,7 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
                 'userModel' => $authSetting['userModel'],
                 'finder' => $authSetting['finder']?? 'available'
             ],
+            'passwordHasher' => $passwordHasher
         ]);
         return $service;
     }
@@ -517,7 +546,7 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
      * @noTodo
      * @unitTest
      */
-    public function routes($routes): void
+    public function routes(RouteBuilder $routes): void
     {
 
         // migrations コマンドの場合は実行しない
@@ -536,17 +565,16 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
         if (!$request) {
             $request = ServerRequestFactory::fromGlobals();
         }
-        if (!BcUtil::isConsole() && !preg_match('/^\/debug-kit\//', $request->getPath())) {
-            // ユニットテストでは実行しない
-            $property = new ReflectionProperty(get_class($routes), '_collection');
-            $property->setAccessible(true);
-            $collection = $property->getValue($routes);
-            $property = new ReflectionProperty(get_class($collection), '_routeTable');
-            $property->setAccessible(true);
-            $property->setValue($collection, []);
-            $property = new ReflectionProperty(get_class($collection), '_paths');
-            $property->setAccessible(true);
-            $property->setValue($collection, []);
+
+        /**
+         * /config/routes.php を無効化する
+         * ユニットテストや DebugKit では実行しない
+         */
+        if (!Configure::read('BcApp.enableRootRoutes')
+            && !BcUtil::isConsole()
+            && !preg_match('/^\/debug-kit\//', $request->getPath())
+        ) {
+            $this->disableRootRoutes($routes);
         }
 
         /**
@@ -592,13 +620,35 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
                     ['path' => '/baser-core'],
                     function(RouteBuilder $routes) {
                         $routes->setExtensions(['json']);
-                        $routes->connect('/.well-known/:controller/*', ['action' => 'index'], ['controller' => '(jwks)']);
+                        $routes->connect('/.well-known/{controller}/*', ['action' => 'index'], ['controller' => '(jwks)']);
                     }
                 );
             }
         );
 
         parent::routes($routes);
+    }
+
+    /**
+     * /config/routes.php を無効化する
+     * @param RouteBuilder $routes
+     * @throws \ReflectionException
+     */
+    public function disableRootRoutes(RouteBuilder $routes): void
+    {
+        // ユニットテストでは実行しない
+        $property = new ReflectionProperty(get_class($routes), '_collection');
+        $property->setAccessible(true);
+        $collection = $property->getValue($routes);
+        $property = new ReflectionProperty(get_class($collection), '_routeTable');
+        $property->setAccessible(true);
+        $property->setValue($collection, []);
+        $property = new ReflectionProperty(get_class($collection), '_paths');
+        $property->setAccessible(true);
+        $property->setValue($collection, []);
+        $property = new ReflectionProperty(get_class($collection), 'staticPaths');
+        $property->setAccessible(true);
+        $property->setValue($collection, []);
     }
 
     /**
@@ -631,6 +681,7 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
      * @return CommandCollection
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function console(CommandCollection $commands): CommandCollection
     {
@@ -639,6 +690,7 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
         $commands->add('update', UpdateCommand::class);
         $commands->add('create release', CreateReleaseCommand::class);
         $commands->add('setup install', SetupInstallCommand::class);
+        $commands->add('create jwt', CreateJwtCommand::class);
         return $commands;
     }
 

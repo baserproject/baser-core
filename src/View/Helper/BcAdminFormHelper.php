@@ -20,6 +20,7 @@ use BaserCore\Event\BcEventDispatcherTrait;
  * Class BcAdminFormHelper
  * @property BcBaserHelper $BcBaser
  */
+#[\AllowDynamicProperties]
 class BcAdminFormHelper extends BcFormHelper
 {
     /**
@@ -31,7 +32,7 @@ class BcAdminFormHelper extends BcFormHelper
      * Helpers
      * @var string[]
      */
-    public $helpers = [
+    public array $helpers = [
         'Url',
         'Js',
         'Html',

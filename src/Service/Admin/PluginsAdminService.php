@@ -12,12 +12,12 @@
 namespace BaserCore\Service\Admin;
 
 use BaserCore\Service\PluginsService;
+use BaserCore\Utility\BcFile;
 use BaserCore\Utility\BcUtil;
 use Cake\Cache\Cache;
 use Cake\Core\Configure;
 use Cake\Core\Plugin as CakePlugin;
 use Cake\Datasource\EntityInterface;
-use Cake\Filesystem\File;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
 use BaserCore\Annotation\UnitTest;
@@ -144,6 +144,7 @@ class PluginsAdminService extends PluginsService implements PluginsAdminServiceI
      * @return bool
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function isRequireUpdate(string $programVersion, ?string $dbVersion, ?string $availableVersion)
     {
@@ -180,7 +181,7 @@ class PluginsAdminService extends PluginsService implements PluginsAdminServiceI
         $updateLogFile = LOGS . 'update.log';
         $updateLog = '';
         if (file_exists($updateLogFile)) {
-            $File = new File($updateLogFile);
+            $File = new BcFile($updateLogFile);
             $updateLog = $File->read();
         }
         return $updateLog;
@@ -191,6 +192,7 @@ class PluginsAdminService extends PluginsService implements PluginsAdminServiceI
      * @return array
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function getViewVarsForAdd()
     {

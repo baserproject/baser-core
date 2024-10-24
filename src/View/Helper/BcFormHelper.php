@@ -31,6 +31,7 @@ use BaserCore\Annotation\UnitTest;
  * @property BcUploadHelper $BcUpload
  * @property BcCkeditorHelper $BcCkeditor
  */
+#[\AllowDynamicProperties]
 class BcFormHelper extends FormHelper
 {
     /**
@@ -44,7 +45,7 @@ class BcFormHelper extends FormHelper
      *
      * @var array
      */
-    public $helpers = [
+    public array $helpers = [
         'Url',
         'Js',
         'Html',
@@ -681,6 +682,7 @@ SCRIPT_END;
      * @return string
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function ckeditor($fieldName, $options = [])
     {
@@ -696,6 +698,7 @@ SCRIPT_END;
      * @return string
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function editor($fieldName, $options = [])
     {
@@ -704,32 +707,31 @@ SCRIPT_END;
             'style' => 'width:99%;height:540px'
         ], $options);
 
-        if($options['editor'] === 'none') $options['editor'] = '';
-        if ($options['editor']) {
-            [$plugin] = pluginSplit($options['editor']);
-            if (!Plugin::isLoaded($plugin)) {
-                $options['editor'] = '';
-            }
-        }
-
-        if (!$options['editor']) {
+        if(!$options['editor']) {
             /** @var BcCkeditorHelper $bcCkeditor */
             $bcCkeditor = $this->getView()->BcCkeditor;
             return $bcCkeditor->editor($fieldName, $options);
+        } elseif ($options['editor'] !== 'none') {
+            [$plugin] = pluginSplit($options['editor']);
+            if (!Plugin::isLoaded($plugin)) {
+                $options['editor'] = 'none';
+            } else {
+                $className = $options['editor'];
+                [, $editor] = pluginSplit($options['editor']);
+                $this->getView()->loadHelper($editor, ['className' => $className]);
+            }
         }
 
-        $this->_View->loadHelper($options['editor']);
-        [, $editor] = pluginSplit($options['editor']);
-        if (!empty($this->getView()->{$editor})) {
-            return $this->getView()->{$editor}->editor($fieldName, $options);
-        } elseif ($editor === 'none') {
+        if ($options['editor'] === 'none') {
             $_options = [];
             foreach($options as $key => $value) {
                 if (!preg_match('/^editor/', $key)) {
                     $_options[$key] = $value;
                 }
             }
-            return $this->input($fieldName, array_merge(['type' => 'textarea'], $_options));
+            return $this->control($fieldName, array_merge($_options, ['type' => 'textarea']));
+        } elseif (isset($this->getView()->helpers()->{$editor})) {
+            return $this->getView()->{$editor}->editor($fieldName, $options);
         } else {
             /** @var BcCkeditorHelper $bcCkeditor */
             $bcCkeditor = $this->getView()->BcCkeditor;
@@ -747,6 +749,7 @@ SCRIPT_END;
      * @return string 都道府県用のSELECTタグ
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function prefTag($fieldName, $selected = null, $attributes = [], $convertKey = false)
     {
@@ -865,7 +868,9 @@ SCRIPT_END;
 
         // PHP5.3対応のため、is_string($value) 判別を実行
         $delCheckTag = '';
-        if ($fileLinkTag && $linkOptions['delCheck'] && (is_string($value) || empty($value['session_key']))) {
+        if ($fileLinkTag && $linkOptions['delCheck'] && (is_string($value) ||
+                (is_array($value) && empty($value['session_key'])) ||
+                (is_object($value) && $value->getError() == UPLOAD_ERR_NO_FILE))) {
             $delCheckTag = $this->Html->tag('span', $this->checkbox($fieldName . '_delete', $deleteCheckboxOptions) . $this->label($fieldName . '_delete', __d('baser_core', '削除する'), $deleteLabelOptions), $deleteSpanOptions);
         }
         $hiddenValue = $this->getSourceValue($fieldName . '_');
@@ -873,10 +878,10 @@ SCRIPT_END;
 
         $hiddenTag = '';
         if ($fileLinkTag) {
-            if (is_array($fileValue) && empty($fileValue['tmp_name']) && $hiddenValue) {
+            if (is_object($fileValue) && empty($fileValue->getClientFileName()) && $hiddenValue) {
                 $hiddenTag = $this->hidden($fieldName . '_', ['value' => $hiddenValue]);
             } else {
-                if (is_array($fileValue)) {
+                if (is_array($fileValue) || is_object($fileValue)) {
                     $fileValue = null;
                 }
                 $hiddenTag = $this->hidden($fieldName . '_', ['value' => $fileValue]);

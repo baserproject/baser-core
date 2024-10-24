@@ -31,6 +31,7 @@ class PagesController extends BcAdminApiController
      * @param PagesServiceInterface $service
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function index(PagesServiceInterface $service)
     {
@@ -58,6 +59,7 @@ class PagesController extends BcAdminApiController
      * @param int $id
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function view(PagesServiceInterface $service, $id)
     {

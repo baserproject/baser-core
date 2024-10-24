@@ -12,13 +12,18 @@
 namespace BaserCore\Test\TestCase\Controller;
 
 use BaserCore\Service\SiteConfigsServiceInterface;
+use BaserCore\Test\Scenario\ContentsScenario;
+use BaserCore\Test\Scenario\InitAppScenario;
+use BaserCore\Test\Scenario\SiteConfigsScenario;
 use BaserCore\Utility\BcContainer;
 use Cake\Core\Configure;
 use Cake\Event\Event;
+use Cake\Http\Exception\BadRequestException;
 use Cake\Http\Response;
 use Cake\TestSuite\IntegrationTestTrait;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Controller\AppController;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 use ReflectionClass;
 
 /**
@@ -29,23 +34,10 @@ class AppControllerTest extends BcTestCase
 {
 
     /**
-     * Fixtures
-     *
-     * @var array
-     */
-    public $fixtures = [
-        'plugin.BaserCore.Sites',
-        'plugin.BaserCore.Contents',
-        'plugin.BaserCore.SiteConfigs',
-        'plugin.BaserCore.Users',
-        'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.UsersUserGroups'
-    ];
-
-    /**
      * Trait
      */
     use IntegrationTestTrait;
+    use ScenarioAwareTrait;
 
     /**
      * set up
@@ -53,6 +45,9 @@ class AppControllerTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
+        $this->loadFixtureScenario(InitAppScenario::class);
+        $this->loadFixtureScenario(SiteConfigsScenario::class);
+        $this->loadFixtureScenario(ContentsScenario::class);
         $this->AppController = new AppController($this->getRequest());
     }
 
@@ -84,11 +79,13 @@ class AppControllerTest extends BcTestCase
     public function testInitialize()
     {
         $this->assertNotEmpty($this->AppController->BcMessage);
-        $this->assertNotEmpty($this->AppController->Security);
-        $this->assertEquals('_blackHoleCallback', $this->AppController->Security->getConfig('blackHoleCallback'));
-        $this->assertTrue($this->AppController->Security->getConfig('validatePost'));
-        $this->assertFalse($this->AppController->Security->getConfig('requireSecure'));
-        $this->assertEquals(['x', 'y', 'MAX_FILE_SIZE'], $this->AppController->Security->getConfig('unlockedFields'));
+        $this->assertNotEmpty($this->AppController->FormProtection);
+        $this->assertTrue($this->AppController->FormProtection->getConfig('validate'));
+        $this->assertEquals(['x', 'y', 'MAX_FILE_SIZE'], $this->AppController->FormProtection->getConfig('unlockedFields'));
+        $callback = $this->AppController->FormProtection->getConfig('validationFailureCallback');
+        $this->expectException("Cake\Http\Exception\BadRequestException");
+        $this->expectExceptionMessage("不正なリクエストと判断されました\nもしくは、システムが受信できるデータ上限より大きなデータが送信された可能性があります。\n不正なリクエストです。");
+        $callback(new BadRequestException('不正なリクエストです。'));
     }
 
     /**
@@ -165,20 +162,6 @@ class AppControllerTest extends BcTestCase
         $this->AppController->setRequest($request);
         $this->AppController->setupFrontView();
         $this->assertEquals('test', $this->AppController->viewBuilder()->getTheme());
-    }
-
-    /**
-     * test blackHoleCallback
-     */
-    public function test_blackHoleCallback()
-    {
-        $this->enableCsrfToken();
-        $logPath = ROOT . 'logs' . DS . 'cli-error.log';
-        @unlink($logPath);
-        $this->post('/', [
-            'name' => 'Test_test_Man'
-        ]);
-        $this->assertResponseRegExp('/不正なリクエストと判断されました。/');
     }
 
     /**
@@ -354,7 +337,7 @@ class AppControllerTest extends BcTestCase
         $this->assertSame(1, $query->count());
     }
 
-    public function saveDblogDataProvider(): array
+    public static function saveDblogDataProvider(): array
     {
         return [
             ['dblogs testSaveDblog message guest', null],
@@ -362,4 +345,32 @@ class AppControllerTest extends BcTestCase
         ];
     }
 
+    /**
+     * Test ajaxError
+     * @param $errorNo
+     * @param $message
+     * @param $expectedOutput
+     * @dataProvider ajaxErrorDataProvider
+     */
+    public function testAjaxError($errorNo, $message, $expectedOutput)
+    {
+        ob_start();
+        $this->AppController->ajaxError($errorNo, $message);
+        $output = ob_get_clean();
+
+        $response = $this->AppController->getResponse();
+
+        $this->assertEquals($errorNo, $response->getStatusCode());
+        $this->assertEquals($expectedOutput, $output);
+    }
+
+    public static function ajaxErrorDataProvider()
+    {
+        return [
+            [400, 'This is an error message.', "This is an error message."],
+            [404, ['Error 1', 'Error 2'], "Error 1<br>Error 2"],
+            [500, [['Error 1a', 'Error 1b'], 'Error 2'], "Error 1a<br />Error 1b<br>Error 2"],
+            [500, '', '']
+        ];
+    }
 }

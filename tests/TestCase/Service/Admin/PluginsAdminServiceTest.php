@@ -13,9 +13,11 @@ namespace BaserCore\Test\TestCase\Service\Admin;
 
 use BaserCore\Service\Admin\PluginsAdminService;
 use BaserCore\Service\Admin\PluginsAdminServiceInterface;
+use BaserCore\Test\Scenario\PluginsScenario;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Utility\BcContainerTrait;
 use Cake\Log\Log;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 use Psr\Log\LogLevel;
 
 /**
@@ -25,17 +27,13 @@ class PluginsAdminServiceTest extends BcTestCase
 {
 
     /**
-     * Fixtures
-     * @var string[]
-     */
-    public $fixtures = [
-        'plugin.BaserCore.Plugins'
-    ];
-
-    /**
      * Trait
      */
     use BcContainerTrait;
+    /**
+     * ScenarioAwareTrait
+     */
+    use ScenarioAwareTrait;
 
     /**
      * PluginsAdminService
@@ -66,6 +64,7 @@ class PluginsAdminServiceTest extends BcTestCase
      */
     public function test_getViewVarsForInstall()
     {
+        $this->loadFixtureScenario(PluginsScenario::class);
         $vars = $this->PluginsAdmin->getViewVarsForInstall($this->PluginsAdmin->get(1));
         $this->assertTrue(isset($vars['plugin']));
         $this->assertTrue(isset($vars['installStatusMessage']));
@@ -76,6 +75,7 @@ class PluginsAdminServiceTest extends BcTestCase
      */
     public function test_getViewVarsForUpdate()
     {
+        $this->loadFixtureScenario(PluginsScenario::class);
         $vars = $this->PluginsAdmin->getViewVarsForUpdate($this->PluginsAdmin->get(1));
         $this->assertEquals([
             'plugin',
@@ -110,6 +110,43 @@ class PluginsAdminServiceTest extends BcTestCase
         if (file_exists(LOGS . 'update.backup.log')) {
             rename(LOGS . 'update.backup.log', LOGS . 'update.log');
         }
+    }
+
+    /**
+     * test isRequireUpdate
+     * @param string $programVersion
+     * @param string|null $dbVersion
+     * @param string|null $availableVersion
+     * @param bool $expected
+     * @dataProvider isRequireUpdateDataProvider
+     */
+    public function test_isRequireUpdate(string $programVersion, ?string $dbVersion, ?string $availableVersion, bool $expected)
+    {
+        $result = $this->PluginsAdmin->isRequireUpdate($programVersion, $dbVersion, $availableVersion);
+        $this->assertEquals($expected, $result);
+    }
+
+    public static function isRequireUpdateDataProvider()
+    {
+        return [
+            ['1.0.0', '1.0.0', '1.1.0', true],
+            ['1.0.0', '1.0.0', '0.9.0', false],
+            ['1.0.0', '1.0.0', '1.0.0', false],
+            ['1.1.0', '1.0.0', '1.1.0', false],
+            ['1.0.0', '1.0.0', null, false],
+            ['invalid_version', '1.0.0', '1.1.0', false],
+            ['1.0.0', 'invalid_version', '1.1.0', false],
+            ['1.0.0', '1.0.0', 'invalid_version', false],
+        ];
+    }
+
+    /**
+     * test getViewVarsForAdd
+     */
+    public function test_getViewVarsForAdd()
+    {
+        $vars = $this->PluginsAdmin->getViewVarsForAdd();
+        $this->assertTrue(isset($vars['isPluginsDirWritable']));
     }
 
 }

@@ -12,17 +12,22 @@
 namespace BaserCore\Test\TestCase\Service;
 
 use BaserCore\Test\Factory\ContentFactory;
+use BaserCore\Test\Factory\ContentFolderFactory;
 use BaserCore\Test\Factory\PageFactory;
 use BaserCore\Test\Factory\SearchIndexesFactory;
 use BaserCore\Test\Factory\SiteFactory;
+use BaserCore\Test\Scenario\ContentsScenario;
+use BaserCore\Test\Scenario\InitAppScenario;
+use BaserCore\Test\Scenario\MailContentsScenario;
+use BaserCore\Test\Scenario\SitesScenario;
 use BcBlog\Test\Factory\BlogContentFactory;
 use Cake\Core\Configure;
 use Cake\Datasource\Exception\RecordNotFoundException;
-use Cake\ORM\TableRegistry;
 use Cake\Routing\Router;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Service\ContentsService;
 use BaserCore\Service\ContentFoldersService;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * BaserCore\Model\Table\ContentsTable Test Case
@@ -38,22 +43,10 @@ class ContentsServiceTest extends BcTestCase
      * @var ContentsService
      */
     public $Contents;
-
     /**
-     * Fixtures
-     *
-     * @var array
+     * ScenarioAwareTrait
      */
-    protected $fixtures = [
-        'plugin.BaserCore.Sites',
-        'plugin.BaserCore.Contents',
-        'plugin.BaserCore.ContentFolders',
-        'plugin.BaserCore.Users',
-        'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.UsersUserGroups',
-        'plugin.BaserCore.SiteConfigs',
-        'plugin.BaserCore.MailContents',
-    ];
+    use ScenarioAwareTrait;
 
     /**
      * Set Up
@@ -86,6 +79,7 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testGet(): void
     {
+        ContentFactory::make(['id' => 1, 'title' => 'baserCMSサンプル'])->persist();
         $result = $this->ContentsService->get(1);
         $this->assertEquals("baserCMSサンプル", $result->title);
     }
@@ -97,6 +91,11 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testGetChildren(): void
     {
+        ContentFactory::make(['id' => 6, 'lft' => 1, 'rght' => 10])->persist();
+        ContentFactory::make(['parent_id' => 6, 'lft' => 2, 'rght' => 3])->persist();
+        ContentFactory::make(['parent_id' => 6, 'lft' => 4, 'rght' => 5])->persist();
+        ContentFactory::make(['parent_id' => 6, 'lft' => 6, 'rght' => 7])->persist();
+
         $this->assertNull($this->ContentsService->getChildren(1000));
         $this->assertNull($this->ContentsService->getChildren(4));
         $this->assertEquals(3, $this->ContentsService->getChildren(6)->count());
@@ -109,6 +108,7 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testGetTreeIndex(): void
     {
+        ContentFactory::make(['title' => 'baserCMSサンプル'])->persist();
         $request = $this->getRequest('/?site_id=1');
         $result = $this->ContentsService->getTreeIndex($request->getQueryParams());
         $this->assertEquals("baserCMSサンプル", $result->first()->title);
@@ -122,11 +122,12 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testGetTableIndex($conditions, $expected): void
     {
+        $this->loadFixtureScenario(ContentsScenario::class);
         $result = $this->ContentsService->getTableIndex($conditions);
         $this->assertEquals($expected, $result->count());
     }
 
-    public function getTableIndexDataProvider()
+    public static function getTableIndexDataProvider()
     {
         return [
             [[
@@ -162,6 +163,7 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testGetIndex(): void
     {
+        $this->loadFixtureScenario(ContentsScenario::class);
         $request = $this->getRequest('/');
         $contents = $this->ContentsService->getIndex($request->getQueryParams());
         $this->assertEquals('', $contents->first()->name);
@@ -177,15 +179,15 @@ class ContentsServiceTest extends BcTestCase
         // softDeleteの場合
         $request = $this->getRequest('/?status=publish');
         $contents = $this->ContentsService->getIndex($request->getQueryParams());
-        $this->assertEquals(19, $contents->all()->count());
+        $this->assertEquals(20, $contents->all()->count());
         // ゴミ箱を含むの場合
         $request = $this->getRequest('/?status=publish&withTrash=true');
         $contents = $this->ContentsService->getIndex($request->getQueryParams());
-        $this->assertEquals(22, $contents->all()->count());
+        $this->assertEquals(24, $contents->all()->count());
         // 否定の場合
         $request = $this->getRequest('/?status=publish&type!=Page');
         $contents = $this->ContentsService->getIndex($request->getQueryParams());
-        $this->assertEquals(11, $contents->all()->count());
+        $this->assertEquals(12, $contents->all()->count());
         // フォルダIDを指定する場合
         $request = $this->getRequest('/?status=publish&folder_id=6');
         $contents = $this->ContentsService->getIndex($request->getQueryParams());
@@ -199,6 +201,7 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testGetTrashIndex(): void
     {
+        $this->loadFixtureScenario(ContentsScenario::class);
         // type: all
         $result = $this->ContentsService->getTrashIndex();
         $this->assertNotNull($result->first()->deleted_date);
@@ -214,6 +217,7 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testGetContentFolderList()
     {
+        $this->loadFixtureScenario(ContentsScenario::class);
         $siteId = 1;
         $result = $this->ContentsService->getContentFolderList($siteId);
         $this->assertEquals(
@@ -253,6 +257,8 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testDelete(): void
     {
+        ContentFactory::make(['id' => 14, 'lft' => 1, 'rght' => 2])->persist();
+        ContentFactory::make(['id' => 5, 'lft' => 1, 'rght' => 2])->persist();
         $this->assertTrue($this->ContentsService->delete(14));
         $contents = $this->ContentsService->getTrash(14);
         $this->assertNotNull($contents->deleted_date);
@@ -271,19 +277,23 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testHardDelete(): void
     {
+        ContentFactory::make(['id' => 15, 'lft' => 1, 'rght' => 2])->persist();
+        ContentFactory::make(['id' => 16, 'lft' => 1, 'rght' => 2])->persist();
         // treeBehavior falseの場合
         $this->assertTrue($this->ContentsService->hardDelete(15));
         try {
             $this->ContentsService->getTrash(15);
             $this->fail();
-        } catch (RecordNotFoundException $e) {}
+        } catch (RecordNotFoundException $e) {
+        }
 
         // treeBehavior trueの場合
         $this->assertTrue($this->ContentsService->hardDelete(16, true));
         try {
             $this->ContentsService->getTrash(16); // 親要素
             $this->fail();
-        } catch (RecordNotFoundException $e) {}
+        } catch (RecordNotFoundException $e) {
+        }
     }
 
     /**
@@ -293,6 +303,8 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testHardDeleteWithAssoc(): void
     {
+        ContentFactory::make(['id' => 16, 'type' => "ContentFolder", 'entity_id' => 1, 'deleted_date' => '2021-09-03 13:10:08', 'lft' => 1, 'rght' => 2])->persist();
+        ContentFolderFactory::make(['id' => 1])->persist();
         $content = $this->ContentsService->getTrash(16);
         $this->assertTrue($this->ContentsService->hardDeleteWithAssoc(16));
         try {
@@ -321,7 +333,9 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testDeleteAll(): void
     {
-        $this->assertEquals(20, $this->ContentsService->deleteAll());
+        ContentFactory::make()->persist();
+        ContentFactory::make()->persist();
+        $this->assertEquals(2, $this->ContentsService->deleteAll());
         $contents = $this->ContentsService->getIndex();
         $this->assertEquals(0, $contents->all()->count());
     }
@@ -333,6 +347,8 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testRestore()
     {
+        ContentFactory::make(['id' => 1, 'site_root' => true, 'lft' => 1, 'rght' => 4,])->persist();
+        ContentFactory::make(['id' => 16, 'type' => "ContentFolder", 'deleted_date' => '2021-09-03 13:10:08', 'parent_id' => 1, 'lft' => 2, 'rght' => 3])->persist();
         $this->assertNotEmpty($this->ContentsService->restore(16));
         $this->assertNotEmpty($this->ContentsService->get(16));
     }
@@ -344,6 +360,9 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testRestoreAll()
     {
+        ContentFactory::make(['id' => 1, 'site_root' => true, 'lft' => 1, 'rght' => 6,])->persist();
+        ContentFactory::make(['type' => "ContentFolder", 'deleted_date' => '2021-09-03 13:10:08', 'parent_id' => 1, 'lft' => 2, 'rght' => 3])->persist();
+        ContentFactory::make(['type' => "ContentFolder", 'deleted_date' => '2021-09-03 13:10:08', 'parent_id' => 1, 'lft' => 4, 'rght' => 5])->persist();
         $this->assertEquals(2, $this->ContentsService->restoreAll(['type' => "ContentFolder"]));
         $this->assertTrue($this->ContentsService->getTrashIndex(['type' => "ContentFolder"])->all()->isEmpty());
     }
@@ -355,6 +374,7 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testGetContentsInfo()
     {
+        SiteFactory::make()->persist();
         $result = $this->ContentsService->getContentsInfo();
         $this->assertTrue(isset($result[0]['unpublished']));
         $this->assertTrue(isset($result[0]['published']));
@@ -377,19 +397,31 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testDeleteRecursive()
     {
+        ContentFactory::make(['id' => 4, 'lft' => 1, 'rght' => 2])->persist();
+
+        ContentFactory::make(['id' => 6, 'lft' => 3, 'rght' => 6])->persist();
+        ContentFactory::make(['id' => 7, 'parent_id' => 6, 'lft' => 4, 'rght' => 5])->persist();
+
+        ContentFactory::make(['id' => 18, 'lft' => 7, 'rght' => 10])->persist();
+        ContentFactory::make(['id' => 19, 'parent_id' => 18, 'lft' => 8, 'rght' => 9])->persist();
+
+        ContentFactory::make(['id' => 21, 'lft' => 11, 'rght' => 14])->persist();
+        ContentFactory::make(['id' => 22, 'parent_id' => 21, 'lft' => 12, 'rght' => 13, 'alias_id' => 21])->persist();
+
+
         // 子要素がない場合
         $this->assertTrue($this->ContentsService->deleteRecursive(4));
         $this->assertNotEmpty($this->ContentsService->getTrash(4));
         // 子要素がある場合
         $children = $this->ContentsService->getChildren(6);
         $this->assertTrue($this->ContentsService->deleteRecursive(6));
-        foreach($children as $child) {
+        foreach ($children as $child) {
             $this->assertNotEmpty($this->ContentsService->getTrash($child->id));
         }
         // 子要素の階層が深い場合
         $children = $this->ContentsService->getChildren(18);
         $this->assertTrue($this->ContentsService->deleteRecursive(18));
-        foreach($children as $child) {
+        foreach ($children as $child) {
             $this->assertNotEmpty($this->ContentsService->getTrash($child->id));
         }
         // エイリアスを子に持つ場合
@@ -405,6 +437,8 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testGetParentLayoutTemplate()
     {
+        ContentFactory::make(['id' => 1, 'parent_id' => 0, 'lft' => 1, 'rght' => 48, 'layout_template' => 'default'])->persist();
+        ContentFactory::make(['id' => 6, 'parent_id' => 1, 'lft' => 8, 'rght' => 15])->persist();
         $result = $this->ContentsService->getParentLayoutTemplate(6);
         $this->assertEquals('default', $result);
     }
@@ -419,6 +453,7 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testGetUrlById($id, $full, $expects)
     {
+        $this->loadFixtureScenario(ContentsScenario::class);
         $siteUrl = Configure::read('BcEnv.siteUrl');
         Configure::write('BcEnv.siteUrl', 'http://main.com');
         $result = $this->ContentsService->getUrlById($id, $full);
@@ -426,7 +461,7 @@ class ContentsServiceTest extends BcTestCase
         Configure::write('BcEnv.siteUrl', $siteUrl);
     }
 
-    public function getUrlByIdDataProvider()
+    public static function getUrlByIdDataProvider()
     {
         return [
             // ノーマルURL
@@ -450,6 +485,8 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testGetUrl($host, $userAgent, $url, $full, $useSubDomain, $expects)
     {
+        $this->loadFixtureScenario(SitesScenario::class);
+        $this->loadFixtureScenario(ContentsScenario::class);
         $siteUrl = Configure::read('BcEnv.siteUrl');
         Configure::write('BcEnv.siteUrl', 'http://main.com');
         if ($userAgent) {
@@ -460,11 +497,11 @@ class ContentsServiceTest extends BcTestCase
         }
         // Router::setRequestInfo($this->_getRequest('/m/'));
         $result = $this->ContentsService->getUrl($url, $full, $useSubDomain);
-        $this->assertEquals($result, $expects);
+        $this->assertEquals($expects, $result);
         Configure::write('BcEnv.siteUrl', $siteUrl);
     }
 
-    public function getUrlDataProvider()
+    public static function getUrlDataProvider()
     {
         return [
             //NOTE: another.comがそもそもSiteに無いため一旦コメントアウト
@@ -487,9 +524,9 @@ class ContentsServiceTest extends BcTestCase
             ['main.com', '', '/news/archives/1', true, false, 'http://main.com/news/archives/1'],
             ['main.com', 'SoftBank', '/m/news/archives/1', true, false, 'http://main.com/m/news/archives/1'],
             ['main.com', 'iPhone', '/news/archives/1', true, false, 'http://main.com/news/archives/1'],    // 同一URL
-            ['sub.main.com', '', '/sub/', true, true, 'http://sub.main.com/'],
-            ['sub.main.com', '', '/sub/index', true, true, 'http://sub.main.com/'],
-            ['sub.main.com', '', '/sub/news/archives/1', true, true, 'http://sub.main.com/news/archives/1'],
+            ['sub.main.com', '', '/sub/', true, true, 'https://sub.main.com/'],
+            ['sub.main.com', '', '/sub/index', true, true, 'https://sub.main.com/'],
+            ['sub.main.com', '', '/sub/news/archives/1', true, true, 'https://sub.main.com/news/archives/1'],
             // ['another.com', '', '/another.com/', true, true, 'http://another.com/'],
             // ['another.com', '', '/another.com/index', true, true, 'http://another.com/'],
             // ['another.com', '', '/another.com/news/archives/1', true, true, 'http://another.com/news/archives/1'],
@@ -516,7 +553,7 @@ class ContentsServiceTest extends BcTestCase
         $this->assertEquals($result, $expects);
     }
 
-    public function getUrlBaseDataProvider()
+    public static function getUrlBaseDataProvider()
     {
         return [
             ['/news/archives/1', '', true, '/news/archives/1'],
@@ -531,6 +568,25 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testUpdate()
     {
+        ContentFactory::make(
+            [
+                'id' => 1,
+                'name' => 'testEdit',
+                'plugin' => 'BaserCore',
+                'type' => 'ContentFolder',
+                'entity_id' => 1,
+                'site_id' => 1,
+                'alias_id' => null,
+                'parent_id' => 0,
+                'lft' => 1,
+                'rght' => 48,
+                'created_date' => '2020-09-14 21:10:41',
+                'modified_date' => '2019-06-11 12:27:01',
+                'site_root' => true,
+            ]
+        )->persist();
+        ContentFolderFactory::make(['id' => 1])->persist();
+        SiteFactory::make(['id' => '1'])->persist();
         $name = "testUpdate";
         $newContent = $this->ContentsService->getIndex(['name' => 'testEdit'])->first();
         $newContent->name = $name;
@@ -555,7 +611,7 @@ class ContentsServiceTest extends BcTestCase
         $this->assertEquals($result['author_id'], $newAuthorId);
     }
 
-    public function copyDataProvider()
+    public static function copyDataProvider()
     {
         return [
             [1, 2, 'hoge', 3, 4, 'hoge'],
@@ -570,6 +626,23 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testAlias()
     {
+        $this->loadFixtureScenario(InitAppScenario::class);
+        ContentFactory::make([
+            'id' => 1,
+            'name' => '',
+            'plugin' => 'BaserCore',
+            'type' => 'ContentFolder',
+            'entity_id' => 1,
+            'url' => '/',
+            'site_id' => 1,
+            'alias_id' => null,
+            'main_site_content_id' => null,
+            'parent_id' => 0,
+            'lft' => 1,
+            'rght' => 48,
+            'level' => 0,
+            'title' => 'baserCMSサンプル',
+        ])->persist();
         $request = $this->loginAdmin($this->getRequest('/'));
         Router::setRequest($request);
         $content = $this->ContentsService->getIndex()->all()->last();
@@ -593,6 +666,7 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testPublish()
     {
+        $this->loadFixtureScenario(MailContentsScenario::class);
         PageFactory::make([
             ['id' => 2],
             ['id' => 16],
@@ -606,8 +680,8 @@ class ContentsServiceTest extends BcTestCase
         ])->persist();
         BlogContentFactory::make(['id' => 31, 'description' => ''])->persist();
         $contents = $this->getTableLocator()->get('Contents');
-
-        $content = $contents->find()->order(['id' => 'ASC'])->first();
+        ContentFactory::make(['plugin' => 'BaserCore', 'type' => 'ContentFolder', 'lft' => 1, 'rght' => 2])->persist();
+        $content = $contents->find()->orderBy(['id' => 'ASC'])->first();
         $content->status = false;
         $contents->save($content);
 
@@ -622,6 +696,23 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testUnpublish()
     {
+        $this->loadFixtureScenario(MailContentsScenario::class);
+        ContentFactory::make([
+            'id' => 1,
+            'name' => '',
+            'plugin' => 'BaserCore',
+            'type' => 'ContentFolder',
+            'entity_id' => 1,
+            'url' => '/',
+            'site_id' => 1,
+            'alias_id' => null,
+            'main_site_content_id' => null,
+            'parent_id' => 0,
+            'lft' => 1,
+            'rght' => 48,
+            'level' => 0,
+            'title' => 'baserCMSサンプル',
+        ])->persist();
         PageFactory::make([
             ['id' => 2],
             ['id' => 16],
@@ -633,10 +724,11 @@ class ContentsServiceTest extends BcTestCase
             ['id' => 20],
             ['id' => 21]
         ])->persist();
+        ContentFactory::make(['plugin' => 'BaserCore', 'type' => 'ContentFolder', 'lft' => 1, 'rght' => 2])->persist();
         BlogContentFactory::make(['id' => 31, 'description' => ''])->persist();
         $contents = $this->getTableLocator()->get('Contents');
 
-        $content = $contents->find()->order(['id' => 'ASC'])->first();
+        $content = $contents->find()->orderBy(['id' => 'ASC'])->first();
         $content->status = true;
         $contents->save($content);
 
@@ -651,6 +743,7 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testExists()
     {
+        ContentFactory::make(['id' => 1])->persist();
         $this->assertTrue($this->ContentsService->exists(1));
         $this->assertFalse($this->ContentsService->exists(100));
     }
@@ -662,6 +755,8 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testMove()
     {
+        $this->loadFixtureScenario(ContentsScenario::class);
+        SiteFactory::make(['id' => 1])->persist();
         PageFactory::make([
             ['id' => 2],
             ['id' => 16],
@@ -674,7 +769,7 @@ class ContentsServiceTest extends BcTestCase
             ['id' => 21]
         ])->persist();
         // 移動元のエンティティ
-        $originEntity = $this->ContentsService->getIndex(['parent_id' => 1])->order('lft')->first();
+        $originEntity = $this->ContentsService->getIndex(['parent_id' => 1])->orderBy('lft')->first();
         $origin = [
             'id' => $originEntity->id,
             'parentId' => $originEntity->parent_id
@@ -695,7 +790,7 @@ class ContentsServiceTest extends BcTestCase
             'siteId' => "1",
         ];
         $result = $this->ContentsService->move($origin, $target2);
-        $firstEntity = $this->ContentsService->getIndex(['parent_id' => 1])->order('lft')->first();
+        $firstEntity = $this->ContentsService->getIndex(['parent_id' => 1])->orderBy('lft')->first();
         $this->assertEquals($result->title, $originEntity->title);
         $this->assertEquals($result->title, $firstEntity->title);
     }
@@ -708,6 +803,8 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testMoveRelateSubSiteContent()
     {
+        ContentFactory::make(['id' => 6])->persist();
+        ContentFactory::make(['id' => 12])->persist();
         $result = $this->execPrivateMethod($this->ContentsService, 'moveRelateSubSiteContent', ['12', '6', '']);
         $this->assertTrue($result);
     }
@@ -717,6 +814,7 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testIsAllowPublish()
     {
+        ContentFactory::make(['id' => 1])->persist();
         $content = $this->ContentsService->get(1);
         $this->assertTrue($this->ContentsService->isAllowPublish($content));
     }
@@ -730,6 +828,16 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testGetSiteRoot($siteId, $expects)
     {
+        ContentFactory::make([
+            'id' => 1,
+            'plugin' => 'BaserCore',
+            'type' => 'ContentFolder',
+            'parent_id' => 0,
+            'lft' => 1,
+            'rght' => 48,
+            'level' => 0,
+            'site_root' => true,
+        ])->persist();
         $result = $this->ContentsService->getSiteRoot($siteId);
         if ($result) {
             $result = $result->id;
@@ -738,7 +846,7 @@ class ContentsServiceTest extends BcTestCase
         $this->assertEquals($expects, $result);
     }
 
-    public function getSiteRootDataProvider()
+    public static function getSiteRootDataProvider()
     {
         return [
             [1, 1],
@@ -751,6 +859,7 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testExistsContentByUrl()
     {
+        ContentFactory::make(['url' => '/about'])->persist();
         $this->assertFalse($this->ContentsService->existsContentByUrl('/aaa'));
         $this->assertTrue($this->ContentsService->existsContentByUrl('/about'));
     }
@@ -761,10 +870,47 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testIsChangedStatus($id, $newData, $expected)
     {
+        ContentFactory::make(
+            [
+                'id' => 1,
+                'name' => '',
+                'plugin' => 'BaserCore',
+                'type' => 'ContentFolder',
+                'entity_id' => 1,
+                'url' => '/',
+                'site_id' => 1,
+                'alias_id' => null,
+                'main_site_content_id' => null,
+                'parent_id' => 0,
+                'lft' => 1,
+                'rght' => 48,
+                'level' => 0,
+                'title' => 'baserCMSサンプル',
+                'description' => '',
+                'eyecatch' => '',
+                'author_id' => 1,
+                'layout_template' => 'default',
+                'status' => true,
+                'publish_begin' => null,
+                'publish_end' => null,
+                'self_status' => true,
+                'self_publish_begin' => '2019-06-11 12:27:01',
+                'self_publish_end' => null,
+                'exclude_search' => false,
+                'created_date' => null,
+                'modified_date' => '2019-06-11 12:27:01',
+                'site_root' => true,
+                'deleted_date' => null,
+                'exclude_menu' => false,
+                'blank_link' => false,
+                'created' => '2016-07-29 18:02:53',
+                'modified' => '2020-09-14 21:10:41',
+            ]
+        )->persist();
         $this->assertEquals($expected, $this->ContentsService->isChangedStatus($id, $newData));
     }
 
-    public function isChangedStatusDataProvider()
+    public static function isChangedStatusDataProvider()
     {
         return [
             // idが存在しない場合はtrueを返す
@@ -806,6 +952,9 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testGetNeighbors()
     {
+        ContentFactory::make(['id' => 5, 'lft' => 6, 'rght' => 7])->persist();
+        ContentFactory::make(['id' => 6, 'lft' => 4, 'rght' => 5, 'title' => 'NEWS(※関連Fixture未完了)'])->persist();
+        ContentFactory::make(['id' => 7, 'lft' => 9, 'rght' => 10, 'title' => 'サービス１',])->persist();
         $content = $this->ContentsService->get(5);
         $conditions = array_merge($this->ContentsService->getConditionAllowPublish(), [
             'Contents.type <>' => 'ContentFolder',
@@ -843,7 +992,7 @@ class ContentsServiceTest extends BcTestCase
         $this->assertEquals($expected, $result["path"]);
     }
 
-    public function encodeParsedUrlDataProvider()
+    public static function encodeParsedUrlDataProvider()
     {
         // サブサイトはすべて同じpathに変換されているかテスト
         return [
@@ -870,8 +1019,10 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testGetPath()
     {
+        ContentFactory::make(['id' => 1, 'lft' => 1, 'rght' => 4])->persist();
+        ContentFactory::make(['id' => 2, 'lft' => 2, 'rght' => 3])->persist();
         $this->assertEquals(1, $this->ContentsService->getPath(1)->all()->count());
-        $this->assertEquals(3, $this->ContentsService->getPath(11)->all()->count());
+        $this->assertEquals(2, $this->ContentsService->getPath(2)->all()->count());
         $this->expectException(RecordNotFoundException::class);
         $this->ContentsService->getPath(100)->all()->count();
     }
@@ -881,6 +1032,7 @@ class ContentsServiceTest extends BcTestCase
      */
     public function test_getList()
     {
+        ContentFactory::make(['title' => 'testEdit'])->persist();
         $result = $this->ContentsService->getList();
         $this->assertContains('testEdit', $result);
     }
@@ -904,8 +1056,10 @@ class ContentsServiceTest extends BcTestCase
      */
     public function test_getParent()
     {
+        ContentFactory::make(['id' => 1, 'lft' => 1, 'rght' => 4])->persist();
+        ContentFactory::make(['id' => 2, 'lft' => 2, 'rght' => 3, 'parent_id' => 1])->persist();
         //正常系実行
-        $result = $this->ContentsService->getParent(4);
+        $result = $this->ContentsService->getParent(2);
         $this->assertEquals(1, $result->id);
         //正常系実行: false返す
         $result = $this->ContentsService->getParent(1);
@@ -929,11 +1083,12 @@ class ContentsServiceTest extends BcTestCase
      */
     public function test_getLocalNavi()
     {
+        $this->loadFixtureScenario(ContentsScenario::class);
         //正常系実行
         $result = $this->ContentsService->getLocalNavi(4)->toArray();
-        $this->assertCount(11, $result);
+        $this->assertCount(13, $result);
         $this->assertEquals(1, $result[0]->parent_id);
-        $this->assertEquals(24, $result[10]->id);
+        $this->assertEquals(21, $result[10]->id);
         //正常系実行: null返す
         $result = $this->ContentsService->getLocalNavi(1);
         $this->assertNull($result);
@@ -979,6 +1134,7 @@ class ContentsServiceTest extends BcTestCase
      */
     public function test_getGlobalNavi()
     {
+        $this->loadFixtureScenario(ContentsScenario::class);
         //正常系実行
         $result = $this->ContentsService->getGlobalNavi(26)->toArray();
         $this->assertCount(3, $result);
@@ -987,7 +1143,6 @@ class ContentsServiceTest extends BcTestCase
         //異常系実行
         $this->expectException('Cake\Datasource\Exception\RecordNotFoundException');
         $this->ContentsService->getGlobalNavi(999)->toArray();
-
     }
 
 
@@ -996,6 +1151,8 @@ class ContentsServiceTest extends BcTestCase
      */
     public function testRename()
     {
+        SiteFactory::make(['id' => 1])->persist();
+        $this->loadFixtureScenario(ContentsScenario::class);
         PageFactory::make(['id' => 16, 'content' => 'test'])->persist();
         $content = ContentFactory::get(5);
         $originalName = $content['name'];
@@ -1024,9 +1181,12 @@ class ContentsServiceTest extends BcTestCase
      */
     public function test_getNext()
     {
+        ContentFactory::make(['id' => 1, 'lft' => 1, 'rght' => 6, 'level' => 0])->persist();
+        ContentFactory::make(['id' => 2, 'parent_id' => 1, 'lft' => 2, 'rght' => 3, 'level' => 1])->persist();
+        ContentFactory::make(['id' => 3, 'parent_id' => 1, 'lft' => 4, 'rght' => 5, 'level' => 1])->persist();
         //正常系実行
-        $result = $this->ContentsService->getNext(9);
-        $this->assertEquals(18, $result->id);
+        $result = $this->ContentsService->getNext(2);
+        $this->assertEquals(3, $result->id);
         //正常系実行: null返す
         $result = $this->ContentsService->getNext(1);
         $this->assertNull($result);
@@ -1077,9 +1237,12 @@ class ContentsServiceTest extends BcTestCase
      */
     public function test_getPrev()
     {
+        ContentFactory::make(['id' => 1, 'lft' => 1, 'rght' => 6, 'level' => 0])->persist();
+        ContentFactory::make(['id' => 2, 'parent_id' => 1, 'lft' => 2, 'rght' => 3, 'level' => 1])->persist();
+        ContentFactory::make(['id' => 3, 'parent_id' => 1, 'lft' => 4, 'rght' => 5, 'level' => 1])->persist();
         //正常系実行
-        $result = $this->ContentsService->getPrev(9);
-        $this->assertEquals(6, $result->id);
+        $result = $this->ContentsService->getPrev(3);
+        $this->assertEquals(2, $result->id);
         //正常系実行: null返す
         $result = $this->ContentsService->getPrev(1);
         $this->assertNull($result);
@@ -1089,4 +1252,38 @@ class ContentsServiceTest extends BcTestCase
 
     }
 
+    /**
+     * test getCrumbs
+     */
+    public function testGetCrumbs()
+    {
+        //データ生成
+        ContentFactory::make(['id' => 1, 'lft' => 1, 'rght' => 10])->persist();
+        ContentFactory::make(['id' => 2, 'lft' => 2, 'rght' => 5, 'exclude_menu' => true])->persist();
+        ContentFactory::make(['id' => 3, 'lft' => 3, 'rght' => 4])->persist();
+
+        ContentFactory::make(['id' => 4, 'lft' => 6, 'rght' => 9])->persist();
+        ContentFactory::make(['id' => 5, 'lft' => 7, 'rght' => 8])->persist();
+
+        //親IDを指定
+        $rs = $this->ContentsService->getCrumbs(1);
+        $this->assertCount(1, $rs);
+
+        //第一子かつexclude_menu＝trueを指定
+        $rs = $this->ContentsService->getCrumbs(2);
+        $this->assertCount(1, $rs);
+
+        //第二子かつexclude_menu＝trueを指定
+        $rs = $this->ContentsService->getCrumbs(3);
+        $this->assertCount(2, $rs);
+
+
+        //第一子かつexclude_menu＝falseを指定
+        $rs = $this->ContentsService->getCrumbs(4);
+        $this->assertCount(2, $rs);
+
+        //第二子かつexclude_menu＝falseを指定
+        $rs = $this->ContentsService->getCrumbs(5);
+        $this->assertCount(3, $rs);
+    }
 }

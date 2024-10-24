@@ -13,12 +13,12 @@ namespace BaserCore\Controller\Admin;
 
 use BaserCore\Model\Entity\User;
 use BaserCore\Service\Admin\UsersAdminServiceInterface;
+use BaserCore\Service\TwoFactorAuthenticationsServiceInterface;
 use BaserCore\Service\UsersService;
 use BaserCore\Service\UsersServiceInterface;
 use BaserCore\Utility\BcSiteConfig;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\Configure;
-use Cake\Core\Exception\Exception;
 use Cake\Datasource\Exception\RecordNotFoundException;
 use Cake\Http\Exception\ForbiddenException;
 use Cake\Http\Exception\NotFoundException;
@@ -48,8 +48,8 @@ class UsersController extends BcAdminAppController
     public function initialize(): void
     {
         parent::initialize();
-        if(isset($this->Authentication)) {
-            $this->Authentication->allowUnauthenticated(['login']);
+        if($this->components()->has('Authentication')) {
+            $this->Authentication->allowUnauthenticated(['login', 'login_code']);
         }
     }
 
@@ -64,7 +64,7 @@ class UsersController extends BcAdminAppController
     public function login(UsersAdminServiceInterface $service)
     {
         $this->set($service->getViewVarsForLogin($this->getRequest()));
-        $target = $this->Authentication->getLoginRedirect() ?? Router::url(Configure::read('BcPrefixAuth.Admin.loginRedirect'));
+        $target = $this->Authentication->getLoginRedirect() ?? Configure::read('BcPrefixAuth.Admin.loginRedirect');
 
         // EVENT Users.beforeLogin
         $event = $this->dispatchLayerEvent('beforeLogin', [
@@ -84,11 +84,30 @@ class UsersController extends BcAdminAppController
                     'loginRedirect' => $target
                 ]);
                 $service->removeLoginKey($user->id);
-                if ($this->request->is('ssl') && $this->request->getData('saved')) {
+                if ($this->request->is('https') && $this->request->getData('saved')) {
                     // 自動ログイン保存
                     $this->response = $service->setCookieAutoLoginKey($this->response, $user->id);
                 }
                 $this->BcMessage->setInfo(__d('baser_core', 'ようこそ、{0}さん。', $user->getDisplayName()));
+
+                // baserCMS4系のパスワードでログインした場合、新しいハッシュアルゴリズムでパスワードをハッシュし直す
+                if (Configure::read('BcApp.needsPasswordRehash') &&
+                    $this->request->getAttribute('authentication')
+                        ->identifiers()
+                        ->get('Password')
+                        ->needsPasswordRehash()
+                ) {
+                    try {
+                        $password = $this->getRequest()->getData('password');
+                        $service->update($user, [
+                            'password_1' => $password,
+                            'password_2' => $password
+                        ]);
+                    } catch (PersistenceFailedException) {
+                        // バリデーションでパスワードの更新に失敗した場合はスルーする
+                    }
+                }
+
                 return $this->redirect($target);
             } else {
                 $this->BcMessage->setError(__d('baser_core', 'Eメール、または、パスワードが間違っています。'));
@@ -98,6 +117,72 @@ class UsersController extends BcAdminAppController
             if ($result->isValid()) {
                 return $this->redirect($target);
             }
+        }
+    }
+
+    /**
+     * 二段階認証コード入力
+     *
+     * @param UsersServiceInterface $usersService
+     * @param TwoFactorAuthenticationsServiceInterface $twoFactorAuthenticationsServiceInterface
+     */
+    public function login_code(UsersServiceInterface $usersService, TwoFactorAuthenticationsServiceInterface $twoFactorAuthenticationsService)
+    {
+        $target = $this->Authentication->getLoginRedirect() ?? Router::url(Configure::read('BcPrefixAuth.Admin.loginRedirect'));
+
+        $session = $this->request->getSession();
+
+        // セッションの有効期限チェック
+        $sessionDate = $session->read('TwoFactorAuth.Admin.date');
+        if (!$sessionDate) {
+            return $this->redirect(['action' => 'login']);
+        }
+        $expire = strtotime($sessionDate) + (Configure::read('BcApp.twoFactorAuthenticationCodeAllowTime') * 60);
+        if ($expire < time()) {
+            $this->BcMessage->setError(__d('baser_core', 'セッションの有効期限が切れました。'));
+            return $this->redirect(['action' => 'login', '?' => $this->request->getQueryParams()]);
+        }
+
+        $userId = $session->read('TwoFactorAuth.Admin.user_id');
+        $userEmail = $session->read('TwoFactorAuth.Admin.email');
+        if (!$userId || !$userEmail) {
+            return $this->redirect(['action' => 'login']);
+        }
+
+        if ($this->request->is('post')) {
+            // 認証コード再送信
+            if ($this->request->getData('resend')) {
+                $twoFactorAuthenticationsService->send($userId, $userEmail);
+                $this->BcMessage->setInfo(__d('baser_core', '認証コードを送信しました。'));
+                return $this->render();
+            }
+
+            // 認証コードチェック
+            if (!$twoFactorAuthenticationsService->verify($userId, $this->request->getData('code'))) {
+                $this->BcMessage->setError(__d('baser_core', '認証コードが間違っているか有効期限切れです。'));
+                return $this->render();
+            }
+
+            // ログイン
+            $usersService->login($this->request, $this->response, $userId);
+            $user = $usersService->get($userId);
+
+            // EVENT Users.afterLogin
+            $this->dispatchLayerEvent('afterLogin', [
+                'user' => $user,
+                'loginRedirect' => $target
+            ]);
+
+            // 自動ログイン保存
+            $usersService->removeLoginKey($user->id);
+            if ($this->request->is('https') && $session->read('TwoFactorAuth.Admin.saved')) {
+                $this->response = $usersService->setCookieAutoLoginKey($this->response, $user->id);
+            }
+
+            $session->delete('TwoFactorAuth.Admin');
+
+            $this->BcMessage->setInfo(__d('baser_core', 'ようこそ、{0}さん。', $user->getDisplayName()));
+            return $this->redirect($target);
         }
     }
 
@@ -289,6 +374,41 @@ class UsersController extends BcAdminAppController
                 }
                 $this->BcMessage->setSuccess(__d('baser_core', 'ユーザー「{0}」を更新しました。', $user->getDisplayName()));
                 return $this->redirect(['action' => 'edit', $user->id]);
+            } catch (PersistenceFailedException $e) {
+                $user = $e->getEntity();
+                $this->BcMessage->setError(__d('baser_core', '入力エラーです。内容を修正してください。'));
+            } catch (\Throwable $e) {
+                $this->BcMessage->setError(__d('baser_core', 'データベース処理中にエラーが発生しました。') . $e->getMessage());
+            }
+        }
+        $this->set($service->getViewVarsForEdit($user));
+    }
+
+    public function edit_password(UsersAdminServiceInterface $service)
+    {
+        $user = $service->get(BcUtil::loginUser()['id']);
+        if ($this->request->is(['patch', 'post', 'put'])) {
+            $event = $this->dispatchLayerEvent('beforeEditPassword', [
+                'data' => $this->getRequest()->getData()
+            ]);
+            if ($event !== false) {
+                $data = ($event->getResult() === null || $event->getResult() === true) ? $event->getData('data') : $event->getResult();
+                $this->setRequest($this->getRequest()->withParsedBody($data));
+            }
+            try {
+                $user = $service->updatePassword($user, $this->request->getData());
+                $this->dispatchLayerEvent('afterEditPassword', [
+                    'user' => $user
+                ]);
+                $service->reLogin($this->request, $this->response);
+                $this->BcMessage->setSuccess(__d('baser_core', 'パスワードを更新しました。'));
+                if ($this->request->getQuery('redirect')) {
+                    $parsed = parse_url($this->request->getQuery('redirect'));
+                    if (empty($parsed['host']) && empty($parsed['scheme'])) {
+                        return $this->redirect(trim(BcUtil::siteUrl(), '/') . $this->request->getQuery('redirect'));
+                    }
+                }
+                return $this->redirect(['action' => 'edit_password']);
             } catch (PersistenceFailedException $e) {
                 $user = $e->getEntity();
                 $this->BcMessage->setError(__d('baser_core', '入力エラーです。内容を修正してください。'));

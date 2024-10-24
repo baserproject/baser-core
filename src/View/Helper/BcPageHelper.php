@@ -13,6 +13,7 @@ namespace BaserCore\View\Helper;
 
 use BaserCore\Model\Entity\Page;
 use BaserCore\Utility\BcUtil;
+use Cake\Datasource\ResultSetDecorator;
 use Cake\View\Helper;
 use BaserCore\Utility\BcContainerTrait;
 use BaserCore\Event\BcEventDispatcherTrait;
@@ -26,6 +27,7 @@ use BaserCore\Annotation\Note;
  * BcPageHelper
  * @property BcContentsHelper $BcContents
  */
+#[\AllowDynamicProperties]
 class BcPageHelper extends Helper
 {
 
@@ -40,7 +42,9 @@ class BcPageHelper extends Helper
      *
      * @var array
      */
-    public $helpers = ['BaserCore.BcContents'];
+    public array $helpers = [
+        'BaserCore.BcContents'
+    ];
 
     /**
      * initialize
@@ -63,6 +67,7 @@ class BcPageHelper extends Helper
      * @return string URL
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function getUrl($page)
     {
@@ -73,43 +78,24 @@ class BcPageHelper extends Helper
     }
 
     /**
-     * ページリストを取得する
+     * 固定ページリストを取得する
      * 戻り値は、固定ページ、または、コンテンツフォルダが対象
      *
-     * @param int $pageCategoryId カテゴリID
-     * @param int $recursive 関連データの階層
+     * @param int $id コンテンツID
+     * @param int $level 階層を指定する場合に階層数を指定
+     * @param array $options オプション
+     *  - `type` : コンテンツタイプ
+     *  - `order` : ソート順（初期値：['Contents.site_id', 'Contents.lft']）
+     *  - `siteId` : サイトID
      * @return array
      * @checked
      * @noTodo
+     * @unitTest
      */
-    public function getPageList($id, $level = null, $options = [])
+    public function getPageList(int $id, ?int $level = null, array $options = []): ResultSetDecorator
     {
         $options['type'] = 'Page';
         return $this->BcContents->getTree($id, $level, $options);
-    }
-
-    /**
-     * 公開状態を取得する
-     *
-     * @param array データリスト
-     * @return boolean 公開状態
-     */
-    public function allowPublish($data)
-    {
-
-        if (isset($data['Page'])) {
-            $data = $data['Page'];
-        }
-
-        $allowPublish = (int)$data['status'];
-
-        // 期限を設定している場合に条件に該当しない場合は強制的に非公開とする
-        if (($data['publish_begin'] != 0 && $data['publish_begin'] >= date('Y-m-d H:i:s')) ||
-            ($data['publish_end'] != 0 && $data['publish_end'] <= date('Y-m-d H:i:s'))) {
-            $allowPublish = false;
-        }
-
-        return $allowPublish;
     }
 
 }

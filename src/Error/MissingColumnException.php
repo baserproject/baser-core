@@ -8,7 +8,6 @@
  * @since         5.0.0
  * @license       https://basercms.net/license/index.html MIT License
  */
-
 namespace BaserCore\Error;
 
 use Cake\Core\Exception\CakeException;

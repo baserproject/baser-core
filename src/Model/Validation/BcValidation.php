@@ -23,6 +23,7 @@ use Cake\Validation\Validation;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
 use BaserCore\Annotation\UnitTest;
+use Laminas\Diactoros\UploadedFile;
 
 /**
  * Class BcValidation
@@ -263,20 +264,26 @@ class BcValidation extends Validation
      */
     public static function fileExt($file, $exts)
     {
-        if (!is_array($exts)) {
-            $exts = explode(',', $exts);
+        if (!is_array($exts)) $exts = explode(',', $exts);
+        if($file instanceof UploadedFile) {
+            $fileName = $file->getClientFilename();
+            $type = $file->getClientMediaType();
+        } elseif(is_array($file)) {
+            $fileName = $file['name'];
+            $type = $file['type'];
+        } else {
+            $fileName = $file;
+            $type = null;
         }
+        if (empty($fileName)) return true;
 
         // FILES形式のチェック
-        if (!empty($file['name'])) {
-            $ext = BcUtil::decodeContent($file['type'], $file['name']);
+        if ($type) {
+            $ext = BcUtil::decodeContent($type, $fileName);
             if (!in_array($ext, $exts)) {
                 return false;
             }
-        }
-
-        // 更新時の文字列チェック
-        if (!empty($file) && is_string($file)) {
+        } else {
             $ext = pathinfo($file, PATHINFO_EXTENSION);
             if (!in_array($ext, $exts)) {
                 return false;
@@ -444,7 +451,7 @@ class BcValidation extends Validation
     /**
      * 指定した日付よりも新しい日付かどうかチェックする
      *
-     * @param FrozenTime $fieldValue 対象となる日付
+     * @param string $fieldValue 対象となる日付
      * @param array $context
      * @return bool
      * @checked
@@ -453,8 +460,14 @@ class BcValidation extends Validation
      */
     public static function checkDateAfterThan($fieldValue, $target, $context)
     {
-        if ($fieldValue instanceof FrozenTime && !empty($context['data'][$target])) {
-            return $fieldValue->greaterThan($context['data'][$target]);
+        if (!empty($fieldValue) && !empty($context['data'][$target])) {
+            try {
+                $startDate = new FrozenTime($fieldValue);
+                $endDate = new FrozenTime($context['data'][$target]);
+            } catch (\Exception) {
+                return false;
+            }
+            return $startDate->greaterThan($endDate);
         }
         return true;
     }
@@ -555,6 +568,7 @@ class BcValidation extends Validation
      * @return bool
      * @checked
      * @noTodo
+     * @unitTest
      */
     public static function reserved($value): bool
     {
@@ -587,6 +601,7 @@ class BcValidation extends Validation
      * @param int $min 値の最短値
      * @param int $max 値の最長値
      * @param boolean
+     * @unitTest
      */
     public static function between($value, $min, $max)
     {

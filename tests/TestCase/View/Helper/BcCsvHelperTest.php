@@ -1,6 +1,4 @@
 <?php
-// TODO ucmitz  : コード確認要
-return;
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
  * Copyright (c) baserCMS Users Community <https://basercms.net/community/>
@@ -11,8 +9,12 @@ return;
  * @license         https://basercms.net/license/index.html
  */
 
-App::uses('View', 'View');
-App::uses('BcCsvHelper', 'View/Helper');
+namespace BaserCore\Test\TestCase\View\Helper;
+
+use BaserCore\TestSuite\BcTestCase;
+use BaserCore\View\Helper\BcCsvHelper;
+use BaserCore\View\Helper\BcTextHelper;
+use Cake\View\View;
 
 /**
  * text helper library.
@@ -22,26 +24,22 @@ App::uses('BcCsvHelper', 'View/Helper');
  */
 class BcCsvHelperTest extends BcTestCase
 {
-
     /**
-     * Fixtures
-     * @var array
+     * set up
      */
-    public $fixtures = [
-        'baser.Default.SiteConfig',
-        'baser.Default.Page',
-    ];
-
-    public function setUp()
+    public function setUp(): void
     {
         parent::setUp();
-        $View = new View();
-        $this->BcCsv = new BcCsvHelper($View);
+        $this->BcCsv = new BcCsvHelper(new View());
     }
 
-    public function tearDown()
+    /**
+     * tearDown
+     *
+     * @return void
+     */
+    public function tearDown(): void
     {
-        unset($this->BcCsv);
         parent::tearDown();
     }
 
@@ -55,9 +53,8 @@ class BcCsvHelperTest extends BcTestCase
      * @param string $expectedBody csvBodyの期待値
      * @dataProvider addModelDataDataProvider
      */
-    public function testAddModelData($modelName, $data, $expectedHead, $expectedBody)
+    public function test_addModelData($modelName, $data, $expectedHead, $expectedBody)
     {
-
         $this->BcCsv->addModelData($modelName, $data);
         $this->assertEquals($expectedHead, $this->BcCsv->csvHead);
         $body = '';
@@ -69,7 +66,7 @@ class BcCsvHelperTest extends BcTestCase
         $this->assertEquals($expectedBody, $body);
     }
 
-    public function addModelDataDataProvider()
+    public static function addModelDataDataProvider()
     {
         return [
             [
@@ -142,7 +139,7 @@ class BcCsvHelperTest extends BcTestCase
         $this->assertEquals($expectedBody, $body);
     }
 
-    public function addModelDatasDataProvider()
+    public static function addModelDatasDataProvider()
     {
         return [
             [
@@ -203,7 +200,7 @@ class BcCsvHelperTest extends BcTestCase
         $this->assertEquals($expected, $result);
     }
 
-    public function downloadDataProvider()
+    public static function downloadDataProvider()
     {
         return [
             ['testcsv', true,
@@ -217,6 +214,66 @@ class BcCsvHelperTest extends BcTestCase
         ];
     }
 
+    /**
+     * test _perseValue
+     * @param $input
+     * @param $expected
+     * @param null $encoding
+     * @dataProvider perseValueDataProvider
+     */
+    public function test_perseValue($input, $expected, $encoding = null)
+    {
+        if ($encoding) {
+            $this->BcCsv->encoding = $encoding;
+        }
+        $rs = $this->execPrivateMethod($this->BcCsv, '_perseValue', [$input],);
+        $this->assertEquals($expected, $rs);
+    }
+
+    public static function perseValueDataProvider()
+    {
+
+        $expected = mb_convert_encoding("\"値1、値2\",\"値3\"\"引用符\"\"\"\n", 'SJIS', 'UTF-8');
+
+        return [
+            // Test with non-array data
+            ['', false],
+
+            // Test with string values
+            [
+                [
+                    'キー1' => '値1、値2',
+                    'キー2' => '値3"引用符"'
+                ],
+                "\"値1、値2\",\"値3\"\"引用符\"\"\"\n"
+        ],
+
+            // Test with array values
+            [
+                [
+                    'キー1' => ['値1', '値2'],
+                    'キー2' => '値3'
+                ],
+                "\"値1|値2\",\"値3\"\n"
+            ],
+
+            // Test with encoding UTF-8
+            [
+                ['あ', 'い', 'う'],
+                '"あ","い","う"' . "\n",
+                'UTF-8'
+            ],
+            // Test with encoding SJIS
+            [
+                [
+                    'キー1' => '値1、値2',
+                    'キー2' => '値3"引用符"'
+                ],
+                $expected,
+                'SJIS'
+            ]
+        ];
+    }
 
     /**
      * ファイルを保存する
@@ -225,7 +282,6 @@ class BcCsvHelperTest extends BcTestCase
      */
     public function testSave()
     {
-
         // csvのデータを作成
         $modelName = 'sample';
         $data = [
@@ -241,9 +297,74 @@ class BcCsvHelperTest extends BcTestCase
         $expected = '"head1","head2","head3"' . "\n" .
             '"BaserCMS1","BaserCMS2","BaserCMS3"' . "\n";
         $this->BcCsv->save($fileName);
+
+        $this->assertFileExists($fileName);
+
         $this->assertStringEqualsFile($fileName, $expected);
 
         unlink($fileName);
     }
 
+    /**
+     *
+     * @param $input
+     * @param $expected
+     * @param null $encoding
+     * @dataProvider perseKeyDataProvider
+     */
+    public function test_perseKey($input, $expected, $encoding = null)
+    {
+        if ($encoding) {
+            $this->BcCsv->encoding = $encoding;
+        }
+        $rs = $this->execPrivateMethod($this->BcCsv, '_perseKey', [$input]);
+        $this->assertEquals($expected, $rs);
+    }
+
+    public static function perseKeyDataProvider()
+    {
+        $utf8String = '"あ","い","う"' . "\n";
+        $expected = mb_convert_encoding($utf8String, 'SJIS', 'UTF-8');
+        return [
+            // Test with non-array
+            ['', false],
+
+            // Test with empty array
+            [[], "\n"],
+
+            // Test with simple array in Japanese
+            [['あ' => '値1', 'い' => '値2', 'う' => '値3'], '"あ","い","う"' . "\n"],
+
+            // Test with array with sjis encoding
+            [['あ' => '値1', 'い' => '値2', 'う' => '値3'], $expected, 'SJIS'],
+        ];
+    }
+
+    /**
+     * Test getCsvTmpDataFp
+     */
+    public function testGetCsvTmpDataFp()
+    {
+        // Call the method to ensure _csvTmpDataFp is created
+        $fp = $this->BcCsv->getCsvTmpDataFp();
+
+        // Check that _csvTmpDataFp is a resource
+        $this->assertIsResource($fp, 'Expected _csvTmpDataFp to be a resource.');
+
+        // Optionally, check that it is a valid file pointer (this can vary by system)
+        $meta = stream_get_meta_data($fp);
+        $this->assertArrayHasKey('uri', $meta, 'Expected _csvTmpDataFp to have URI.');
+
+        // Cleanup: Close the temporary file
+        fclose($fp);
+    }
+
+    /**
+     * test _createTmpFp
+     */
+    public function test_createTmpFp()
+    {
+        $this->execPrivateMethod($this->BcCsv, '_createTmpFp');
+        $this->assertIsResource($this->getPrivateProperty($this->BcCsv, '_csvTmpDataFp'));
+    }
 }

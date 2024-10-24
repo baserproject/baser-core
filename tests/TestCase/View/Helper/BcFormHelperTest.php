@@ -11,6 +11,10 @@
 
 namespace BaserCore\Test\TestCase\View\Helper;
 
+use BaserCore\Test\Factory\ContentFactory;
+use BaserCore\Test\Factory\PageFactory;
+use BaserCore\Test\Factory\UserFactory;
+use BaserCore\Test\Factory\UserGroupFactory;
 use Cake\Core\Configure;
 use Cake\Event\Event;
 use Cake\Event\EventList;
@@ -21,6 +25,7 @@ use BaserCore\TestSuite\BcTestCase;
 use BaserCore\View\Helper\BcFormHelper;
 use BaserCore\Model\Entity\ContentFolder;
 use BaserCore\Event\BcContentsEventListener;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * Class BcFormHelperTest
@@ -29,18 +34,7 @@ use BaserCore\Event\BcContentsEventListener;
 class BcFormHelperTest extends BcTestCase
 {
 
-    /**
-     * Fixtures
-     *
-     * @var array
-     */
-    public $fixtures = [
-        'plugin.BaserCore.Users',
-        'plugin.BaserCore.UsersUserGroups',
-        'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.Contents',
-        'plugin.BaserCore.Pages',
-    ];
+    use ScenarioAwareTrait;
 
     /**
      * setUp method
@@ -53,6 +47,7 @@ class BcFormHelperTest extends BcTestCase
         $View = new BcAdminAppView($this->getRequest('/contacts/add'));
         $View->setRequest($View->getRequest()->withAttribute('formTokenData', [
             'unlockedFields' => [],
+            'dummy'
         ]));
         $eventedView = $View->setEventManager(EventManager::instance()->on(new BcContentsEventListener('page'))->setEventList(new EventList()));
         $this->BcForm = new BcFormHelper($eventedView);
@@ -78,6 +73,10 @@ class BcFormHelperTest extends BcTestCase
      */
     public function testGetControlSource($field, $expected)
     {
+        UserGroupFactory::make(['id' => 1, 'title' => 'システム管理'])->persist();
+        UserGroupFactory::make(['id' => 2, 'title' => 'サイト運営者'])->persist();
+        UserGroupFactory::make(['id' => 3, 'title' => 'その他のグループ'])->persist();
+
         $result = $this->BcForm->getControlSource($field);
         if ($result) {
             $result = $result->toArray();
@@ -87,7 +86,7 @@ class BcFormHelperTest extends BcTestCase
         $this->assertEquals($expected, $result);
     }
 
-    public function getControlSourceProvider()
+    public static function getControlSourceProvider()
     {
         return [
             ['hoge', []],
@@ -110,7 +109,7 @@ class BcFormHelperTest extends BcTestCase
         $this->assertMatchesRegularExpression('/' . $expected . '/s', $result, $message);
     }
 
-    public function datePickerDataProvider()
+    public static function datePickerDataProvider()
     {
         return [
             ['baser', [], 'type="text".*"#baser"', 'datepicker()が出力できません'],
@@ -135,7 +134,7 @@ class BcFormHelperTest extends BcTestCase
         $this->assertMatchesRegularExpression('/' . $expected . '/s', $result, $message);
     }
 
-    public function dateTimePickerDataProvider()
+    public static function dateTimePickerDataProvider()
     {
         return [
             ['baser', [], '<span><label.*?>日付.+?<input .+?<span><label.*?>時間.+?<input .+?<input type="hidden".+?', 'dateTimePicker()が出力されません'],
@@ -170,7 +169,7 @@ class BcFormHelperTest extends BcTestCase
         $this->assertMatchesRegularExpression('/' . $expected . '/s', $result, $message);
     }
 
-    public function dateTimeDataProvider()
+    public static function dateTimeDataProvider()
     {
         return [
             ['test', 'W', '12', ['maxYear' => 2010], 'id="testWareki".*<option value="h-22">平成 22', 'datetime()を出力できません'],
@@ -196,7 +195,7 @@ class BcFormHelperTest extends BcTestCase
         $this->assertMatchesRegularExpression('/' . $expected . '/s', $result, $message);
     }
 
-    public function hiddenDataProvider()
+    public static function hiddenDataProvider()
     {
         return [
             ['test', [], '<input type="hidden" name="test"', 'hidden()を出力できません'],
@@ -216,13 +215,14 @@ class BcFormHelperTest extends BcTestCase
      */
     public function testCreate()
     {
+        UserFactory::make(['id'=>1])->persist();
         // 引数がない場合
         $result = $this->BcForm->create();
         $this->assertMatchesRegularExpression('/<form method="post" accept-charset="utf-8" novalidate="novalidate" action="\/contacts\/add">.*/', $result);
         // 引数が既存エンティティの場合の場合
         $user = $this->getTableLocator()->get('BaserCore.Users')->get(1);
         $result = $this->BcForm->create($user);
-        $this->assertMatchesRegularExpression('/<form method="post" accept-charset="utf-8" novalidate="novalidate" action="\/contacts\/add"><div style="display:none;"><input type="hidden" name="_method" value="PUT"\/><\/div>.*/', $result);
+        $this->assertMatchesRegularExpression('/<form method="post" accept-charset="utf-8" novalidate="novalidate" action="\/contacts\/add"><div style="display:none;"><input type="hidden" name="_method" value="PUT"><\/div>.*/', $result);
         $this->assertEventFired('Helper.Form.beforeCreate');
         $this->assertEventFired('Helper.Form.afterCreate');
     }
@@ -277,7 +277,7 @@ class BcFormHelperTest extends BcTestCase
     public function testSubmit()
     {
         $result = $this->BcForm->submit('保存');
-        $this->assertMatchesRegularExpression('/<div class="submit"><input type="submit" value="保存"\/><\/div>/', $result);
+        $this->assertMatchesRegularExpression('/<div class="submit"><input type="submit" value="保存"><\/div>/', $result);
         $this->assertEventFired('Helper.Form.afterSubmit');
     }
 
@@ -304,21 +304,16 @@ class BcFormHelperTest extends BcTestCase
      */
     public function testCkeditor($fieldName, $options, $expected, $message)
     {
-
-        // TODO ucmitz移行時に未実装のため代替措置
-        // >>>
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        // <<<
-
+        $this->BcForm->BcCkeditor->BcAdminForm->create();
         $result = $this->BcForm->ckeditor($fieldName, $options);
         $this->assertMatchesRegularExpression('/' . $expected . '/s', $result, $message);
     }
 
-    public function ckeditorDataProvider()
+    public static function ckeditorDataProvider()
     {
         return [
-            ['test', [], '<textarea name="data\[test\]".*load.*CKEDITOR', 'CKEditorを出力できません'],
-            ['test', ['editorLanguage' => 'en'], '"language":"en"', 'オプションを設定できません'],
+            ['test', [], '<textarea name="test".*bca-textarea__textarea', 'CKEditorを出力できません'],
+            ['test', ['editorUseDraft' => true, 'editorPreviewModeId' => "name"], '<textarea name="test".*<input type="hidden" name="name" id="name" value="publish"', 'オプションを設定できません'],
         ];
     }
 
@@ -333,21 +328,16 @@ class BcFormHelperTest extends BcTestCase
      */
     public function testEditor($fieldName, $options, $expected, $message)
     {
-
-        // TODO ucmitz移行時に未実装のため代替措置
-        // >>>
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        // <<<
-
+        $this->BcForm->BcCkeditor->BcAdminForm->create();
         $result = $this->BcForm->editor($fieldName, $options);
         $this->assertMatchesRegularExpression('/' . $expected . '/s', $result, $message);
     }
 
-    public function editorDataProvider()
+    public static function editorDataProvider()
     {
         return [
-            ['test', [], '<textarea name="data\[test\]".*load.*CKEDITOR', 'CKEditorを出力できません'],
-            ['test', ['editorLanguage' => 'en'], '"language":"en"', 'オプションを設定できません'],
+            ['test', [], '<span class="bca-textarea"><textarea name="test" style="width:99%;height:540px" .*', 'CKEditorを出力できません'],
+            ['test', ['editorUseDraft' => true, 'editorPreviewModeId' => "name"], '<span class="bca-textarea"><textarea name="test" .*<input type="hidden" name="name" id="name" value="publish"', 'オプションを設定できません'],
         ];
     }
 
@@ -364,20 +354,14 @@ class BcFormHelperTest extends BcTestCase
      */
     public function testPrefTag($fieldName, $selected, $attributes, $expected, $message)
     {
-
-        // TODO ucmitz移行時に未実装のため代替措置
-        // >>>
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        // <<<
-
         $result = $this->BcForm->prefTag($fieldName, $selected, $attributes);
         $this->assertMatchesRegularExpression('/' . $expected . '/s', $result, $message);
     }
 
-    public function prefTagDataProvider()
+    public static function prefTagDataProvider()
     {
         return [
-            ['test', null, [], '<select name="data\[test\]" id="test">.<option value="">都道府県.*<option value="1">北海道.*<option value="47">沖縄県', 'prefTag()を出力できません'],
+            ['test', null, [], '<select name="test">.*<option value="">都道府県.*<option value="1">北海道.*<option value="47">沖縄県', 'prefTag()を出力できません'],
             ['test', '40', [], '<option value="40" selected="selected">', '要素を選択状態にできません'],
             ['test', null, ['class' => 'testclass'], ' class="testclass"', '要素に属性を付与できません'],
         ];
@@ -409,7 +393,7 @@ class BcFormHelperTest extends BcTestCase
         $this->assertMatchesRegularExpression('/' . $expected . '/s', $result, $message);
     }
 
-    public function wyearDataProvider()
+    public static function wyearDataProvider()
     {
         return [
             ['test', null, null, null, [], true, '<input type="hidden" name="data\[test\]\[wareki\].*<option value="h-', 'wyear()がされません	'],
@@ -464,7 +448,7 @@ class BcFormHelperTest extends BcTestCase
         $this->assertMatchesRegularExpression('/' . $expected . '/s', $result, $message);
     }
 
-    public function fileDataProvider()
+    public static function fileDataProvider()
     {
         return [
             ['hoge', [], '<input type="file" name="hoge"', 'ファイルインプットボックス出力できません'],
@@ -498,7 +482,7 @@ class BcFormHelperTest extends BcTestCase
         $this->resetEvent();
     }
 
-    public function dispatchAfterFormDataProvider()
+    public static function dispatchAfterFormDataProvider()
     {
         return [
             ['Hoge', [['title' => '1', 'input' => '2']], true, '<tr><th class="bca-form-table__label">1<\/th>\n<td class="bca-form-table__input">2<\/td>\n<\/tr>'],
@@ -529,7 +513,7 @@ class BcFormHelperTest extends BcTestCase
         $this->assertMatchesRegularExpression('/' . $expected . '/s', $result, $message);
     }
 
-    public function radioDataProvider()
+    public static function radioDataProvider()
     {
         return [
             ['baser', [], [], '<input type="hidden" name="data\[baser\]" id="baser_" value=""', 'radio()を出力できません'],
@@ -726,7 +710,7 @@ class BcFormHelperTest extends BcTestCase
         $result = $this->execPrivateMethod($BcForm, "createId", [$context, $options]);
         $this->assertEquals($expected, $result);
     }
-    public function createIdDataProvider()
+    public static function createIdDataProvider()
     {
         $context = new ContentFolder();
         $context->setSource("BaserCore.ContentFolder");
@@ -791,8 +775,10 @@ class BcFormHelperTest extends BcTestCase
      */
     public function testGetTable()
     {
+        PageFactory::make(['id' => 1])->persist();
+        ContentFactory::make(['id' => 1, 'plugin' => 'BaserCore', 'type' => 'Page', 'entity_id' => 1])->persist();
         $pagesTable = $this->getTableLocator()->get('BaserCore.Pages');
-        $page = $pagesTable->find()->where(['Pages.id' => 2])->contain(['Contents'])->first();
+        $page = $pagesTable->find()->where(['Pages.id' => 1])->contain(['Contents'])->first();
         $this->BcForm->create($page);
 
         // テーブル名なし

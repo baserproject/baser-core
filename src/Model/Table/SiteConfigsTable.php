@@ -77,23 +77,17 @@ class SiteConfigsTable extends AppTable
      */
     public function validationKeyValue(Validator $validator): Validator
     {
-        $validator->setProvider('siteConfig', 'BaserCore\Model\Validation\SiteConfigValidation');
-
         $validator
             ->scalar('email')
             ->email('email', 255, __d('baser_core', '管理者メールアドレスの形式が不正です。'))
             ->notEmptyString('email', __d('baser_core', '管理者メールアドレスを入力してください。'));
         $validator
             ->scalar('site_url')
+            ->regex('site_url', '/^(http|https):/', __d('baser_core', 'WebサイトURLはURLの形式を入力してください。'))
             ->notEmptyString('site_url', __d('baser_core', 'WebサイトURLを入力してください。'));
         $validator
-            ->scalar('admin_ssl')
-            ->add('admin_ssl', [
-                'adminSSlSslUrlExists' => [
-                    'rule' => 'sslUrlExists',
-                    'provider' => 'siteConfig',
-                    'message' => __d('baser_core', '管理画面をSSLで利用するには、SSL用のWebサイトURLを入力してください。')
-                ]]);
+            ->allowEmptyString('password_reset_days')
+            ->nonNegativeInteger('password_reset_days', __d('baser_core', 'パスワードの再設定日数は0以上の整数を入力してください。'));
         return $validator;
     }
 
@@ -117,67 +111,6 @@ class SiteConfigsTable extends AppTable
         } else {
             return false;
         }
-    }
-
-    /**
-     * コンテンツ一覧を表示してから、コンテンツの並び順が変更されていないかどうか
-     * 60秒をブラウザのロード時間を加味したバッファとする
-     * @param $listDisplayed
-     * @return bool
-     * @checked
-     * @noTodo
-     * @unitTest
-     */
-    public function isChangedContentsSortLastModified($listDisplayed)
-    {
-        $lastModified = $this->getValue('contents_sort_last_modified');
-        $changed = false;
-        if ($lastModified) {
-            $user = BcUtil::loginUser();
-            if (!$user) {
-                return false;
-            }
-            [$lastModified, $userId] = explode('|', $lastModified);
-            $lastModified = strtotime($lastModified);
-            if ($user->id !== (int)$userId) {
-                $listDisplayed = strtotime($listDisplayed);
-                if ($lastModified >= ($listDisplayed - 60)) {
-                    $changed = true;
-                }
-            }
-        }
-        return $changed;
-    }
-
-    /**
-     * コンテンツ並び順変更時間を更新する
-     * @return bool
-     * @checked
-     * @noTodo
-     * @unitTest
-     */
-    public function updateContentsSortLastModified()
-    {
-        $user = BcUtil::loginUser();
-        if (!$user) {
-            return false;
-        }
-        return $this->saveValue(
-            'contents_sort_last_modified',
-            date('Y-m-d H:i:s') . '|' . $user->id
-        );
-    }
-
-    /**
-     * コンテンツ並び替え順変更時間をリセットする
-     * @return bool
-     * @checked
-     * @noTodo
-     * @unitTest
-     */
-    public function resetContentsSortLastModified()
-    {
-        return $this->saveValue('contents_sort_last_modified', '');
     }
 
     /**

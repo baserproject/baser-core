@@ -1,6 +1,4 @@
 <?php
-// TODO ucmitz  : コード確認要
-return;
 /**
  * baserCMS :  Based Website Development Project <https://basercms.net>
  * Copyright (c) baserCMS Users Community <https://basercms.net/community/>
@@ -10,33 +8,41 @@ return;
  * @since           baserCMS v 3.0.0
  * @license         https://basercms.net/license/index.html
  */
+namespace BaserCore\Test\TestCase\View\Helper;
 
-App::uses('View', 'View');
-App::uses('BcArrayHelper', 'View/Helper');
-App::uses('AppHelper', 'View/Helper');
+use BaserCore\TestSuite\BcTestCase;
+use BaserCore\View\Helper\BcAdminHelper;
+use BaserCore\View\Helper\BcArrayHelper;
+use Cake\Datasource\ResultSetInterface;
+use Cake\ORM\Query;
+use Cake\View\View;
 
 /**
  * Admin helper library.
  *
  * 管理画面用のヘルパー
  *
- * @property      BcAdminHelper $Helper
+ * @property BcAdminHelper $Helper
  */
 class BcArrayHelperTest extends BcTestCase
 {
-
-    private $data;
-
-    public function setUp()
+    /**
+     * set up
+     */
+    public function setUp(): void
     {
         parent::setUp();
         $this->Helper = new BcArrayHelper(new View(null));
         $this->data = ['b' => 'カンジ', 'd' => 'リュウジ', 'a' => 'スナオ', 'c' => 'ゴンチャン'];
     }
 
-    public function tearDown()
+    /**
+     * tearDown
+     *
+     * @return void
+     */
+    public function tearDown(): void
     {
-        unset($this->Helper);
         parent::tearDown();
     }
 
@@ -44,20 +50,54 @@ class BcArrayHelperTest extends BcTestCase
      * 配列の最初のキーを判定する
      *
      * */
-    public function testFirst()
+    public function testFirstWithArray()
     {
-        $this->assertTrue($this->Helper->first($this->data, 'b'));
-        $this->assertFalse($this->Helper->first($this->data, 'c'));
+        $data = [1 => 'カンジ', 2 => 'リュウジ', 3 => 'スナオ', 4 => 'ゴンチャン'];
+
+        $this->assertTrue($this->Helper->first($data, 1));
+        $this->assertFalse($this->Helper->first($data, 2));
+
+        $data = [];
+        $this->assertFalse($this->Helper->first($data, 1));
+    }
+
+    public function testFirstWithQuery()
+    {
+        $mockResultSet = $this->createMock(ResultSetInterface::class);
+        $mockResultSet->method('first')->willReturn([1 => 'a', 2 => 'b', 3 => 'c']);
+        $mockResultSet->method('key')->willReturn(1);
+
+        $mockQuery = $this->createMock(Query::class);
+        $mockQuery->method('getIterator')->willReturn($mockResultSet);
+
+        $this->assertTrue($this->Helper->first($mockQuery, 1));
+        $this->assertFalse($this->Helper->first($mockQuery, 2));
     }
 
     /**
      * 配列の最後のキーを判定する
      *
      * */
-    public function testLast()
+    public function testLastWithArray()
     {
         $this->assertTrue($this->Helper->last($this->data, 'c'));
         $this->assertFalse($this->Helper->last($this->data, 'd'));
+
+        $this->data = [];
+        $this->assertFalse($this->Helper->last($this->data, 'c'));
+    }
+
+    public function testLastWithQuery()
+    {
+        $mockResultSet = $this->createMock(ResultSetInterface::class);
+        $mockResultSet->method('count')->willReturn(3);
+
+        $mockQuery = $this->createMock(Query::class);
+        $mockQuery->method('count')->willReturn(3);
+        $mockQuery->method('getIterator')->willReturn($mockResultSet);
+
+        $this->assertTrue($this->Helper->last($mockQuery, 2));
+        $this->assertFalse($this->Helper->last($mockQuery, 1));
     }
 
     /**
@@ -107,4 +147,24 @@ class BcArrayHelperTest extends BcTestCase
         $this->assertEquals($expect, $result);
     }
 
+    public function test_addTextWithPrefixAndSuffix()
+    {
+        $value = 'test';
+        $this->execPrivateMethod($this->Helper, '__addText', [&$value, null, "prefix-,-suffix"]);
+        $this->assertEquals("prefix-test-suffix", $value);
+    }
+
+    public function test_addTextWithOnlyPrefix()
+    {
+        $value = 'test';
+        $this->execPrivateMethod($this->Helper, '__addText', [&$value, null, "prefix-,"]);
+        $this->assertEquals("prefix-test", $value);
+    }
+
+    public function test_AddTextWithOnlySuffix()
+    {
+        $value = 'test';
+        $this->execPrivateMethod($this->Helper, '__addText', [&$value, null, ",-suffix"]);
+        $this->assertEquals("test-suffix", $value);
+    }
 }

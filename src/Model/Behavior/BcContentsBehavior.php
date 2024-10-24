@@ -60,19 +60,51 @@ class BcContentsBehavior extends Behavior
     public function initialize(array $config): void
     {
         $this->table = $this->table();
-        $prefix = $this->table->getConnection()->config()['prefix'];
-        $type = preg_replace('/^' . $prefix . '/', '', $this->table->getTable());
         if (!$this->table->__isset('Contents')) {
             $this->table->hasOne('Contents', ['className' => 'BaserCore.Contents'])
                 ->setForeignKey('entity_id')
                 ->setDependent(false)
-                ->setJoinType('INNER')
-                ->setConditions([
-                    'Contents.type' => Inflector::classify($type),
-                    'Contents.alias_id IS' => null,
-                ]);
+                ->setJoinType('INNER');
         }
         $this->Contents = $this->table->getAssociation('Contents');
+        $this->offAlias();
+    }
+
+    /**
+     * コンテンツタイプを取得する
+     * @return string
+     * @checked
+     * @noTodo
+     */
+    public function getType(): string
+    {
+        $prefix = $this->table->getConnection()->config()['prefix'];
+        return Inflector::classify(preg_replace('/^' . $prefix . '/', '', $this->table->getTable()));
+    }
+
+    /**
+     * アソシエーション時に alias を除外する
+     * @checked
+     * @noTodo
+     */
+    public function offAlias(): void
+    {
+        $this->Contents->setConditions([
+            'Contents.type' => $this->getType(),
+            'Contents.alias_id IS' => null,
+        ]);
+    }
+
+    /**
+     * アソシエーション時に alias を含める
+     * @checked
+     * @noTodo
+     */
+    public function onAlias(): void
+    {
+        $this->Contents->setConditions([
+            'Contents.type' => $this->getType()
+        ]);
     }
 
     /**
@@ -115,7 +147,9 @@ class BcContentsBehavior extends Behavior
     public function beforeDelete(EventInterface $event, EntityInterface $entity, ArrayObject $options)
     {
         if (empty($entity->content)) {
-            $entity->content = $this->Contents->find('all', ['withDeleted'])->where(['entity_id' => $entity->id])->first();
+            $entity->content = $this->Contents->find('all', ...['withDeleted'])
+                ->where(['entity_id' => $entity->id])
+                ->first();
         }
     }
 

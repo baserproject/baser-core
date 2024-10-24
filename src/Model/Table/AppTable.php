@@ -13,9 +13,7 @@ namespace BaserCore\Model\Table;
 
 use BaserCore\Utility\BcUtil;
 use Cake\ORM\Association\BelongsToMany;
-use Cake\ORM\Query;
 use Cake\ORM\Table;
-use Cake\I18n\FrozenTime;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
 use BaserCore\Annotation\UnitTest;
@@ -69,6 +67,7 @@ class AppTable extends Table
      * @return AppTable
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function setTable(string $table)
     {
@@ -83,6 +82,7 @@ class AppTable extends Table
      * @return string
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function getTable(): string
     {
@@ -100,6 +100,7 @@ class AppTable extends Table
      * @return BelongsToMany
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function belongsToMany(string $associated, array $options = []): BelongsToMany
     {
@@ -107,34 +108,6 @@ class AppTable extends Table
             $options['joinTable'] = $this->addPrefix($options['joinTable']);
         }
         return parent::belongsToMany($associated, $options);
-    }
-
-    /**
-     * findの前後にイベントを追加する
-     *
-     * @param string $type the type of query to perform
-     * @param array<string, mixed> $options An array that will be passed to Query::applyOptions()
-     * @return \Cake\ORM\Query The query builder
-     * @checked
-     * @noTodo
-     */
-    public function find(string $type = 'all', array $options = []): Query
-    {
-        // EVENT beforeFind
-        $event = $this->dispatchLayerEvent('beforeFind', compact('type', 'options'));
-        if ($event !== false) {
-            $options = ($event->getResult() === null || $event->getResult() === true) ? $event->getData('options') : $event->getResult();
-        }
-
-        $result = parent::find($type, $options);
-
-        // EVENT afterFind
-        $event = $this->dispatchLayerEvent('afterFind', compact('type', 'options', 'result'));
-        if ($event !== false) {
-            $result = ($event->getResult() === null || $event->getResult() === true) ? $event->getData('result') : $event->getResult();
-        }
-
-        return $result;
     }
 
     /**
@@ -153,6 +126,7 @@ class AppTable extends Table
      * @return string
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function addPrefix($table)
     {
@@ -179,7 +153,7 @@ class AppTable extends Table
     public function initialize(array $config): void
     {
         parent::initialize($config);
-        FrozenTime::setToStringFormat('yyyy-MM-dd HH:mm:ss');
+        \Cake\I18n\DateTime::setToStringFormat('yyyy-MM-dd HH:mm:ss');
     }
 
     /**
@@ -192,6 +166,7 @@ class AppTable extends Table
      * @return string 変換後文字列
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function replaceText($str)
     {
@@ -293,6 +268,7 @@ class AppTable extends Table
      * @return boolean
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function sortup($id, $conditions)
     {
@@ -307,6 +283,7 @@ class AppTable extends Table
      * @return boolean
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function sortdown($id, $conditions)
     {
@@ -324,6 +301,7 @@ class AppTable extends Table
      * @return boolean
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function changeSort($id, $offset, $options = [])
     {
@@ -352,7 +330,7 @@ class AppTable extends Table
         $result = $this->find()
             ->where($conditions)
             ->select(["id", $options['sortFieldName']])
-            ->order($order)
+            ->orderBy($order)
             ->limit(abs($offset) + 1)
             ->all();
 
@@ -451,9 +429,7 @@ class AppTable extends Table
         if (!isset($this->tmpEvents[$eventKey])) return;
         $eventManager = $this->getEventManager();
         foreach($this->tmpEvents[$eventKey] as $listener) {
-            if (get_class($listener['callable'][0]) !== 'BaserCore\Event\BcModelEventDispatcher') {
-                $eventManager->on($eventKey, [], $listener['callable']);
-            }
+            $eventManager->on($eventKey, [], $listener['callable']);
         }
         unset($this->tmpEvents[$eventKey]);
     }

@@ -66,6 +66,7 @@ class BcCsvHelper extends Helper
      * テンポラリファイルを生成する
      * @checked
      * @noTodo
+     * @unitTest
      */
     private function _createTmpFp()
     {
@@ -78,6 +79,7 @@ class BcCsvHelper extends Helper
      * 一時ファイルのポインタを取得
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function getCsvTmpDataFp()
     {
@@ -93,6 +95,7 @@ class BcCsvHelper extends Helper
      * @return bool
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function addModelData($modelName, $data)
     {
@@ -119,6 +122,7 @@ class BcCsvHelper extends Helper
      * @return $csv
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function addModelDatas($modelName, $datas)
     {
@@ -141,6 +145,7 @@ class BcCsvHelper extends Helper
      * @return string|false $head
      * @checked
      * @noTodo
+     * @unitTest
      */
     protected function _perseKey($data)
     {
@@ -167,6 +172,7 @@ class BcCsvHelper extends Helper
      * @return string $body
      * @checked
      * @noTodo
+     * @unitTest
      */
     protected function _perseValue($data)
     {
@@ -199,6 +205,7 @@ class BcCsvHelper extends Helper
      * @return void|string
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function download($fileName, $debug = false)
     {
@@ -243,6 +250,7 @@ class BcCsvHelper extends Helper
      * @return void
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function save($fileName)
     {

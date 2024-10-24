@@ -13,7 +13,6 @@ declare(strict_types=1);
 
 namespace BaserCore\Model\Entity;
 
-use Cake\I18n\FrozenTime;
 use Cake\ORM\Entity;
 use Cake\ORM\TableRegistry;
 use BaserCore\Annotation\UnitTest;
@@ -32,8 +31,8 @@ use BaserCore\Annotation\Checked;
  * @property bool $auth
  * @property string $method
  * @property bool $status
- * @property FrozenTime|null $modified
- * @property FrozenTime|null $created
+ * @property \Cake\I18n\DateTime|null $modified
+ * @property \Cake\I18n\DateTime|null $created
  */
 class Permission extends Entity
 {
@@ -43,7 +42,7 @@ class Permission extends Entity
      *
      * @var array
      */
-    protected $_accessible = [
+    protected array $_accessible = [
         'no' => true,
         'sort' => true,
         'name' => true,
@@ -64,6 +63,7 @@ class Permission extends Entity
      * @return string|null
      * @checked
      * @noTodo
+     * @unitTest
      */
     protected function _getPermissionGroupType()
     {

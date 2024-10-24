@@ -15,13 +15,14 @@ use BaserCore\Error\BcException;
 use BaserCore\Model\Entity\Plugin;
 use BaserCore\Model\Table\PluginsTable;
 use BaserCore\Utility\BcContainerTrait;
+use BaserCore\Utility\BcFile;
+use BaserCore\Utility\BcFolder;
 use BaserCore\Utility\BcSiteConfig;
 use BaserCore\Utility\BcUpdateLog;
 use BaserCore\Utility\BcZip;
 use Cake\Cache\Cache;
 use Cake\Core\Exception\MissingPluginException;
 use Cake\Datasource\Exception\RecordNotFoundException;
-use Cake\Filesystem\File;
 use Cake\Http\Client;
 use Cake\Http\Client\Exception\NetworkException;
 use Cake\ORM\Table;
@@ -31,7 +32,6 @@ use Cake\Utility\Inflector;
 use Cake\Core\Configure;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\App;
-use Cake\Filesystem\Folder;
 use Cake\Core\Plugin as CakePlugin;
 use Cake\Datasource\EntityInterface;
 use Cake\Utility\Xml;
@@ -98,7 +98,7 @@ class PluginsService implements PluginsServiceInterface
     public function getIndex(string $sortMode): array
     {
         $plugins = $this->Plugins->find()
-            ->order(['priority'])
+            ->orderBy(['priority'])
             ->all()
             ->toArray();
         if ($sortMode) {
@@ -111,9 +111,9 @@ class PluginsService implements PluginsServiceInterface
             }
             $paths = App::path('plugins');
             foreach($paths as $path) {
-                $Folder = new Folder($path);
-                $files = $Folder->read(true, true, true);
-                foreach($files[0] as $file) {
+                $Folder = new BcFolder($path);
+                $files = $Folder->getFolders(['full'=>true]);
+                foreach($files as $file) {
                     $name = Inflector::camelize(Inflector::underscore(basename($file)));
                     if (in_array(Inflector::camelize(basename($file), '-'), Configure::read('BcApp.core'))) continue;
                     if (in_array($name, $registeredName)) {
@@ -349,10 +349,10 @@ class PluginsService implements PluginsServiceInterface
         $zip->create(ROOT . DS . 'vendor', TMP . 'update' . DS . 'vendor.zip');
 
         // コアファイルを削除
-        (new Folder())->delete(ROOT . DS . 'vendor');
+        (new BcFolder(ROOT . DS . 'vendor'))->delete();
 
         // 最新版に更新
-        if (!(new Folder(TMP . 'update' . DS . 'vendor'))->copy(ROOT . DS . 'vendor')) {
+        if(!(new BcFolder(TMP . 'update' . DS . 'vendor'))->copy(ROOT . DS . 'vendor')) {
             $zip->extract(TMP . 'update' . DS . 'vendor.zip', ROOT . DS . 'vendor');
             throw new BcException(__d('baser_core', '最新版のファイルをコピーできませんでした。'));
         }
@@ -714,8 +714,8 @@ class PluginsService implements PluginsServiceInterface
             $num++;
             $dstName = $baseName . $num;
         }
-        $folder = new Folder(TMP . $srcDirName);
-        $folder->move(BASER_PLUGINS . $dstName, ['mode' => 0777]);
+        $folder = new BcFolder(TMP . $srcDirName);
+        $folder->move(BASER_PLUGINS. $dstName);
         unlink(TMP . $name);
         BcUtil::changePluginClassName($srcName, $dstName);
         BcUtil::changePluginNameSpace($dstName);
@@ -752,39 +752,41 @@ class PluginsService implements PluginsServiceInterface
                 $body = $response->getStringBody();
             } catch (InvalidArgumentException $e) {
                 // ユニットテストの場合にhttpでアクセスできないので、ファイルから直接読み込む
-                $file = new File($releaseUrl);
+                $file = new BcFile($releaseUrl);
                 $body = $file->read();
-            } catch (NetworkException $e) {
+            } catch (NetworkException) {
                 return [];
             }
             $xml = Xml::build($body);
             $latest = null;
             $versions = [];
             $currentVersion = BcUtil::getVersion();
-            if (isset($xml->channel->item)) {
+            $currentVerPoint = BcUtil::verpoint($currentVersion);
+            if (isset($xml->channel->item) && $currentVerPoint !== false) {
+            	$items = [];
                 $major = preg_replace('/^([0-9]+\.).+?$/', "$1", $currentVersion);
                 foreach($xml->channel->item as $item) {
-                    if (!isset($item->guid)) continue;
-                    if (preg_match('/baserproject\/baser-core ([0-9.]+)$/', $item->guid, $matches)) {
-                        $version = $matches[1];
-                        if (!$latest) {
-                            $latest = $version;
-                        }
-                        // 同じメジャーバージョンでない場合は無視
-                        if (!preg_match('/^' . preg_quote($major) . '/', $version)) continue;
+					if (!isset($item->guid)) continue;
+					if (preg_match('/baserproject\/baser-core ([0-9.]+)$/', $item->guid, $matches)) {
+						$version = $matches[1];
+						// 同じメジャーバージョンでない場合は無視
+						if (!preg_match('/^' . preg_quote($major) . '/', $version)) continue;
+						$verpoint = BcUtil::verpoint($version);
+						// アップデートバージョンが開発版の場合は無視
+						if($verpoint === false) continue;
+						$items[$verpoint] = $version;
+					}
+				}
+                krsort($items);
 
-                        $currentVerPoint = BcUtil::verpoint($currentVersion);
-                        $updateVerPoint = BcUtil::verpoint($version);
-                        // 現在のパッケージが開発版の場合は無視
-                        if ($currentVerPoint === false) break;
-                        // アップデートバージョンが開発版の場合は無視
-                        if ($updateVerPoint === false) continue;
-                        // アップデートバージョンが現在のパッケージのバージョンより小さい場合は無視
-                        if ($currentVerPoint > $updateVerPoint) break;
-
-                        if ($currentVersion === $version) break;
-                        $versions[] = $version;
-                    }
+                foreach($items as $verpoint => $version) {
+					if (!$latest) {
+						$latest = $version;
+					}
+					// アップデートバージョンが現在のパッケージのバージョンより小さい場合は無視
+					if ($currentVerPoint > $verpoint) break;
+					if ($currentVersion === $version) break;
+					$versions[] = $version;
                 }
             }
             arsort($versions);
@@ -824,11 +826,11 @@ class PluginsService implements PluginsServiceInterface
         }
 
         if (is_dir(TMP . 'update')) {
-            (new Folder(TMP . 'update'))->delete();
+            (new BcFolder(TMP . 'update'))->delete();
         }
         mkdir(TMP . 'update', 0777);
         if (!is_dir(TMP . 'update' . DS . 'vendor')) {
-            $folder = new Folder(ROOT . DS . 'vendor');
+            $folder = new BcFolder(ROOT . DS . 'vendor');
             $folder->copy(TMP . 'update' . DS . 'vendor');
         }
         copy(ROOT . DS . 'composer.json', TMP . 'update' . DS . 'composer.json');
@@ -852,6 +854,7 @@ class PluginsService implements PluginsServiceInterface
      * @return bool|mixed|string
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function getAvailableCoreVersion()
     {
@@ -865,6 +868,7 @@ class PluginsService implements PluginsServiceInterface
      * @return array|mixed
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function isAvailableCoreUpdates()
     {

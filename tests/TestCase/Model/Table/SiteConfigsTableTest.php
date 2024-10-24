@@ -11,9 +11,12 @@
 
 namespace BaserCore\Test\TestCase\Model\Table;
 
+use BaserCore\Test\Scenario\InitAppScenario;
+use BaserCore\Test\Scenario\SiteConfigsScenario;
 use Cake\Routing\Router;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\Model\Table\SiteConfigsTable;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * Class SiteConfigsTableTest
@@ -21,17 +24,10 @@ use BaserCore\Model\Table\SiteConfigsTable;
  */
 class SiteConfigsTableTest extends BcTestCase
 {
-
     /**
-     * Fixtures
-     * @var string[]
+     * ScenarioAwareTrait
      */
-    public $fixtures = [
-        'plugin.BaserCore.Users',
-        'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.UsersUserGroups',
-        'plugin.BaserCore.SiteConfigs',
-    ];
+    use ScenarioAwareTrait;
 
     /**
      * setUp
@@ -107,9 +103,27 @@ class SiteConfigsTableTest extends BcTestCase
                 'formal_name' => 'hoge',
                 'name' => 'hoge',
                 'email' => 'hoge@basercms.net',
-                'site_url' => 'hoge',
+                'site_url' => 'https://localhost/',
         ]);
         $this->assertEmpty($errors);
+    }
+
+    /**
+     * test validationKeyValue url
+     */
+    public function testvalidationKeyValueURL()
+    {
+        $validator = $this->SiteConfigs->getValidator('keyValue');
+        $errors = $validator->validate([
+            'site_url' => 'hoge',
+        ]);
+        $this->assertEquals('WebサイトURLはURLの形式を入力してください。', current($errors['site_url']));
+
+        $validator = $this->SiteConfigs->getValidator('keyValue');
+        $errors = $validator->validate([
+            'site_url' => '/hoge',
+        ]);
+        $this->assertEquals('WebサイトURLはURLの形式を入力してください。', current($errors['site_url']));
     }
 
     /**
@@ -126,7 +140,7 @@ class SiteConfigsTableTest extends BcTestCase
         $this->assertEquals($expected, $result, $message);
     }
 
-    public function getControlSourceDataProvider()
+    public static function getControlSourceDataProvider()
     {
         return [
             ['mode', [
@@ -135,62 +149,6 @@ class SiteConfigsTableTest extends BcTestCase
             ], 'コントロールソースを取得できません'],
             ['hoge', false, '存在しないキーです'],
         ];
-    }
-
-    /**
-     * コンテンツ一覧を表示してから、コンテンツの並び順が変更されていないかどうか
-     * @param bool $isLogin ログインしているかどうか
-     * @param string $saveValue 保存値
-     * @param string $listDisplayed 表示した時間
-     * @param bool $expected 期待値
-     * @dataProvider isChangedContentsSortLastModifiedDataProvider
-     */
-    public function testIsChangedContentsSortLastModified($isLogin, $saveValue, $listDisplayed, $expected)
-    {
-        if($isLogin) Router::setRequest($this->loginAdmin($this->getRequest()));
-        $this->SiteConfigs->saveValue('contents_sort_last_modified', $saveValue);
-        $result = $this->SiteConfigs->isChangedContentsSortLastModified($listDisplayed);
-        $this->assertEquals($expected, $result);
-    }
-
-    public function isChangedContentsSortLastModifiedDataProvider()
-    {
-        return [
-            [false, '', '2021/08/01', false], // 保存値なし
-            [false, '2021/08/01|1', '2021/08/01', false], // 未ログイン
-            [true, '2021/08/01|1', '2021/08/01', false], // 同じユーザーの変更
-            [true, '2021/08/01 10:00:00|2', '2021/08/01 10:00:30', true], // バッファ内
-            [true, '2021/08/01 10:00:00|2', '2021/08/01 10:01:01', false],  // バッファ外
-        ];
-    }
-
-    /**
-     * コンテンツ並び順変更時間を更新する
-     */
-    public function testUpdateContentsSortLastModified()
-    {
-        // 未ログイン
-        $this->SiteConfigs->saveValue('contents_sort_last_modified', '');
-        $this->SiteConfigs->updateContentsSortLastModified();
-        $this->assertEquals('', $this->SiteConfigs->getValue('contents_sort_last_modified'));
-        // ログイン
-        Router::setRequest($this->loginAdmin($this->getRequest()));
-        $this->SiteConfigs->updateContentsSortLastModified();
-        $lastModified = $this->SiteConfigs->getValue('contents_sort_last_modified');
-        [$lastModified, $userId] = explode('|', $lastModified);
-        $this->assertEquals(1, $userId);
-        $this->assertNotEmpty($lastModified);
-    }
-
-    /**
-     * コンテンツ並び替え順変更時間をリセットする
-     */
-    public function testResetContentsSortLastModified()
-    {
-        $this->loginAdmin($this->getRequest());
-        $this->SiteConfigs->updateContentsSortLastModified();
-        $this->SiteConfigs->resetContentsSortLastModified();
-        $this->assertEmpty($this->SiteConfigs->getValue('contents_sort_last_modified'));
     }
 
     /**
@@ -203,11 +161,12 @@ class SiteConfigsTableTest extends BcTestCase
      */
     public function testIsChange($field, $value, $expected)
     {
+        $this->loadFixtureScenario(SiteConfigsScenario::class);
         $result = $this->SiteConfigs->isChange($field, $value);
         $this->assertEquals($expected, $result);
     }
 
-    public function isChangeDataProvider()
+    public static function isChangeDataProvider()
     {
         return [
             ['use_site_device_setting', "1", false],

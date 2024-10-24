@@ -44,7 +44,7 @@ class BcAdminApiController extends BcApiController
     {
         parent::initialize();
         $this->loadComponent('Authentication.Authentication');
-        $this->Security->setConfig('validatePost', false);
+        $this->FormProtection->setConfig('validate', false);
     }
 
     /**
@@ -114,6 +114,7 @@ class BcAdminApiController extends BcApiController
      * @return bool
      * @noTodo
      * @checked
+     * @unitTest
      */
     public function isAvailableUser(): bool
     {

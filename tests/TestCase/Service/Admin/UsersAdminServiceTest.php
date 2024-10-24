@@ -12,8 +12,13 @@
 namespace BaserCore\Test\TestCase\Service\Admin;
 
 use BaserCore\Service\Admin\UsersAdminService;
+use BaserCore\Test\Scenario\SitesScenario;
+use BaserCore\Test\Scenario\UserGroupsScenario;
+use BaserCore\Test\Scenario\UserScenario;
+use BaserCore\Test\Scenario\UsersUserGroupsScenario;
 use BaserCore\TestSuite\BcTestCase;
 use Cake\Routing\Router;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * Class UsersAdminServiceTest
@@ -23,16 +28,9 @@ class UsersAdminServiceTest extends BcTestCase
 {
 
     /**
-     * Fixtures
-     *
-     * @var array
+     * ScenarioAwareTrait
      */
-    protected $fixtures = [
-        'plugin.BaserCore.Users',
-        'plugin.BaserCore.UsersUserGroups',
-        'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.Sites',
-    ];
+    use ScenarioAwareTrait;
 
     /**
      * @var UsersAdminService|null
@@ -47,6 +45,10 @@ class UsersAdminServiceTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
+        $this->loadFixtureScenario(UserScenario::class);
+        $this->loadFixtureScenario(UserGroupsScenario::class);
+        $this->loadFixtureScenario(UsersUserGroupsScenario::class);
+        $this->loadFixtureScenario(SitesScenario::class);
         $this->Users = new UsersAdminService();
     }
 
@@ -86,7 +88,7 @@ class UsersAdminServiceTest extends BcTestCase
         $this->assertEquals($expected, $result);
     }
 
-    public function isEditableDataProvider()
+    public static function isEditableDataProvider()
     {
         return [
             [null, null, false],  // 未ログイン新規
@@ -114,7 +116,7 @@ class UsersAdminServiceTest extends BcTestCase
         $this->assertEquals($expected, $result);
     }
 
-    public function isDeletableDataProvider()
+    public static function isDeletableDataProvider()
     {
         return [
             [null, null, false],  // 未ログインデータ不完全
@@ -143,7 +145,7 @@ class UsersAdminServiceTest extends BcTestCase
         $this->assertEquals($expected, $result);
     }
 
-    public function isSelfUpdateDataProvider()
+    public static function isSelfUpdateDataProvider()
     {
         return [
             [1, 1, true],        // 自身を更新
@@ -165,7 +167,7 @@ class UsersAdminServiceTest extends BcTestCase
         $this->assertTrue($this->Users->isUserGroupEditable(2));
         // サイト運営ユーザーで他ユーザー更新
         $this->loginAdmin($this->getRequest('/baser/admin'), 2);
-        $this->assertTrue($this->Users->isUserGroupEditable(1));
+        $this->assertFalse($this->Users->isUserGroupEditable(1));
         // サイト運営ユーザーで自身を更新
         $this->assertFalse($this->Users->isUserGroupEditable(2));
     }

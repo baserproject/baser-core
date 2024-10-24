@@ -14,6 +14,7 @@ namespace BaserCore\View\Helper;
 use BaserCore\Model\Entity\Content;
 use BaserCore\Model\Entity\Site;
 use BaserCore\Model\Table\SitesTable;
+use BaserCore\Service\PagesService;
 use BaserCore\Service\PagesServiceInterface;
 use BaserCore\Utility\BcSiteConfig;
 use BcBlog\Model\Entity\BlogPost;
@@ -158,6 +159,7 @@ use BaserCore\Annotation\Doc;
  * ### TextHelper
  * @method string truncateText(string $text, int $length = 100, array $options = [])
  */
+#[\AllowDynamicProperties]
 class BcBaserHelper extends Helper
 {
 
@@ -172,7 +174,7 @@ class BcBaserHelper extends Helper
      *
      * @var array
      */
-    public $helpers = [
+    public array $helpers = [
         'Url', 'Js', 'Session', 'Flash',
         'BaserCore.BcHtml',
         'BaserCore.BcXml',
@@ -219,6 +221,7 @@ class BcBaserHelper extends Helper
      * @param array $settings ヘルパ設定値
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function __construct(View $View, $settings = [])
     {
@@ -502,7 +505,7 @@ class BcBaserHelper extends Helper
             $url = preg_replace('/^' . preg_quote($request->getAttribute('base'), '/') . '\//', '/', $url);
         }
 
-        $out = $this->BcHtml->link($title, $url, $options);
+        $out = $this->BcHtml->link($title?? '', $url, $options);
 
         // EVENT Html.afterGetLink
         $event = $this->dispatchLayerEvent('afterGetLink', [
@@ -525,6 +528,7 @@ class BcBaserHelper extends Helper
      * @return true
      * @noTodo
      * @checked
+     * @unitTest
      */
     public function isLinkEnabled(string $link): bool
     {
@@ -813,6 +817,7 @@ class BcBaserHelper extends Helper
      * @return void
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function setTitle($title, $categoryTitleOn = null)
     {
@@ -882,6 +887,7 @@ class BcBaserHelper extends Helper
      * @return void
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function setCategoryTitle($on = true)
     {
@@ -894,6 +900,7 @@ class BcBaserHelper extends Helper
      * @return string meta タグ用のキーワード
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function getKeywords()
     {
@@ -911,6 +918,7 @@ class BcBaserHelper extends Helper
      * @return string meta タグ用の説明文
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function getDescription()
     {
@@ -940,6 +948,7 @@ class BcBaserHelper extends Helper
      * @return string メタタグ用のタイトルを返す
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function getTitle($separator = '｜', $options = [])
     {
@@ -1084,6 +1093,7 @@ class BcBaserHelper extends Helper
      * @return void
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function title($separator = '｜', $categoryTitleOn = null)
     {
@@ -1096,6 +1106,7 @@ class BcBaserHelper extends Helper
      * @return void
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function metaKeywords()
     {
@@ -1108,6 +1119,7 @@ class BcBaserHelper extends Helper
      * @return void
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function metaDescription()
     {
@@ -1122,6 +1134,7 @@ class BcBaserHelper extends Helper
      * @return void
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function rss($title, $link)
     {
@@ -1167,6 +1180,7 @@ class BcBaserHelper extends Helper
      * @return void
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function header($data = [], $options = [])
     {
@@ -1204,6 +1218,7 @@ class BcBaserHelper extends Helper
      * @return void
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function footer($data = [], $options = [])
     {
@@ -1242,6 +1257,7 @@ class BcBaserHelper extends Helper
      * @return void
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function pagination($name = 'default', $data = [], $options = [])
     {
@@ -1260,6 +1276,7 @@ class BcBaserHelper extends Helper
      * @return void
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function content()
     {
@@ -1292,10 +1309,11 @@ class BcBaserHelper extends Helper
      * @return void
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function scripts()
     {
-        if (BcUtil::isInstalled() && !BcUtil::isAdminSystem()) {
+        if (BcUtil::isInstalled() && !BcUtil::isAdminSystem() && $this->getView()->getName() !== 'Error') {
             echo BcSiteConfig::get('outer_service_output_header');
         }
 
@@ -1367,6 +1385,7 @@ class BcBaserHelper extends Helper
      * @return void
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function func()
     {
@@ -1419,6 +1438,7 @@ class BcBaserHelper extends Helper
      * @return void
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function icon()
     {
@@ -1432,7 +1452,7 @@ class BcBaserHelper extends Helper
      * $this->BcBaser->css('admin/import')
      *
      * @param mixed $path CSSファイルのパス（css フォルダからの相対パス）拡張子は省略可
-     * @param bool $inline コンテンツ内に Javascript を出力するかどうか（初期値 : true）
+     * @param bool $inline コンテンツ内に css を出力するかどうか（初期値 : true）
      * @param mixed $options オプション
      * ※💣inline=false→block=trueに変更になったため注意
      * @return string|void
@@ -1450,6 +1470,13 @@ class BcBaserHelper extends Helper
     public function css($path, $inline = true, $options = [])
     {
         if (!isset($options['block'])) {
+            // @deprecated 6.0.0 since 5.1.0 後方互換用
+            // >>>
+            if(!$options && is_array($inline) && isset($inline['inline'])) {
+                echo __d('baser_core', 'BcBaserHelper::css() にて、第２引数に配列でオプションを指定することは非推奨です。引数の仕様を見直してください。');
+                $inline = $inline['inline'];
+            }
+            // <<<
             $options['block'] = $inline ? null : true;
         }
         echo $this->BcHtml->css($path, $options);
@@ -1466,7 +1493,7 @@ class BcBaserHelper extends Helper
      */
     public function isSSL()
     {
-        return $this->_View->getRequest()->is('ssl');
+        return $this->_View->getRequest()->is('https');
     }
 
     /**
@@ -1478,6 +1505,7 @@ class BcBaserHelper extends Helper
      * @return void
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function charset($charset = null)
     {
@@ -1500,6 +1528,7 @@ class BcBaserHelper extends Helper
      * @return void
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function copyYear($begin)
     {
@@ -1517,6 +1546,7 @@ class BcBaserHelper extends Helper
      * @return string|false
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function getSitePrefix(): string|false
     {
@@ -1653,6 +1683,7 @@ class BcBaserHelper extends Helper
      * @return string プロトコルから始まるURL
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function getUri($url)
     {
@@ -1687,6 +1718,7 @@ class BcBaserHelper extends Helper
      * @return void
      * @checked
      * @noTodo
+     * @unitTest
      */
     protected function _initPluginBasers()
     {
@@ -1714,6 +1746,7 @@ class BcBaserHelper extends Helper
      * @return mixed|void PluginBaserHelper の戻り値
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function __call($method, $params)
     {
@@ -1749,6 +1782,7 @@ class BcBaserHelper extends Helper
      * @todo TextHelperに移行を検討
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function mark($search, $text, $name = 'strong', $attributes = [], $escape = false)
     {
@@ -1780,6 +1814,7 @@ class BcBaserHelper extends Helper
      * @doc
      * @checked
      * @noTodo
+     * @unitTest ラッパーメソッドのためユニットテスト不要
      */
     public function contentsMenu($id = null, $level = null, $currentId = null)
     {
@@ -1849,6 +1884,7 @@ class BcBaserHelper extends Helper
      * @return mixed コンテンツデータ
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function _unsetIndexInContentsMenu($contents, $children = false)
     {
@@ -1874,6 +1910,7 @@ class BcBaserHelper extends Helper
      * @return void
      * @checked
      * @noTodo
+     * @unitTest ラッパーメソッドのためユニットテスト不要
      */
     public function globalMenu($level = 1, $options = [])
     {
@@ -1889,6 +1926,7 @@ class BcBaserHelper extends Helper
      * @return string
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function getGlobalMenu($level = 5, $options = [])
     {
@@ -1939,6 +1977,7 @@ class BcBaserHelper extends Helper
      * @param int $siteId サイトID
      * @checked
      * @noTodo
+     * @unitTest ラッパーメソッドのためユニットテストはスキップする
      */
     public function sitemap($siteId = 0)
     {
@@ -1954,6 +1993,7 @@ class BcBaserHelper extends Helper
      * @return string サイトマップ
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function getSitemap($siteId = 0)
     {
@@ -1986,6 +2026,7 @@ class BcBaserHelper extends Helper
      * @return string URL
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function getHere()
     {
@@ -1999,6 +2040,7 @@ class BcBaserHelper extends Helper
      * @return bool カテゴリトップの場合は、 true を返す
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function isCategoryTop()
     {
@@ -2030,8 +2072,9 @@ class BcBaserHelper extends Helper
      * @return void
      * @checked
      * @noTodo
+     * @unitTest
      */
-    public function page($url, $params = [], $options = [])
+    public function page(string $url, array $params = [], array $options = []): void
     {
         if(
             in_array('pageRecursive', $this->getView()->getVars())
@@ -2058,6 +2101,7 @@ class BcBaserHelper extends Helper
             }
         }
 
+        /** @var PagesService $pagesService */
         $pagesService = $this->getService(PagesServiceInterface::class);
         try {
             $page = $pagesService->get($content->entity_id);
@@ -2065,12 +2109,13 @@ class BcBaserHelper extends Helper
             return;
         }
 
-        // urlを取得
-        if (empty($this->getView()->subDir)) {
-            $url = '/../Pages/' . $page->page_template;
+        $pageTemplate = $pagesService->getPageTemplate($page);
+        if (!$this->getView()->getSubDir()) {
+            $url = '/../Pages/' . $pageTemplate;
         } else {
-            $url = '../Pages/' . $page->page_template;
+            $url = '../Pages/' . $pageTemplate;
         }
+
         $page->content = $content;
         $params['page'] = $page;
         $this->element($url, $params, ['subDir' => $options['subDir']]);
@@ -2088,6 +2133,7 @@ class BcBaserHelper extends Helper
      * @return bool 同じ場合には true を返す
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function isCurrentUrl($url)
     {
@@ -2148,6 +2194,7 @@ class BcBaserHelper extends Helper
      * @return void
      * @checked
      * @noTodo
+     * @UnitTest ラッパーメソッドに付きテスト不要
      */
     public function baseUrl()
     {
@@ -2199,6 +2246,7 @@ class BcBaserHelper extends Helper
      * @return void
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function googleAnalytics($data = [], $options = [])
     {
@@ -2249,6 +2297,7 @@ class BcBaserHelper extends Helper
      * @return void
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function listNum($data = [], $options = [])
     {
@@ -2264,6 +2313,7 @@ class BcBaserHelper extends Helper
      * @return void
      * @checked
      * @noTodo
+     * @unitTest ラッパーメソッドのためユニットテストはスキップする
      */
     public function siteSearchForm($data = [], $options = [])
     {
@@ -2279,6 +2329,7 @@ class BcBaserHelper extends Helper
      * @return string
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function getSiteSearchForm($data = [], $options = [])
     {
@@ -2291,6 +2342,7 @@ class BcBaserHelper extends Helper
      * @return void
      * @checked
      * @noTodo
+     * @unitTest ラッパーメソッドのためユニットテスト不要
      */
     public function siteName()
     {
@@ -2303,6 +2355,7 @@ class BcBaserHelper extends Helper
      * @return string サイト基本設定のWebサイト名
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function getSiteName()
     {
@@ -2315,31 +2368,27 @@ class BcBaserHelper extends Helper
     /**
      * WebサイトURLを出力する
      *
-     * @param bool ssl （初期値 : false）
      * @return void
      * @checked
      * @noTodo
+     * @unitTest
      */
-    public function siteUrl($ssl = false)
+    public function siteUrl()
     {
-        echo $this->getSiteUrl($ssl);
+        echo $this->getSiteUrl();
     }
 
     /**
      * WebサイトURLを取得する
      *
-     * @param bool ssl （初期値 : false）
      * @return string サイト基本設定のWebサイト名
      * @checked
      * @noTodo
+     * @unitTest
      */
-    public function getSiteUrl($ssl = false)
+    public function getSiteUrl()
     {
-        if ($ssl) {
-            return Configure::read('BcEnv.sslUrl');
-        } else {
-            return Configure::read('BcEnv.siteUrl');
-        }
+        return Configure::read('BcEnv.siteUrl');
     }
 
     /**
@@ -2383,6 +2432,7 @@ class BcBaserHelper extends Helper
      * @return string
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function getCurrentPrefix()
     {
@@ -2436,6 +2486,7 @@ class BcBaserHelper extends Helper
      * 更新情報を出力する
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function updateInfo(): void
     {
@@ -2461,15 +2512,15 @@ class BcBaserHelper extends Helper
      * 関連サイトのリンク一覧を取得
      *
      * @param int $id コンテンツID
+     * @param array $excludeIds 除外するサイトID
      * @checked
      * @noTodo
+     * @unitTest
      */
-    public function getRelatedSiteLinks($id = null, $excludeIds = [])
+    public function getRelatedSiteLinks(int $id = null, array $excludeIds = []): string
     {
         $options = [];
-        if ($excludeIds) {
-            $options['excludeIds'] = $excludeIds;
-        }
+        if ($excludeIds) $options['excludeIds'] = $excludeIds;
         $links = $this->BcContents->getRelatedSiteLinks($id, $options);
         return $this->getElement('related_site_links', ['links' => $links]);
     }
@@ -2480,6 +2531,7 @@ class BcBaserHelper extends Helper
      * @param int $id コンテンツID
      * @checked
      * @noTodo
+     * @unitTest ラッパーメソッドのためユニットテストはスキップする
      */
     public function relatedSiteLinks($id = null, $excludeIds = [])
     {
@@ -2610,6 +2662,7 @@ class BcBaserHelper extends Helper
      * @param bool $useGloss 光沢有無
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function webClipIcon($fileName = 'apple-touch-icon-precomposed.png', $useGloss = false)
     {
@@ -2634,6 +2687,7 @@ class BcBaserHelper extends Helper
      * @return string
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function getContentsUrl($url = null, $full = false, $useSubDomain = null, $base = true)
     {
@@ -2654,6 +2708,7 @@ class BcBaserHelper extends Helper
      * @return bool|mixed Plugin 内の Baserヘルパ
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function getPluginBaser($name)
     {

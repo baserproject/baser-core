@@ -12,7 +12,10 @@
 namespace BaserCore\Test\TestCase\Controller\Api\Admin;
 
 use BaserCore\Service\SiteConfigsService;
+use BaserCore\Test\Scenario\InitAppScenario;
+use BaserCore\Test\Scenario\SiteConfigsScenario;
 use Cake\TestSuite\IntegrationTestTrait;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 class SiteConfigsControllerTest extends \BaserCore\TestSuite\BcTestCase
 {
@@ -21,19 +24,7 @@ class SiteConfigsControllerTest extends \BaserCore\TestSuite\BcTestCase
      * IntegrationTestTrait
      */
     use IntegrationTestTrait;
-
-    /**
-     * Fixtures
-     *
-     * @var array
-     */
-    public $fixtures = [
-        'plugin.BaserCore.Users',
-        'plugin.BaserCore.UsersUserGroups',
-        'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.SiteConfigs',
-        'plugin.BaserCore.Sites',
-    ];
+    use ScenarioAwareTrait;
 
     /**
      * Access Token
@@ -53,6 +44,8 @@ class SiteConfigsControllerTest extends \BaserCore\TestSuite\BcTestCase
     public function setUp(): void
     {
         parent::setUp();
+        $this->loadFixtureScenario(InitAppScenario::class);
+        $this->loadFixtureScenario(SiteConfigsScenario::class);
         $token = $this->apiLoginAdmin(1);
         $this->accessToken = $token['access_token'];
         $this->refreshToken = $token['refresh_token'];
@@ -95,11 +88,16 @@ class SiteConfigsControllerTest extends \BaserCore\TestSuite\BcTestCase
     {
         $this->enableSecurityToken();
         $this->enableCsrfToken();
-        $data = [
-            'email' => 'hoge@basercms.net'
-        ];
+        $data = ['email' => 'hoge@basercms.net'];
         $this->post('/baser/api/admin/baser-core/site_configs/edit/1.json?token=' . $this->accessToken, $data);
         $this->assertResponseSuccess();
+
+        //エラーを発生した場合、
+        $this->post('/baser/api/admin/baser-core/site_configs/edit/1.json?token=' . $this->accessToken, ['email' => '']);
+        $this->assertResponseCode(400);
+        $result = json_decode((string)$this->_response->getBody());
+        $this->assertEquals('入力エラーです。内容を修正してください。', $result->message);
+        $this->assertEquals('管理者メールアドレスを入力してください。', $result->errors->email->_empty);
     }
 
     /**

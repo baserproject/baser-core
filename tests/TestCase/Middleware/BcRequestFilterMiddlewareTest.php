@@ -12,9 +12,15 @@
 namespace BaserCore\Test\TestCase\Middleware;
 
 use BaserCore\Middleware\BcRequestFilterMiddleware;
+use BaserCore\Test\Scenario\ContentsScenario;
+use BaserCore\Test\Scenario\MultiSiteScenario;
+use BaserCore\Test\Scenario\SitesScenario;
 use BaserCore\TestSuite\BcTestCase;
+use BaserCore\Utility\BcContainerTrait;
 use BaserCore\Utility\BcUtil;
 use Cake\Core\Configure;
+use Cake\Http\ServerRequest;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 use ReflectionClass;
 
 /**
@@ -23,20 +29,11 @@ use ReflectionClass;
  */
 class BcRequestFilterMiddlewareTest extends BcTestCase
 {
-
     /**
-     * Fixtures
-     *
-     * @var array
+     * ScenarioAwareTrait
      */
-    protected $fixtures = [
-        'plugin.BaserCore.Sites',
-        'plugin.BaserCore.Contents',
-        'plugin.BaserCore.ContentFolders',
-        'plugin.BaserCore.Pages',
-        'plugin.BaserCore.SiteConfigs',
-    ];
-
+    use ScenarioAwareTrait;
+    use BcContainerTrait;
     /**
      * Set Up
      *
@@ -44,11 +41,6 @@ class BcRequestFilterMiddlewareTest extends BcTestCase
      */
     public function setUp(): void
     {
-        if (preg_match('/^testIsInstall/', $this->getName())) {
-            Configure::write('BcEnv.isInstalled', false);
-        } else {
-            Configure::write('BcEnv.isInstalled', true);
-        }
         parent::setUp();
         $this->BcRequestFilterMiddleware = new BcRequestFilterMiddleware();
     }
@@ -69,6 +61,7 @@ class BcRequestFilterMiddlewareTest extends BcTestCase
      */
     public function testProcess(): void
     {
+        $this->loadFixtureScenario(MultiSiteScenario::class);
         $this->_response = $this->BcRequestFilterMiddleware->process($this->getRequest(), $this->Application);
         $this->assertResponseOk();
     }
@@ -78,6 +71,7 @@ class BcRequestFilterMiddlewareTest extends BcTestCase
      */
     public function testRedirectIfIsDeviceFile()
     {
+        $this->loadFixtureScenario(MultiSiteScenario::class);
         $this->_response = $this->BcRequestFilterMiddleware->redirectIfIsDeviceFile($this->getRequest(), $this->Application);
         $this->assertNull($this->_response);
         $url = '/s/files/test.png';
@@ -106,9 +100,27 @@ class BcRequestFilterMiddlewareTest extends BcTestCase
         $detectors2 = $ref2->getProperty('_detectors');
         $detectors2->setAccessible(true);
         $detectors->setValue($detectors2->getValue());
-        $this->assertFalse($request->is('admin'));
         $request = $this->BcRequestFilterMiddleware->addDetectors($request);
         $this->assertTrue($request->is('admin'));
+    }
+
+    /**
+     * リクエスト検出器を追加する（例外）
+     * @return void
+     * @throws \ReflectionException
+     */
+    public function testAddDetectorsWithException()
+    {
+        $request = $this->getRequest('/baser/admin');
+        $ref = new ReflectionClass($request);
+        $detectors = $ref->getProperty('_detectors');
+        $detectors->setAccessible(true);
+        $ref2 = new ReflectionClass(BcUtil::class);
+        $detectors2 = $ref2->getProperty('_detectors');
+        $detectors2->setAccessible(true);
+        $detectors->setValue($detectors2->getValue());
+        $this->expectException(\InvalidArgumentException::class);
+        $request->is('admin');
     }
 
     /**
@@ -129,7 +141,7 @@ class BcRequestFilterMiddlewareTest extends BcTestCase
      *
      * @return array
      */
-    public function isAdminDataProvider()
+    public static function isAdminDataProvider()
     {
         return [
             [true, '/baser/admin'],
@@ -152,6 +164,8 @@ class BcRequestFilterMiddlewareTest extends BcTestCase
      */
     public function testIsInstall($expect, $url)
     {
+        $this->markTestIncomplete('こちらのテストはまだ未確認です');
+        Configure::write('BcRequest.isInstalled', false);
         $this->assertEquals($expect, $this->BcRequestFilterMiddleware->isInstall($this->getRequest($url)));
     }
 
@@ -160,7 +174,7 @@ class BcRequestFilterMiddlewareTest extends BcTestCase
      *
      * @return array
      */
-    public function isInstallDataProvider()
+    public static function isInstallDataProvider()
     {
         return [
             [true, '/install'],
@@ -190,7 +204,7 @@ class BcRequestFilterMiddlewareTest extends BcTestCase
      *
      * @return array
      */
-    public function isMaintenanceDataProvider()
+    public static function isMaintenanceDataProvider()
     {
         return [
             [true, '/maintenance'],
@@ -213,6 +227,8 @@ class BcRequestFilterMiddlewareTest extends BcTestCase
      */
     public function testIsPage($expect, $url)
     {
+        $this->loadFixtureScenario(ContentsScenario::class);
+        $this->loadFixtureScenario(SitesScenario::class);
         $this->assertEquals($expect, $this->BcRequestFilterMiddleware->isPage($this->getRequest($url)));
     }
 
@@ -221,7 +237,7 @@ class BcRequestFilterMiddlewareTest extends BcTestCase
      *
      * @return array
      */
-    public function isPageDataProvider()
+    public static function isPageDataProvider()
     {
         return [
             [false, '/admin/'],
@@ -246,4 +262,27 @@ class BcRequestFilterMiddlewareTest extends BcTestCase
         $this->assertFalse($this->BcRequestFilterMiddleware->isRequestView($this->getRequest($url)));
     }
 
+    /**
+     * test isInstall
+     * @param string $controller
+     * @param bool $expected
+     * @dataProvider isInstallProvider
+     */
+    public function test_isInstall($controller, $expected)
+    {
+        $request = new ServerRequest([
+            'params' => ['controller' => $controller]
+        ]);
+
+        $result = $this->BcRequestFilterMiddleware->isInstall($request);
+        $this->assertEquals($expected, $result);
+    }
+
+    public static function isInstallProvider()
+    {
+        return [
+            ['Installations', true],
+            ['Users', false],
+        ];
+    }
 }

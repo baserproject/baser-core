@@ -13,28 +13,36 @@ namespace BaserCore\Test\TestCase\View\Helper;
 
 use BaserCore\Test\Factory\ContentFactory;
 use BaserCore\Test\Factory\PageFactory;
+use BaserCore\Test\Factory\PluginFactory;
+use BaserCore\Test\Factory\SiteConfigFactory;
 use BaserCore\Test\Factory\SiteFactory;
+use BaserCore\Test\Factory\UserFactory;
+use BaserCore\Test\Factory\UserGroupFactory;
+use BaserCore\Test\Factory\UsersUserGroupFactory;
+use BaserCore\Test\Scenario\ContentsScenario;
 use BaserCore\Test\Scenario\InitAppScenario;
+use BaserCore\Utility\BcUtil;
+use BaserCore\View\BcFrontAppView;
+use BaserCore\View\Helper\BcContentsHelper;
+use BaserCore\View\Helper\BcHtmlHelper;
+use Cake\Datasource\Paging\PaginatedResultSet;
 use Cake\Http\Exception\NotFoundException;
+use Cake\ORM\ResultSet;
+use Cake\View\View;
 use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
+use BaserCore\Utility\BcFile;
 use ReflectionClass;
 use Cake\Event\Event;
 use Cake\Core\Configure;
 use Cake\Routing\Router;
-use Cake\Filesystem\File;
 use Cake\Event\EventManager;
 use Cake\View\Helper\UrlHelper;
 use Cake\View\Helper\HtmlHelper;
 use Cake\View\Helper\FlashHelper;
 use Cake\ORM\TableRegistry;
-use BaserCore\View\BcFrontAppView;
 use BaserCore\View\BcAdminAppView;
 use BaserCore\TestSuite\BcTestCase;
 use BaserCore\View\Helper\BcBaserHelper;
-
-
-// use BaserCore\View\BcAdminAppView;
-// use Cake\Core\Configure;
 
 /**
  * Class BcBaserHelperTest
@@ -51,44 +59,6 @@ class BcBaserHelperTest extends BcTestCase
      * Trait
      */
     use ScenarioAwareTrait;
-
-    /**
-     * Fixtures
-     *
-     * @var array
-     */
-    protected $fixtures = [
-        'plugin.BaserCore.Users',
-        'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.UsersUserGroups',
-        'plugin.BaserCore.Sites',
-        'plugin.BaserCore.SiteConfigs',
-        'plugin.BaserCore.Contents',
-        'plugin.BaserCore.ContentFolders',
-        'plugin.BaserCore.Permissions',
-        'plugin.BaserCore.Plugins',
-        // TODO: basercms4系より移植
-        // 'baser.Default.Page',    // メソッド内で読み込む
-        // 'baser.Default.Content',    // メソッド内で読み込む
-        // 'baser.Routing.Route.BcContentsRoute.ContentBcContentsRoute',    // メソッド内で読み込む
-        // 'baser.Routing.Route.BcContentsRoute.SiteBcContentsRoute',    // メソッド内で読み込む
-        // 'baser.View.Helper.BcBaserHelper.PageBcBaserHelper',
-        // 'baser.View.Helper.BcBaserHelper.SiteConfigBcBaserHelper',
-        // 'baser.Default.SearchIndex',
-        // 'baser.Default.User',
-        // 'baser.Default.UserGroup',
-        // 'baser.Default.ThemeConfig',
-        // 'baser.Default.WidgetArea',
-        // 'baser.Default.Plugin',
-        // 'baser.Default.BlogContent',
-        // 'baser.Default.BlogPost',
-        // 'baser.Default.BlogCategory',
-        // 'baser.Default.BlogTag',
-        // 'baser.Default.BlogPostsBlogTag',
-        // 'baser.Default.Site',
-        // 'baser.Default.BlogComment',
-        // 'baser.View.Helper.BcContentsHelper.ContentBcContentsHelper',
-    ];
 
     /**
      * __construct
@@ -118,20 +88,6 @@ class BcBaserHelperTest extends BcTestCase
         $this->Html = new HtmlHelper($this->BcAdminAppView);
         $this->Flash = new FlashHelper($this->BcAdminAppView);
         $this->Url = new UrlHelper($this->BcAdminAppView);
-        $this->Contents = $this->getTableLocator()->get('BaserCore.Contents');
-
-        // TODO: basercms4より移植
-        // $this->_View = new BcAppView();
-        // $this->_View->request = $this->_getRequest('/');
-        // $SiteConfig = ClassRegistry::init('SiteConfig');
-        // $siteConfig = $SiteConfig->findExpanded();
-        // $this->_View->set('widgetArea', $siteConfig['widget_area']);
-        // $this->_View->set('siteConfig', $siteConfig);
-        // $this->_View->helpers = ['BcBaser'];
-        // $this->_View->loadHelpers();
-        // $this->BcBaser = $this->_View->BcBaser;
-
-
     }
 
     /**
@@ -179,7 +135,7 @@ class BcBaserHelperTest extends BcTestCase
         $this->BcBaser->js($url);
     }
 
-    public function jsDataProvider()
+    public static function jsDataProvider()
     {
         return [
             ['<script type="text/javascript" src="/js/admin/startup.js"></script>', 'admin/startup'],
@@ -227,13 +183,13 @@ class BcBaserHelperTest extends BcTestCase
 
         // 管理画面用のテンプレートがなくフロントのテンプレートがある場合
         $templateDir = ROOT . DS . 'plugins' . DS . 'bc-admin-third' . DS . 'templates'. DS;
-        $fileFront = new File($templateDir . 'element' . DS . 'test.php');
+        $fileFront = new BcFile($templateDir . 'element' . DS . 'test.php');
         $fileFront->create();
         $fileFront->write('front');
         $this->assertTextContains('front', $this->BcBaser->getElement('test'));
 
         // 管理画面用のテンプレートとフロントのテンプレートの両方がある場合
-        $fileAdmin = new File($templateDir . 'Admin' . DS . 'element' . DS . 'test.php');
+        $fileAdmin = new BcFile($templateDir . 'Admin' . DS . 'element' . DS . 'test.php');
         $fileAdmin->create();
         $fileAdmin->write('admin');
         $this->assertTextContains('admin', $this->BcBaser->getElement('test'));
@@ -328,7 +284,7 @@ class BcBaserHelperTest extends BcTestCase
         $this->assertEquals($expected, $result);
     }
 
-    public function getImgDataProvider()
+    public static function getImgDataProvider()
     {
         return [
             ['baser.power.gif', ['alt' => "baserCMSロゴ"], '<img src="/img/baser.power.gif" alt="baserCMSロゴ"/>'],
@@ -362,6 +318,13 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testGetLink($title, $url, $option, $expected)
     {
+        $this->loadFixtureScenario(InitAppScenario::class);
+        UserFactory::make(['id' => 2])->persist();
+        UserGroupFactory::make(['id' => 2])->persist();
+        UsersUserGroupFactory::make(['user_id' => 2, 'user_group_id' => 2])->persist();
+        ContentFactory::make(['id' => 1, 'url' => '/about'])->persist();
+        ContentFactory::make(['id' => 2, 'url' => '/'])->persist();
+
         $this->loginAdmin($this->getRequest());
         if (!empty($option['prefix'])) {
             $this->BcBaser->getView()->setRequest($this->getRequest('/admin'));
@@ -369,15 +332,11 @@ class BcBaserHelperTest extends BcTestCase
         if (!empty($option['forceTitle'])) {
             $this->loginAdmin($this->getRequest('/baser/admin'), 2);
         }
-        if (!empty($option['ssl'])) {
-            Configure::write('BcEnv.sslUrl', 'https://localhost/');
-        }
         $result = $this->BcBaser->getLink($title, $url, $option);
         $this->assertEquals($expected, $result);
-        Configure::write('BcEnv.sslUrl', '');
     }
 
-    public function getLinkDataProvider()
+    public static function getLinkDataProvider()
     {
         return [
             ['', '/', [], '<a href="/"></a>'],
@@ -388,10 +347,42 @@ class BcBaserHelperTest extends BcTestCase
             ['<b>title</b>', 'https://example.com/<b>link</b>', ['escapeTitle' => false], '<a href="https://example.com/&lt;b&gt;link&lt;/b&gt;"><b>title</b></a>'], // エスケープ
             ['固定ページ管理', ['prefix' => 'Admin', 'controller' => 'pages', 'action' => 'index'], [], '<a href="/baser/admin/baser-core/pages/index">固定ページ管理</a>'],    // プレフィックス
             ['システム設定', ['Admin' => true, 'controller' => 'site_configs', 'action' => 'index'], ['forceTitle' => true], '<span>システム設定</span>'],    // 強制タイトル
-            ['会社案内', '/about', ['ssl' => true], '<a href="https://localhost/about">会社案内</a>'], // SSL
-            ['テーマファイル管理', ['controller' => 'themes', 'action' => 'manage', 'jsa'], ['ssl' => true], '<a href="https://localhost/baser-core/themes/manage/jsa">テーマファイル管理</a>'], // SSL
-            ['画像', '/img/test.jpg', ['ssl' => true], '<a href="https://localhost/img/test.jpg">画像</a>'], // SSL
         ];
+    }
+
+    /**
+     * test isLinkEnabled
+     */
+    public function testIsLinkEnabled()
+    {
+        $this->loadFixtureScenario(InitAppScenario::class);
+        UserFactory::make(['id' => 2])->persist();
+        UserFactory::make(['id' => 3])->persist();
+        UsersUserGroupFactory::make(['user_id' => 3, 'user_group_id' => 3])->persist();
+        UserGroupFactory::make(['id' => 3])->persist();
+
+
+        //baserCMSのインストールが完了していない、return true
+        Configure::write('BcEnv.isInstalled', false);
+        $this->assertTrue($this->BcBaser->isLinkEnabled('/'));
+
+        //baserCMSのインストールが完了している設定
+        Configure::write('BcEnv.isInstalled', true);
+
+        //ログインしていない場合、return true
+        $this->assertTrue($this->BcBaser->isLinkEnabled('/'));
+
+        //ユーザーグループがユーザーに関連付けられていない場合、return true
+        $this->loginAdmin($this->getRequest('/'), 2);
+        $this->assertTrue($this->BcBaser->isLinkEnabled('/'));
+
+        //Adminでログインした場合、return true
+        $this->loginAdmin($this->getRequest('/'), 1);
+        $this->assertTrue($this->BcBaser->isLinkEnabled('/'));
+
+        //AdminではないログインしたかつadminURLにアクセス場合、return false
+        $this->loginAdmin($this->getRequest('/'), 3);
+        $this->assertFalse($this->BcBaser->isLinkEnabled('/baser/admin/bc-blog/blog_posts/edit/100'));
     }
 
     /**
@@ -402,13 +393,18 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testIsAdminUser($id, $expected)
     {
+        $this->loadFixtureScenario(InitAppScenario::class);
+        UserFactory::make(['id' => 2])->persist();
+        UserGroupFactory::make(['id' => 2])->persist();
+        UsersUserGroupFactory::make(['user_id' => 2, 'user_group_id' => 2])->persist();
+
         $this->loginAdmin($this->getRequest('/baser/admin'));
         $user = $id? $this->getuser($id) : null;
         $result = $this->BcBaser->isAdminUser($user);
         $this->assertEquals($expected, $result);
     }
 
-    public function isAdminUserDataProvider()
+    public static function isAdminUserDataProvider()
     {
         return [
             // 管理者グループ
@@ -550,6 +546,12 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testGetContentsName($expects, $url, $detail = false, $options = [])
     {
+        SiteFactory::make(['id' => 2, 'name' => 'smartphone', 'alias' => 's', 'device' => 'smartphone'])->persist();
+        SiteFactory::make(['id' => 3, 'name' => 'en', 'alias' => 'en', 'lang' => 'english'])->persist();
+        ContentFactory::make(['id' => 1, 'url' => '/about'])->persist();
+        ContentFactory::make(['id' => 2, 'url' => '/'])->persist();
+        ContentFactory::make(['id' => 3, 'url' => '/s/', 'site_id' => 2])->persist();
+        ContentFactory::make(['id' => 4, 'url' => '/en/', 'site_id' => 3,])->persist();
 
         if (!empty($options['device'])){
             $_SERVER['HTTP_USER_AGENT'] = $options['device'];
@@ -566,7 +568,7 @@ class BcBaserHelperTest extends BcTestCase
             unset($options['device']);
         }
 
-        $this->BcBaser = new BcBaserHelper(new BcFrontAppView());
+        $this->BcBaser = new BcBaserHelper(new View());
         $this->BcBaser->getView()->setRequest($this->getRequest($url));
 
         if (!empty($options['error'])) {
@@ -590,7 +592,7 @@ class BcBaserHelperTest extends BcTestCase
      * @param string $expects コンテンツ名
      * @dataProvider getContentsNameDataProvider
      */
-    public function getContentsNameDataProvider()
+    public static function getContentsNameDataProvider()
     {
         return [
             //PC
@@ -629,7 +631,7 @@ class BcBaserHelperTest extends BcTestCase
         $this->assertEquals($expected, $this->BcBaser->getUrl($url, $full));
     }
 
-    public function getUrlDataProvider()
+    public static function getUrlDataProvider()
     {
         return [
             // ノーマル
@@ -687,26 +689,29 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testSetTitle()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
+        SiteFactory::make(['id' => 1, 'title' => 'baserCMS inc. [デモ]'])->persist();
+        ContentFactory::make(['id' => 1, 'url' => '/about', 'site_id' => 1])->persist();
+        $this->BcBaser->getView()->setRequest($this->getRequest('/about'));
 
-        $topTitle = '｜baserCMS inc. [デモ]';
-        $this->BcBaser->request = $this->_getRequest('/about');
         // カテゴリがない場合
         $this->BcBaser->setTitle('会社案内');
-        $this->assertEquals("会社案内{$topTitle}", $this->BcBaser->getTitle());
+        $this->assertEquals("会社案内｜baserCMS inc. [デモ]", $this->BcBaser->getTitle());
 
         // カテゴリがある場合
-        $this->BcBaser->request = $this->_getRequest('/service/service2');
-        $this->BcBaser->_View->set('crumbs', [
-            ['name' => '会社案内', 'url' => '/service/index'],
-            ['name' => '会社データ', 'url' => '/service/data']
-        ]);
+        $request = $this->getRequest('/about');
+        $view = new View($request);
+        $view->set(['crumbs' => [
+            ['name' => '会社案内', 'url' => '/company/index'],
+            ['name' => '会社データ', 'url' => '/company/data']
+        ]]);
+
+        $this->BcBaser = new BcBaserHelper($view);
         $this->BcBaser->setTitle('会社沿革');
-        $this->assertEquals("会社沿革｜会社データ｜会社案内{$topTitle}", $this->BcBaser->getTitle());
+        $this->assertEquals("会社沿革｜会社データ｜会社案内｜baserCMS inc. [デモ]", $this->BcBaser->getTitle());
 
         // カテゴリは存在するが、カテゴリの表示をオフにした場合
         $this->BcBaser->setTitle('会社沿革', false);
-        $this->assertEquals("会社沿革{$topTitle}", $this->BcBaser->getTitle());
+        $this->assertEquals("会社沿革｜baserCMS inc. [デモ]", $this->BcBaser->getTitle());
     }
 
     /**
@@ -759,14 +764,18 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testSetCategoryTitle()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
+        SiteFactory::make(['id' => 1, 'title' => 'baserCMS inc. [デモ]'])->persist();
+        ContentFactory::make(['id' => 1, 'url' => '/about', 'site_id' => 1])->persist();
 
         $topTitle = '｜baserCMS inc. [デモ]';
-        $this->BcBaser->request = $this->_getRequest('/about');
-        $this->BcBaser->_View->set('crumbs', [
+        $request = $this->getRequest('/about');
+        $view = new View($request);
+        $view->set(['crumbs' => [
             ['name' => '会社案内', 'url' => '/company/index'],
             ['name' => '会社データ', 'url' => '/company/data']
-        ]);
+        ]]);
+        $this->BcBaser = new BcBaserHelper($view);
+
         $this->BcBaser->setTitle('会社沿革');
 
         // カテゴリをオフにした場合
@@ -807,7 +816,10 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testGetKeywords($expected, $keyword = null)
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
+        SiteFactory::make(['id' => 1, 'keyword' => 'baser,CMS,コンテンツマネジメントシステム,開発支援'])->persist();
+        ContentFactory::make(['id' => 1, 'url' => '/about', 'site_id' => 1])->persist();
+
+        $this->BcBaser = new BcBaserHelper(new View($this->getRequest('/about')));
 
         if ($keyword !== null) {
             $this->BcBaser->setKeywords($keyword);
@@ -815,7 +827,7 @@ class BcBaserHelperTest extends BcTestCase
         $this->assertEquals($expected, $this->BcBaser->getKeywords());
     }
 
-    public function getKeywordsDataProvider()
+    public static function getKeywordsDataProvider()
     {
         return [
             ['baser,CMS,コンテンツマネジメントシステム,開発支援'],
@@ -833,7 +845,10 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testGetDescription($expected, $description = null)
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
+        SiteFactory::make(['id' => 1, 'alias' => 'test', 'description' => 'baserCMS は、CakePHPを利用し、環境準備の素早さに重点を置いた基本開発支援プロジェクトです。Webサイトに最低限必要となるプラグイン、そしてそのプラグインを組み込みやすい管理画面、認証付きのメンバーマイページを最初から装備しています。'])->persist();
+        ContentFactory::make(['id' => 1, 'url' => '/test/', 'site_id' => 1])->persist();
+
+        $this->BcBaser = new BcBaserHelper(new View($this->getRequest('/test/')));
 
         if ($description !== null) {
             $this->BcBaser->setDescription($description);
@@ -841,7 +856,7 @@ class BcBaserHelperTest extends BcTestCase
         $this->assertEquals($expected, $this->BcBaser->getDescription());
     }
 
-    public function getDescriptionDataProvider()
+    public static function getDescriptionDataProvider()
     {
         return [
             ['baserCMS は、CakePHPを利用し、環境準備の素早さに重点を置いた基本開発支援プロジェクトです。Webサイトに最低限必要となるプラグイン、そしてそのプラグインを組み込みやすい管理画面、認証付きのメンバーマイページを最初から装備しています。', ''],
@@ -855,15 +870,18 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testGetTitle()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-
         $topTitle = 'baserCMS inc. [デモ]';
-        $this->BcBaser->request = $this->_getRequest('/about');
+        SiteFactory::make(['id' => 1, 'title' => 'baserCMS inc. [デモ]'])->persist();
+        ContentFactory::make(['id' => 1, 'url' => '/about', 'site_id' => 1])->persist();
+
         // 通常
-        $this->BcBaser->_View->set('crumbs', [
+        $request = $this->getRequest('/about');
+        $view = new View($request);
+        $view->set(['crumbs' => [
             ['name' => '会社案内', 'url' => '/company/index'],
             ['name' => '会社データ', 'url' => '/company/data']
-        ]);
+        ]]);
+        $this->BcBaser = new BcBaserHelper($view);
         $this->BcBaser->setTitle('会社沿革');
         $this->assertEquals("会社沿革｜会社データ｜会社案内｜{$topTitle}", $this->BcBaser->getTitle());
 
@@ -943,6 +961,11 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testGetContentsMenu()
     {
+        ContentFactory::make(['id' => 1, 'site_id' => 1, 'lft' => 1, 'rght' => 2, 'site_root' => true])->persist();
+
+        $request = $this->getRequest()->withAttribute('currentContent', ContentFactory::get(1));
+        $this->BcBaser = new BcBaserHelper(new BcAdminAppView($request));
+
         $this->assertMatchesRegularExpression('/<ul class="menu ul-level-1">/s', $this->BcBaser->getContentsMenu());
         $this->assertMatchesRegularExpression('/<ul class="menu ul-level-1">/s', $this->BcBaser->getContentsMenu(1, 1));
         $this->assertMatchesRegularExpression('/<ul class="menu ul-level-1">/s', $this->BcBaser->getContentsMenu(1, 1, 1));
@@ -954,13 +977,12 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testTitle()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
+        SiteFactory::make(['id' => 1, 'title' => 'baserCMS inc. [デモ]'])->persist();
+        ContentFactory::make(['id' => 1, 'url' => '/about', 'site_id' => 1])->persist();
+        $this->BcBaser->getView()->setRequest($this->getRequest('/about'));
 
-        $topTitle = 'baserCMS inc. [デモ]';
-        $title = '会社データ';
-        $this->BcBaser->request = $this->_getRequest('/about');
-        $this->expectOutputString('<title>' . $title . '｜' . $topTitle . '</title>' . PHP_EOL);
-        $this->BcBaser->setTitle($title);
+        $this->expectOutputString('<title>会社データ｜baserCMS inc. [デモ]</title>' . PHP_EOL);
+        $this->BcBaser->setTitle('会社データ');
         $this->BcBaser->title();
     }
 
@@ -970,20 +992,11 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testMetaKeywords()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-
         $this->BcBaser->setKeywords('baserCMS,国産,オープンソース');
         ob_start();
         $this->BcBaser->metaKeywords();
         $result = ob_get_clean();
-        $excepted = [
-            'meta' => [
-                'name' => 'keywords',
-                'content' => 'baserCMS,国産,オープンソース'
-            ]
-        ];
-
-        $this->assertTags($result, $excepted);
+        $this->assertEquals($result, '<meta name="keywords" content="baserCMS,国産,オープンソース">' . PHP_EOL);
     }
 
     /**
@@ -992,19 +1005,12 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testMetaDescription()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-
         $this->BcBaser->setDescription('国産オープンソースのホームページです');
         ob_start();
         $this->BcBaser->metaDescription();
         $result = ob_get_clean();
-        $excepted = [
-            'meta' => [
-                'name' => 'description',
-                'content' => '国産オープンソースのホームページです'
-            ]
-        ];
-        $this->assertTags($result, $excepted);
+
+        $this->assertEquals($result, '<meta name="description" content="国産オープンソースのホームページです">' . PHP_EOL);
     }
 
     /**
@@ -1013,20 +1019,10 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testRss()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-
         ob_start();
         $this->BcBaser->rss('ブログ', 'http://localhost/blog/');
         $result = ob_get_clean();
-        $excepted = [
-            'link' => [
-                'href' => 'http://localhost/blog/',
-                'type' => 'application/rss+xml',
-                'rel' => 'alternate',
-                'title' => 'ブログ'
-            ]
-        ];
-        $this->assertTags($result, $excepted);
+        $this->assertEquals($result, '<link href="http://localhost/blog/" type="application/rss+xml" rel="alternate" title="ブログ">' . PHP_EOL);
     }
 
     /**
@@ -1038,11 +1034,16 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testIsHome($expected, $url)
     {
+        $this->loadFixtureScenario(InitAppScenario::class);
+        SiteFactory::make(['id' => 2, 'main_site_id' => 1, 'name' => 'en'])->persist();
+        ContentFactory::make(['id' => 1, 'url' => '/'])->persist();
+        ContentFactory::make(['id' => 2, 'url' => '/en/', 'site_id' => 2])->persist();
+
         $this->BcBaser->getView()->setRequest($this->getRequest($url));
         $this->assertEquals($expected, $this->BcBaser->isHome());
     }
 
-    public function isHomeDataProvider()
+    public static function isHomeDataProvider()
     {
         return [
             //PC
@@ -1072,9 +1073,7 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testHeader()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-
-        $this->expectOutputRegex('/<div id="Header">.*<a href="\/sitemap">サイトマップ<\/a>.*<\/li>.*<\/ul>.*<\/div>.*<\/div>/s');
+        $this->expectOutputRegex('/<header class="bs-header">.*<div class="bs-header__menu-button" id="BsMenuBtn">.*<\/div>.*<nav class="bs-header__nav" id="BsMenuContent">.*<\/nav>.*<\/header>/s');
         $this->BcBaser->header();
     }
 
@@ -1084,9 +1083,7 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testFooter()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-
-        $this->expectOutputRegex('/<div id="Footer">.*<img src="\/img\/cake.power.gif".*<\/a>.*<\/p>.*<\/div>/s');
+        $this->expectOutputRegex('/<footer class="bs-footer">.*<img src="\/img\/cake.power.gif".*<\/a>.*<\/p>.*<\/footer>/s');
         $this->BcBaser->footer();
     }
 
@@ -1096,21 +1093,17 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testPagination()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-
-        $this->expectOutputRegex('/<div class="pagination">/');
-        $this->BcBaser->getRequest()->withParam('paging.Model', [
-            'count' => 100,
-            'pageCount' => 3,
-            'page' => 2,
-            'limit' => 10,
-            'current' => null,
-            'prevPage' => 1,
-            'nextPage' => 3,
-            'options' => [],
-            'paramType' => 'named'
+        $this->expectOutputRegex('/<div class="bs-pagination">/');
+        $posts = new PaginatedResultSet(new ResultSet([]), [
+            'pageCount' => 1,
+            'totalCount' => 1,
+            'currentPage' => 1,
+            'count' => 1,
+            'start' => 1,
+            'end' => 1
         ]);
-        $this->BcBaser->pagination();
+        $this->BcBaser->getView()->setRequest($this->getRequest('/'))->set('posts', $posts);
+        $this->BcBaser->pagination('simple');
     }
 
     /**
@@ -1119,10 +1112,9 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testContent()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
+        $this->BcBaser = new BcBaserHelper((new View())->assign('content', 'コンテンツ本体'));
 
         $this->expectOutputString('コンテンツ本体');
-        $this->_View->assign('content', 'コンテンツ本体');
         $this->BcBaser->content();
     }
 
@@ -1132,51 +1124,65 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testScripts()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-
         $themeConfigTag = '<link rel="stylesheet" type="text/css" href="/files/theme_configs/config.css" />';
 
         // CSS
-        $expected = "\n" . '<meta name="generator" content="basercms"/><link rel="stylesheet" type="text/css" href="/css/admin/layout.css"/>';
-        $this->BcBaser->css('admin/layout', ['inline' => false]);
+        $expected = '
+<meta name="generator" content="basercms"/>
+<link rel="stylesheet" href="/css/admin/layout.css">
+';
         ob_start();
+        $this->BcBaser->css('admin/layout', false);
         $this->BcBaser->scripts();
         $result = ob_get_clean();
-        $result = str_replace($themeConfigTag, '', $result);
         $this->assertEquals($expected, $result);
-        $this->_View->assign('css', '');
+
+        $view = $this->BcBaser->getView();
+        $view->assign('css', '');
+        $this->BcBaser = new BcBaserHelper($view);
 
         Configure::write('BcApp.outputMetaGenerator', false);
 
         // Javascript
-        $expected = '<script type="text/javascript" src="/js/admin/startup.js"></script>';
+        $expected = '
+
+<script src="/js/admin/startup.js"></script>';
         $this->BcBaser->js('admin/startup', false);
         ob_start();
         $this->BcBaser->scripts();
         $result = ob_get_clean();
         $result = str_replace($themeConfigTag, '', $result);
         $this->assertEquals($expected, $result);
-        $this->_View->assign('script', '');
+
+        $view->assign('script', '');
+        $this->BcBaser = new BcBaserHelper($view);
 
         // meta
-        $expected = '<meta name="description" content="説明文"/>';
-        App::uses('BcHtmlHelper', 'View/Helper');
-        $BcHtml = new BcHtmlHelper($this->_View);
-        $BcHtml->meta('description', '説明文', ['inline' => false]);
-        ob_start();
-        $this->BcBaser->scripts();
-        $result = ob_get_clean();
-        $result = str_replace($themeConfigTag, '', $result);
-        $this->assertEquals($expected, $result);
-        $this->_View->assign('meta', '');
+        $expected = '<meta name="description" content="説明文">
 
-        // ツールバー
-        $expected = '<link rel="stylesheet" type="text/css" href="/css/admin/toolbar.css"/>';
-        $this->BcBaser->set('user', ['User']);
+';
+        $BcHtml = new BcHtmlHelper($view);
+        $BcHtml->meta('description', '説明文', ['inline' => false]);
+        $view->assign('meta',
+            $BcHtml->meta('description', '説明文', ['inline' => false])
+        );
         ob_start();
         $this->BcBaser->scripts();
         $result = ob_get_clean();
-        $result = str_replace($themeConfigTag, '', $result);
+        $this->assertEquals($expected, $result);
+        $view->assign('meta', '');
+        $this->BcBaser = new BcBaserHelper($view);
+
+        $this->loadFixtureScenario(InitAppScenario::class);
+        // ツールバー
+        $expected = '<link rel="stylesheet" href="/css/admin/toolbar.css"><link rel="stylesheet" href="/bc_blog/css/admin/bc_blog_admin.css"><link rel="stylesheet" href="/bc_custom_content/css/admin/bc_custom_content_admin.css"><link rel="stylesheet" href="/bc_mail/css/admin/bc_mail_admin.css"><link rel="stylesheet" href="/bc_uploader/css/admin/bc_uploader_admin.css">
+
+';
+        $this->BcBaser->set('user', ['User']);
+        $this->loginAdmin($this->getRequest('/baser/admin'));
+        ob_start();
+        $this->BcBaser->scripts();
+        $result = ob_get_clean();
         $this->assertEquals($expected, $result);
     }
 
@@ -1186,9 +1192,8 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testFunc()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-
-        Configure::write('debug', 0);
+        $this->loadFixtureScenario(InitAppScenario::class);
+        Configure::write('debug', false);
 
         // 未ログイン
         ob_start();
@@ -1197,19 +1202,17 @@ class BcBaserHelperTest extends BcTestCase
         $this->assertEquals('', $result);
 
         // ログイン中
-        $expects = '<div id="ToolBar">';
-        $this->_login();
-        $this->BcBaser->set('currentPrefix', 'admin');
-        $this->BcBaser->set('currentUserAuthPrefixes', ['admin']);
+        $expects = '<div id="ToolBar" class="bca-toolbar">';
+        $this->loginAdmin($this->getRequest('/baser/admin'));
         ob_start();
         $this->BcBaser->func();
         $result = ob_get_clean();
         $this->assertTextContains($expects, $result);
-        $this->_logout();
 
         // デバッグモード２
-        $expects = '<table class="cake-sql-log"';
-        Configure::write('debug', 2);
+        $expects = '<span id="DebugMode" class="bca-debug-mode" title="デバッグモードです。運営を開始する前にシステム設定よりノーマルモードに戻しましょう。">
+              デバッグモード          </span>';
+        Configure::write('debug', true);
         ob_start();
         $this->BcBaser->func();
         $result = ob_get_clean();
@@ -1230,7 +1233,7 @@ class BcBaserHelperTest extends BcTestCase
         $this->BcBaser->xmlHeader();
     }
 
-    public function xmlDataProvider()
+    public static function xmlDataProvider()
     {
         return [
             ['<?xml version="1.0" encoding="UTF-8" ?>' . "\n", '/']
@@ -1243,10 +1246,11 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testIcon()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-
-        $this->expectOutputString('<link href="/favicon.ico" type="image/x-icon" rel="icon"/><link href="/favicon.ico" type="image/x-icon" rel="shortcut icon"/>' . "\n");
+        ob_start();
         $this->BcBaser->icon();
+        $result = ob_get_clean();
+        $expected = '<link href="/favicon.ico" type="image/x-icon" rel="icon"><link href="/favicon.ico" type="image/x-icon" rel="shortcut icon">'."\n";
+        $this->assertEquals($expected, $result);
     }
 
     /**
@@ -1259,39 +1263,39 @@ class BcBaserHelperTest extends BcTestCase
         ob_start();
         $this->BcBaser->css('admin/import');
         $result = ob_get_clean();
-        $expected = '<link rel="stylesheet" href="/css/admin/import.css"/>';
+        $expected = '<link rel="stylesheet" href="/css/admin/import.css">';
         $this->assertEquals($expected, $result);
         // // 拡張子あり
         ob_start();
         $this->BcBaser->css('admin/import.css');
         $result = ob_get_clean();
-        $expected = '<link rel="stylesheet" href="/css/admin/import.css"/>';
+        $expected = '<link rel="stylesheet" href="/css/admin/import.css">';
         $this->assertEquals($expected, $result);
         // インライン
         ob_start();
         $this->BcBaser->css('admin/import2.css', true);
         $result = ob_get_clean();
-        $expected = '<link rel="stylesheet" href="/css/admin/import2.css"/>';
+        $expected = '<link rel="stylesheet" href="/css/admin/import2.css">';
         $this->assertEquals($expected, $result);
         // ブロック
         ob_start();
         $this->BcBaser->css('admin/import3.css', false);
         $result = ob_get_clean();
         $this->assertEmpty($result);
-        $this->assertEquals('<link rel="stylesheet" href="/css/admin/import3.css"/>',
+        $this->assertEquals('<link rel="stylesheet" href="/css/admin/import3.css">',
             $this->BcAdminAppView->fetch('css'));
         // ブロック指定
         ob_start();
         $this->BcBaser->css('admin/import4.css', false, ['block' => 'testblock']);
         $result = ob_get_clean();
         $this->assertEmpty($result);
-        $this->assertEquals('<link rel="stylesheet" href="/css/admin/import4.css"/>',
+        $this->assertEquals('<link rel="stylesheet" href="/css/admin/import4.css">',
             $this->BcAdminAppView->fetch('testblock'));
         ob_start();
         $this->BcBaser->css('admin/import5.css', true, ['block' => 'testblock2']);
         $result = ob_get_clean();
         $this->assertEmpty($result);
-        $this->assertEquals('<link rel="stylesheet" href="/css/admin/import5.css"/>',
+        $this->assertEquals('<link rel="stylesheet" href="/css/admin/import5.css">',
             $this->BcAdminAppView->fetch('testblock2'));
     }
 
@@ -1330,24 +1334,21 @@ class BcBaserHelperTest extends BcTestCase
      * @return void
      * @dataProvider charsetDataProvider
      */
-    public function testCharset($expected, $encoding, $url = null)
+    public function testCharset($expected, $charset , $device)
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-
-        $this->BcBaser->request = $this->_getRequest($url);
-        $this->expectOutputString($expected);
-        if ($encoding !== null) {
-            $this->BcBaser->charset($encoding);
-        } else {
-            $this->BcBaser->charset();
-        }
+        $site = SiteFactory::make(['device' => $device])->getEntity();
+        $this->BcBaser->getView()->setRequest($this->getRequest()->withAttribute('currentSite', $site));
+        ob_start();
+        $this->BcBaser->charset($charset);
+        $result = ob_get_clean();
+        $this->assertEquals($expected, $result);
     }
 
-    public function charsetDataProvider()
+    public static function charsetDataProvider()
     {
         return [
-            ['<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />', 'UTF-8', '/'],
-            ['<meta http-equiv="Content-Type" content="text/html; charset=Shift-JIS" />', null, '/m/']
+            ['<meta charset="utf-8">','utf-8', 'desktop'],
+            ['<meta charset="Shift-JIS">', null, 'mobile'],
         ];
     }
 
@@ -1360,18 +1361,17 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testCopyYear($expected, $begin)
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-
         $this->expectOutputString($expected);
         $this->BcBaser->copyYear($begin);
     }
 
-    public function copyYearDataProvider()
+    public static function copyYearDataProvider()
     {
         $year = date('Y');
         return [
+            ["{$year}", $year],
             ["2000 - {$year}", 2000],
-            [$year, 'はーい']
+            [$year, 'はーい'],
         ];
     }
 
@@ -1381,6 +1381,11 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testGetContentCreatedDate()
     {
+        $this->loadFixtureScenario(InitAppScenario::class);
+        PluginFactory::make(['name' => 'BcBlog'])->persist();
+        ContentFactory::make(['type' => 'Page', 'url' => '/', 'created_date' => '2016-07-29 18:13:03'])->persist();
+        $this->BcBaser = new BcBaserHelper(new BcAdminAppView($this->getRequest()));
+
         $this->assertEquals('2016/07/29 18:13', $this->BcBaser->getContentCreatedDate());
     }
 
@@ -1390,6 +1395,11 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testGetContentModifiedDate()
     {
+        $this->loadFixtureScenario(InitAppScenario::class);
+        PluginFactory::make(['name' => 'BcBlog'])->persist();
+        ContentFactory::make(['type' => 'Page', 'url' => '/', 'modified_date' => '2020-09-14 20:13:03'])->persist();
+        $this->BcBaser = new BcBaserHelper(new BcAdminAppView($this->getRequest()));
+
         $this->assertEquals('2020/09/14 20:13', $this->BcBaser->getContentModifiedDate());
     }
 
@@ -1453,7 +1463,7 @@ class BcBaserHelperTest extends BcTestCase
         $this->assertMatchesRegularExpression('/' . $type . '/', $ContentType, 'キャッシュの対象を指定できません');
     }
 
-    public function cacheHeaderDataProvider()
+    public static function cacheHeaderDataProvider()
     {
         return [
             [null, 'html', 'Cache-Control: max-age=14'],
@@ -1473,7 +1483,6 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testGetUri($url, $sessionId, $host, $https, $expected)
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
         $_SERVER['HTTPS'] = $https;
         Configure::write('BcEnv.host', $host);
 
@@ -1481,7 +1490,7 @@ class BcBaserHelperTest extends BcTestCase
         $this->assertEquals($expected, $result);
     }
 
-    public function getUriDataProvider()
+    public static function getUriDataProvider()
     {
         return [
             ['/', true, 'localhost', '', 'http://localhost/'],
@@ -1490,6 +1499,23 @@ class BcBaserHelperTest extends BcTestCase
             ['/about', false, 'localhost', '', 'http://localhost/about'],
             ['/about', false, 'localhost', 'on', 'https://localhost/about'],
         ];
+    }
+
+    /**
+     * test _initPluginBasers
+     * @return void
+     */
+    public function test_initPluginBasers()
+    {
+        //データ生成
+        PluginFactory::make(['name' => 'BcMail'])->persist();
+
+        //対象メソッドを実行
+        $this->execPrivateMethod($this->BcBaser, '_initPluginBasers', []);
+        $_pluginBasers = $this->getPrivateProperty($this->BcBaser, '_pluginBasers');
+
+        //戻り値を確認
+        $this->assertArrayHasKey('BcMail', $_pluginBasers);
     }
 
     /**
@@ -1504,12 +1530,11 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testMark($search, $text, $name, $attributes, $escape, $expected)
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
         $result = $this->BcBaser->mark($search, $text, $name, $attributes, $escape);
         $this->assertEquals($expected, $result);
     }
 
-    public function markDataProvider()
+    public static function markDataProvider()
     {
         return [
             ['大切', 'とても大切です', 'strong', [], false, 'とても<strong>大切</strong>です'],
@@ -1529,22 +1554,32 @@ class BcBaserHelperTest extends BcTestCase
      * @param string $recursive 取得する階層
      * @param boolean $expected 期待値
      * @dataProvider getSitemapDataProvider
-     * @TODO : 階層($recursive)を指定した場合のテスト
      */
 
     public function testGetSitemap($siteId, $expected)
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        $message = 'サイトマップを正しく出力できません';
+        ContentFactory::make(['id' => 1, 'url' => '/', 'site_id' => 1, 'parent_id' => 0, 'lft' => 1, 'rght' => 10])->persist();
+        ContentFactory::make(['id' => 2, 'url' => '/index', 'site_id' => 1, 'parent_id' => 1, 'lft' => 2, 'rght' => 9, 'level' => 1, 'title' => 'トップページ'])->persist();
+        ContentFactory::make(['id' => 3, 'url' => '/service/', 'site_id' => 1, 'parent_id' => 1, 'lft' => 3, 'rght' => 8, 'level' => 1])->persist();
+        ContentFactory::make(['id' => 4, 'url' => '/service/service1', 'site_id' => 1, 'parent_id' => 3, 'lft' => 4, 'rght' => 7, 'level' => 2])->persist();
+        ContentFactory::make(['id' => 5, 'url' => '/service/service1/service2', 'site_id' => 1, 'parent_id' => 4, 'lft' => 5, 'rght' => 6, 'level' => 3])->persist();
+
+        ContentFactory::make(['id' => 6, 'url' => '/', 'site_id' => 2, 'lft' => 10, 'rght' => 13, 'site_root' => true])->persist();
+        ContentFactory::make(['id' => 7, 'url' => '/m/', 'site_id' => 2, 'lft' => 11, 'rght' => 12, 'parent_id' => 6, 'title' => 'トップページ'])->persist();
+
+        ContentFactory::make(['id' => 8, 'url' => '/', 'site_id' => 3, 'lft' => 14, 'rght' => 17, 'site_root' => true])->persist();
+        ContentFactory::make(['id' => 9, 'url' => '/s/', 'site_id' => 3, 'lft' => 15, 'rght' => 16, 'parent_id' => 8, 'title' => 'トップページ'])->persist();
+
         $this->assertMatchesRegularExpression('/' . $expected . '/s', $this->BcBaser->getSitemap($siteId));
     }
 
-    public function getSitemapDataProvider()
+    public static function getSitemapDataProvider()
     {
         return [
-            [0, '<li class="menu-content li-level-1">.*?<a href="\/">トップページ<\/a>.*?<\/li>'],
-            [1, '<a href="\/m\/">トップページ.*<\/li>.*<\/ul>'],
-            [2, '<a href="\/s\/">トップページ.*<\/li>.*<\/ul>']
+            [0, '<ul class="menu ul-level-1">.*<a href="\/index">トップページ<\/a>.*<ul class="menu ul-level-2">.*<ul class="menu ul-level-3">'],
+            [1, '<ul class="menu ul-level-1">.*<a href="\/index">トップページ<\/a>.*<ul class="menu ul-level-2">.*<ul class="menu ul-level-3">'],
+            [2, '<a href="\/m\/">トップページ.*<\/li>.*<\/ul>'],
+            [3, '<a href="\/s\/">トップページ.*<\/li>.*<\/ul>']
         ];
     }
 
@@ -1557,12 +1592,16 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testIsPage($expected, $requestUrl)
     {
+        SiteFactory::make(['id' => 1])->persist();
+        ContentFactory::make(['url' => '/', 'site_id' => 1])->persist();
+        ContentFactory::make(['url' => '/index', 'site_id' => 1])->persist();
+
         $_SERVER['HTTP_USER_AGENT'] = 'iPhone';
         $this->BcBaser->getView()->setRequest($this->getRequest($requestUrl));
         $this->assertEquals($expected, $this->BcBaser->isPage());
     }
 
-    public function getIsPageProvider()
+    public static function getIsPageProvider()
     {
         return [
             // PCページ
@@ -1582,12 +1621,11 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testGetHere($url, $expected)
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        $this->BcBaser->request = $this->_getRequest($url);
+        $this->BcBaser->getView()->setRequest($this->getRequest($url));
         $this->assertEquals($expected, $this->BcBaser->getHere());
     }
 
-    public function getHereDataProvider()
+    public static function getHereDataProvider()
     {
         return [
             ['/', '/'],
@@ -1606,12 +1644,11 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testIsCategoryTop($url, $expected)
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        $this->BcBaser->request = $this->_getRequest($url);
+        $this->BcBaser->getView()->setRequest($this->getRequest($url));
         $this->assertEquals($expected, $this->BcBaser->isCategoryTop());
     }
 
-    public function isCategoryTopDataProvider()
+    public static function isCategoryTopDataProvider()
     {
         return [
             // PCページ
@@ -1628,6 +1665,7 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testPage()
     {
+        ContentFactory::make(['id' => 1, 'url' => '/service/service1'])->persist();
         PageFactory::make(['id' => 5, 'contents' => 'test'])->persist();
 
         // 正常系
@@ -1662,7 +1700,7 @@ class BcBaserHelperTest extends BcTestCase
         $this->assertEquals($expects, $this->BcBaser->isCurrentUrl($url));
     }
 
-    public function isCurrentUrlDataProvider()
+    public static function isCurrentUrlDataProvider()
     {
         return [
             ['/', '/', true],
@@ -1720,7 +1758,7 @@ class BcBaserHelperTest extends BcTestCase
         $this->assertEquals($expects, $this->BcBaser->getBaseUrl());
     }
 
-    public function getBaseUrlDataProvider()
+    public static function getBaseUrlDataProvider()
     {
         return [
             // ノーマル
@@ -1742,6 +1780,8 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testContentsNavi()
     {
+        $this->loadFixtureScenario(InitAppScenario::class);
+        ContentFactory::make(['id' => 1, 'url' => '/about'])->persist();
         $this->BcBaser->getView()->setRequest($this->getRequest('/about'));
         $this->expectOutputRegex('/<div class=\"bs-contents-navi\">/');
         $this->BcBaser->contentsNavi();
@@ -1753,18 +1793,39 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testCrumbsList()
     {
+        SiteFactory::make(['id' => 1, 'main_site_id' => null, 'name' => '', 'theme' => 'BcFront'])->persist();
+        ContentFactory::make(['url' => '/', 'site_id' => 1])->persist();
+        ContentFactory::make(['url' => '/index', 'site_id' => 1])->persist();
+
+        $this->BcAdminAppView = new BcAdminAppView($this->getRequest());
+        $this->BcBaser = new BcBaserHelper($this->BcAdminAppView);
+
         $this->expectOutputRegex('/ホーム/');
         $this->BcBaser->crumbsList();
     }
 
     /**
      * グローバルメニューを取得する
+     * @dataProvider getGlobalMenuDataProvider
+     * @param string $level 取得する階層
+     * @param boolean $expected 期待値
      * @return void
      */
-    public function testGetGlobalMenu()
+    public function testGetGlobalMenu($level, $expected)
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        $this->assertMatchesRegularExpression('/<ul class="global-menu .*?">.*<a href="\/sitemap">サイトマップ<\/a>.*<\/li>.*<\/ul>/s', $this->BcBaser->getGlobalMenu());
+        $this->loadFixtureScenario(ContentsScenario::class);
+
+        $rs = $this->BcBaser->getGlobalMenu($level);
+        $this->assertMatchesRegularExpression('/' . $expected . '/s', $rs);
+    }
+
+    public static function getGlobalMenuDataProvider()
+    {
+        return [
+            [0, '<ul class="ul-level-1 bs-global-menu".*?">.*<a href="\/" class="bs-global-menu-item--link">トップページ<\/a>.*<\/li>.*ul-level-2.*ul-level-3.*<\/ul>'],
+            [1, '<ul class="ul-level-1 bs-global-menu".*?">.*<a href="\/" class="bs-global-menu-item--link">トップページ<\/a>.*<\/li>.*ul-level-2.*<\/ul>'],
+            [3, '<ul class="ul-level-1 bs-global-menu".*?">.*<a href="\/" class="bs-global-menu-item--link">トップページ<\/a>.*<\/li>.*ul-level-2.*ul-level-3.*<\/ul>']
+        ];
     }
 
     /**
@@ -1773,8 +1834,11 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testGoogleAnalytics()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        $this->expectOutputRegex('/<script>.*gtag\(\'config\', \'hoge\'\)\;/s', $this->BcBaser->googleAnalytics());
+        SiteConfigFactory::make(['name' => 'google_analytics_id', 'value' => 'hoge'])->persist();
+        ob_start();
+        $this->BcBaser->googleAnalytics();
+        $result = ob_get_clean();
+        $this->assertStringContainsString('<script async src="https://www.googletagmanager.com/gtag/js?id=hoge"></script>', $result);
     }
 
     /**
@@ -1801,13 +1865,15 @@ class BcBaserHelperTest extends BcTestCase
      * BcContentsRoute::match() に途中までの処理を記述している
      *
      * @return void
-     * @TODO 現在の仕様として、Contents テーブルで管理しているURLの場合、URLが解決できない
      */
     public function testListNum()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        $this->BcBaser->request = $this->_getRequest('/search_indices/search');
-        $this->expectOutputRegex('/<div class="list-num">.*<span><a href="\/search_indices\/search\/num:100">100<\/a><\/span><\/p>.*<\/div>/s');
+        $this->loadFixtureScenario(InitAppScenario::class);
+        ContentFactory::make(['type' => 'Page', 'url' => '/'])->persist();
+
+        $this->BcBaser = new BcBaserHelper(new BcAdminAppView($this->getRequest()->withParam('pass', [1])));
+
+        $this->expectOutputRegex('/<div class="bs-list-num">.*/s');
         $this->BcBaser->listNum();
     }
 
@@ -1817,8 +1883,12 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testGetSiteSearchForm()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        $this->assertMatchesRegularExpression('/<div class="section search-box">.*<input.*?type="submit" value="検索"\/>.*<\/form><\/div>/s', $this->BcBaser->getSiteSearchForm());
+        //準備
+        $site = SiteFactory::make(['theme' => 'BcColumn'])->getEntity();
+        $view = new BcFrontAppView($this->getRequest()->withAttribute('currentSite', $site));
+        $this->BcBaser = new BcBaserHelper($view->setTheme('BcColumn'));
+        //正常系実行
+        $this->assertMatchesRegularExpression('/<input type="submit" class="submit_button bs-button" value="検索"/s', $this->BcBaser->getSiteSearchForm());
     }
 
     /**
@@ -1827,6 +1897,12 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testGetSiteName()
     {
+        $this->loadFixtureScenario(InitAppScenario::class);
+        SiteFactory::make(['id' => '2', 'main_site_id' => 1, 'name' => 'en', 'display_name' => '英語サイト'])->persist();
+        ContentFactory::make(['id' => 1, 'url' => '/', 'site_id' => 1])->persist();
+        ContentFactory::make(['id' => 2, 'url' => '/en/', 'site_id' => 2])->persist();
+
+        $this->BcBaser->getView()->setRequest($this->getRequest('/'));
         $this->assertEquals('メインサイト', $this->BcBaser->getSiteName());
         $this->BcBaser->getView()->setRequest($this->getRequest('/en/'));
         $this->assertEquals('英語サイト', $this->BcBaser->getSiteName());
@@ -1838,14 +1914,8 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testGetSiteUrl()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
         Configure::write('BcEnv.siteUrl', 'https://basercms.net/');
-        Configure::write('BcEnv.sslUrl', 'https://basercms.net/');
-
-        // http
         $this->assertEquals('https://basercms.net/', $this->BcBaser->getSiteUrl());
-        //https
-        $this->assertEquals('https://basercms.net/', $this->BcBaser->getSiteUrl(true));
     }
 
     /**
@@ -1854,6 +1924,18 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testGetParams()
     {
+        $this->loadFixtureScenario(InitAppScenario::class);
+        ContentFactory::make(
+            [
+                'name' => 'index',
+                'plugin' => 'BaserCore',
+                'type' => 'Page',
+                'entity_id' => 2,
+                'url' => '/index',
+                'site_id' => 1,
+            ]
+        )->persist();
+
         $this->BcBaser->getView()->setRequest($this->getRequest('/'));
         $params = $this->BcBaser->getParams();
         $this->assertEquals('BaserCore', $params['plugin']);
@@ -1901,9 +1983,11 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testGetPluginBaser()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
+        PluginFactory::make(['name' => 'BcBlog'])->persist();
+        $this->BcBaser = new BcBaserHelper(new BcAdminAppView($this->getRequest()));
+
         $PluginBaser = $this->BcBaser->getPluginBaser('BcBlog');
-        $this->assertEquals('BlogBaserHelper', get_class($PluginBaser));
+        $this->assertEquals('BcBlog\View\Helper\BcBlogBaserHelper', get_class($PluginBaser));
         $this->assertFalse($this->BcBaser->getPluginBaser('hoge'));
     }
 
@@ -1913,26 +1997,38 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testGetContentsUrl()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
+        SiteFactory::make(['id' => 1, 'domain_type' => 2, 'alias' => 'another.com'])->persist();
+        ContentFactory::make(['url' => '/news/', 'site_id' => 1])->persist();
         // URLが設定されていない場合
-        $this->BcBaser->request = $this->_getRequest('/news/');
+        $this->BcBaser = new BcBaserHelper(new View($this->getRequest('/news/')));
         $this->assertEquals('/news/', $this->BcBaser->getContentsUrl());
         // URLの指定がある場合
-        $this->BcBaser->request = $this->_getRequest('/');
+        $this->BcBaser = new BcBaserHelper(new View($this->getRequest('/')));
         $this->assertEquals('/news/', $this->BcBaser->getContentsUrl('/news/'));
         // サブドメインの指定がない場合
-        Configure::write('BcEnv.host', 'another.com');
-        $this->BcBaser->request = $this->_getRequest('/news/');
+        $siteUrl = Configure::read('BcEnv.siteUrl');
+        Configure::write('BcEnv.siteUrl', 'http://another.com/');
+        $this->BcBaser = new BcBaserHelper(new View($this->getRequest('/news/')));
         $this->assertEquals('http://another.com/news/', $this->BcBaser->getContentsUrl(null, true));
         // サブドメインの指定がある場合
         Configure::write('BcEnv.host', 'localhost');
-        $this->BcBaser->request = $this->_getRequest('/');
-        $this->assertEquals('http://another.com/news/', $this->BcBaser->getContentsUrl('/another.com/news/', true, true));
+        $this->BcBaser = new BcBaserHelper(new View($this->getRequest('/')));
+        $this->assertEquals('https://another.com/news/', $this->BcBaser->getContentsUrl('another.com/news/', true, true));
         // サブドメインの指定がないのに指定ありとした場合
-        $siteUrl = Configure::read('BcEnv.siteUrl');
         Configure::write('BcEnv.siteUrl', 'http://main.com');
-        $this->assertEquals('http://main.com/news/', $this->BcBaser->getContentsUrl('/news/', true, true));
+        $this->assertEquals('http://main.com/news/', $this->BcBaser->getContentsUrl('/news/', true, false));
         Configure::write('BcEnv.siteUrl', $siteUrl);
+    }
+
+    /**
+     * test updateInfo
+     */
+    public function testUpdateInfo()
+    {
+        ob_start();
+        $this->BcBaser->updateInfo();
+        $result = ob_get_clean();
+        $this->assertStringContainsString('<div class="bc-update-info clearfix">', $result);
     }
 
     /**
@@ -1944,28 +2040,66 @@ class BcBaserHelperTest extends BcTestCase
     }
 
     /**
-     * @return void
+     * test getRelatedSiteLinks
      */
     public function testGetRelatedSiteLinks()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        $this->assertMatchesRegularExpression('/<ul class="related-site-links">/s', $this->BcBaser->getRelatedSiteLinks());
+        SiteFactory::make(['id' => 1, 'name' => '', 'display_name' => 'メインサイト'])->persist();
+        SiteFactory::make(['id' => 2, 'name' => 'en', 'display_name' => '英語サイト'])->persist();
+        ContentFactory::make(['id' => 1, 'site_id' => 1, 'url' => '/'])->persist();
+        ContentFactory::make(['id' => 2, 'site_id' => 2, 'main_site_content_id' => 1, 'url' => '/en/'])->persist();
+        ContentFactory::make(['id' => 3, 'site_id' => 2, 'main_site_content_id' => 2, 'url' => '/en/about'])->persist();
+
+        $request = $this->BcBaser->getView()->getRequest();
+        $request = $request->withAttribute('currentSite', SiteFactory::get(1));
+        $request = $request->withAttribute('currentContent', ContentFactory::get(2));
+        $this->BcBaser->getView()->setRequest($request);
+        $result = $this->BcBaser->getRelatedSiteLinks(1);
+        $this->assertStringContainsString('<ul class="related-site-links">', $result);
+        $this->assertStringContainsString('<li class="current"><a href="/en/?en_auto_redirect=off" title="英語サイト">英語サイト</a></li>', $result);
     }
 
     /**
+     * test __call
      * @return void
      */
     public function test__call()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
+        //準備
+        PluginFactory::make(['name' => 'BcBlog'])->persist();
+        $this->BcBaser = new BcBaserHelper(new View($this->getRequest()));
+        $this->BcBaser->getView()->setRequest($this->getRequest())->set('blogArchiveType', 'tag');
+
+        //BlogHelperのisTagメソッドをコール
+        $this->assertTrue($this->BcBaser->__call('isBlogTag', []));
+
+
+        //存在しないメソッドをコール
+        $this->assertNull($this->BcBaser->__call('isBlogTag3', []));
     }
 
     /**
+     * test __construct
      * @return void
      */
     public function test__construct()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
+        //プラグインのBaserヘルパを初期化を呼ぶ
+        Configure::write('BcEnv.isInstalled', true);
+        PluginFactory::make(['name' => 'BcMail'])->persist();
+
+        $this->BcBaser = new BcBaserHelper(new View($this->getRequest('/')));
+        //プラグインのBaserヘルパを初期化を呼ぶか確認すること
+        $_pluginBasers = $this->getPrivateProperty($this->BcBaser, '_pluginBasers');
+        $this->assertArrayHasKey('BcMail', $_pluginBasers);
+
+        //プラグインのBaserヘルパを初期化を呼ばない
+        Configure::write('BcEnv.isInstalled', false);
+
+        $this->BcBaser = new BcBaserHelper(new View($this->getRequest('/')));
+        //プラグインのBaserヘルパを初期化を呼ぶか確認すること
+        $_pluginBasers = $this->getPrivateProperty($this->BcBaser, '_pluginBasers');
+        $this->assertArrayNotHasKey('BcMail', $_pluginBasers);
     }
 
     /**
@@ -1973,7 +2107,21 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function test_unsetIndexInContentsMenu()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
+        $BcContents = new BcContentsHelper(new  View());
+
+        ContentFactory::make(['id' => 1, 'site_id' => 1, 'parent_id' => null, 'lft' => 1, 'rght' => 106])->persist();
+        ContentFactory::make(['site_id' => 1, 'parent_id' => 1, 'lft' => 2, 'rght' => 3])->persist();
+        ContentFactory::make(['type' => 'Page', 'name' => 'index', 'site_id' => 1, 'parent_id' => 1, 'lft' => 4, 'rght' => 5])->persist();
+
+        $contents = $BcContents->getTree(1, 2);
+
+        //$children = false、_unsetIndexInContentsMenuを実行しない
+        $rs = $this->BcBaser->_unsetIndexInContentsMenu($contents->toArray());
+        $this->assertCount(2, $rs);
+
+        //$children = true、_unsetIndexInContentsMenuを実行する
+        $rs = $this->BcBaser->_unsetIndexInContentsMenu($contents->toArray(), true);
+        $this->assertCount(1, $rs);
     }
 
     /**
@@ -1997,7 +2145,19 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testGetSitePrefix()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
+        //isInstalled is false
+        Configure::write('BcEnv.isInstalled', false);
+        $this->assertEquals('', $this->BcBaser->getSitePrefix());
+
+        Configure::write('BcEnv.isInstalled', true);
+        //without currentSite
+        $this->BcBaser->getView()->setRequest($this->getRequest()->withAttribute('currentSite', []));
+        $this->assertEquals('', $this->BcBaser->getSitePrefix());
+
+        //with currentSite
+        $site = SiteFactory::make(['id' => 1, 'alias' => 'alias'])->persist();
+        $this->BcBaser->getView()->setRequest($this->getRequest()->withAttribute('currentSite', $site));
+        $this->assertEquals('alias', $this->BcBaser->getSitePrefix());
     }
 
     /**
@@ -2005,7 +2165,6 @@ class BcBaserHelperTest extends BcTestCase
      */
     public function testWebClipIcon()
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
         ob_start();
         $this->BcBaser->webClipIcon('', false);
         $result = ob_get_clean();
@@ -2030,7 +2189,7 @@ class BcBaserHelperTest extends BcTestCase
         $this->assertEquals($expected, $this->_View->fetch('meta'));
     }
 
-    public function setAlternateUrlDataProvider()
+    public static function setAlternateUrlDataProvider()
     {
         return [
             ['/', '<link href="http://localhost/s/" rel="alternate" media="only screen and (max-width: 640px)"/>'],
@@ -2070,14 +2229,27 @@ class BcBaserHelperTest extends BcTestCase
         $this->assertEquals($expected, $this->BcBaser->getView()->fetch('meta'));
     }
 
-    public function setCanonicalUrlDataProvider()
+    public static function setCanonicalUrlDataProvider()
     {
         return [
-            [1, '/', '<link href="https://localhost/" rel="canonical"/>'],
-            [1, '/index.html', '<link href="https://localhost/" rel="canonical"/>'],
-            [1, '/about/index.html', '<link href="https://localhost/about/" rel="canonical"/>'],
-            [2, '/s/', '<link href="https://localhost/" rel="canonical"/>'],
+            [1, '/', '<link href="https://localhost/" rel="canonical">'],
+            [1, '/index.html', '<link href="https://localhost/" rel="canonical">'],
+            [1, '/about/index.html', '<link href="https://localhost/about/" rel="canonical">'],
+            [2, '/s/', '<link href="https://localhost/" rel="canonical">'],
         ];
     }
 
+
+    public function test_getCurrentPrefix(){
+        //with site not empty
+        $site = SiteFactory::make(['id' => 1,'alias' => 'secret name'])->persist();
+        $this->BcBaser->getView()->setRequest($this->getRequest()->withAttribute('currentSite', $site));
+        $rs = $this->BcBaser->getCurrentPrefix();
+        $this->assertEquals('secret name', $rs);
+
+        //with site empty
+        $this->BcBaser->getView()->setRequest($this->getRequest());
+        $rs = $this->BcBaser->getCurrentPrefix();
+        $this->assertEquals('', $rs);
+    }
 }

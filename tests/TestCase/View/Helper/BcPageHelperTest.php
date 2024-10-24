@@ -10,9 +10,15 @@
  */
 
 namespace BaserCore\Test\TestCase\View\Helper;
-use BaserCore\View\AppView;
+use BaserCore\Service\PagesServiceInterface;
+use BaserCore\Test\Factory\ContentFactory;
+use BaserCore\Test\Factory\PageFactory;
+use BaserCore\Test\Scenario\SmallSetContentsScenario;
 use BaserCore\TestSuite\BcTestCase;
+use BaserCore\View\BcAdminAppView;
 use BaserCore\View\Helper\BcPageHelper;
+use Cake\Utility\Hash;
+use CakephpFixtureFactories\Scenario\ScenarioAwareTrait;
 
 /**
  * BcPage helper library.
@@ -20,24 +26,7 @@ use BaserCore\View\Helper\BcPageHelper;
 class BcPageHelperTest extends BcTestCase
 {
 
-    /**
-     * Fixtures
-     * @var array
-     */
-    public $fixtures = [
-        // 'baser.View.Helper.BcPageHelper.PageBcPageHelper',
-        // 'baser.Default.Favorite',
-        // 'baser.Default.ThemeConfig',
-        // 'baser.View.Helper.BcContentsHelper.ContentBcContentsHelper',
-        'plugin.BaserCore.Users',
-        'plugin.BaserCore.UserGroups',
-        'plugin.BaserCore.UsersUserGroups',
-        'plugin.BaserCore.Permissions',
-        'plugin.BaserCore.SiteConfigs',
-        'plugin.BaserCore.Sites',
-        'plugin.BaserCore.Contents',
-        'plugin.BaserCore.ContentFolders',
-    ];
+    use ScenarioAwareTrait;
 
     /**
      * setUp
@@ -47,13 +36,11 @@ class BcPageHelperTest extends BcTestCase
     public function setUp(): void
     {
         parent::setUp();
-        $this->Pages = $this->getTableLocator()->get('BaserCore.Pages');
-        $this->BcPage = new BcPageHelper(new AppView());
-        // $this->AppView = new AppView();
-        // $this->BcContents = $this->AppView->BcContents;
-        // $this->BcBaser = $this->AppView->BcBaser;
-        // $this->BcPage = $this->AppView->BcPage;
-        // $this->BcPage->BcBaser = $this->AppView->BcBaser;
+        $this->BcAdminAppView = new BcAdminAppView($this->getRequest(), null, null, [
+            'name' => 'Pages',
+            'plugin' => 'BaserCore'
+        ]);
+        $this->BcPage = new BcPageHelper($this->BcAdminAppView);
     }
 
     /**
@@ -63,7 +50,7 @@ class BcPageHelperTest extends BcTestCase
      */
     public function tearDown(): void
     {
-        unset($this->Pages, $this->BcPage);
+        unset($this->BcPage);
         parent::tearDown();
     }
 
@@ -76,82 +63,50 @@ class BcPageHelperTest extends BcTestCase
     }
 
     /**
-     * テスト用に固定ページのデータを取得する
-     *
-     * @return array 固定ページのデータ
-     */
-    public function getPageData($conditions = [], $fields = [])
-    {
-        $options = [
-            'conditions' => $conditions,
-            'fields' => $fields,
-            'recursive' => 0
-        ];
-        $pages = $this->Page->find('all', $options);
-        if (empty($pages)) {
-            return false;
-        } else {
-            return $pages[0];
-        }
-    }
-
-    /**
      * ページ機能用URLを取得する
      *
      * @param array $pageId 固定ページID
      * @param array $expected 期待値
-     * @param string $message テストが失敗した時に表示されるメッセージ
      * @dataProvider getUrlDataProvider
      */
-    public function testGetUrl($pageId, $expected, $message = null)
+    public function testGetUrl($pageId, $expected)
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        // 固定ページのデータ取得
-        $conditions = ['Page.id' => $pageId];
-        $fields = ['Content.url'];
-        $page = $this->getPageData($conditions, $fields);
+        //データ生成
+        ContentFactory::make(['url' => '/index', 'plugin' => 'BaserCore', 'type' => 'Page', 'entity_id' => 1])->persist();
+        ContentFactory::make(['url' => '/service/index', 'plugin' => 'BaserCore', 'type' => 'Page', 'entity_id' => 2])->persist();
+        ContentFactory::make(['url' => '/service/about', 'plugin' => 'BaserCore', 'type' => 'Page', 'entity_id' => 3])->persist();
+        ContentFactory::make(['url' => '/icons', 'plugin' => 'BaserCore', 'type' => 'Page', 'entity_id' => 4])->persist();
+        ContentFactory::make(['url' => '/sitemap', 'plugin' => 'BaserCore', 'type' => 'Page', 'entity_id' => 5])->persist();
+        ContentFactory::make(['url' => '/m/index', 'plugin' => 'BaserCore', 'type' => 'Page', 'entity_id' => 6])->persist();
 
-        $result = $this->BcPage->getUrl($page);
-        $this->assertEquals($expected, $result, $message);
+        PageFactory::make(['id' => 1])->persist();
+        PageFactory::make(['id' => 2])->persist();
+        PageFactory::make(['id' => 3])->persist();
+        PageFactory::make(['id' => 4])->persist();
+        PageFactory::make(['id' => 5])->persist();
+        PageFactory::make(['id' => 6])->persist();
+        PageFactory::make(['id' => 7])->persist();
+
+        $pageService = $this->getService(PagesServiceInterface::class);
+
+        //実行
+        $result = $this->BcPage->getUrl($pageService->get($pageId));
+        $this->assertEquals($expected, $result);
     }
 
-    public function getUrlDataProvider()
+    public static function getUrlDataProvider()
     {
         return [
             [1, '/index'],
-            [2, '/about'],
-            [3, '/service/index'],
+            [2, '/service/index'],
+            [3, '/service/about'],
             [4, '/icons'],
             [5, '/sitemap'],
-            [6, '/m/index'],
+            [6, '/m/index']
         ];
     }
 
-    /**
-     * 公開状態を取得する
-     *
-     * @param boolean $status 公開状態
-     * @param mixed $begin 公開開始日時
-     * @param mixed $end 公開終了日時
-     * @param string $expected 期待値
-     * @param string $message テスト失敗時、表示するメッセージ
-     * @dataProvider allowPublishDataProvider
-     */
-    public function testAllowPublish($status, $begin, $end, $expected, $message)
-    {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
-        $data = [
-            'Page' => [
-                'status' => $status,
-                'publish_begin' => $begin,
-                'publish_end' => $end,
-            ]
-        ];
-        $result = $this->BcPage->allowPublish($data);
-        $this->assertEquals($expected, $result, $message);
-    }
-
-    public function allowPublishDataProvider()
+    public static function allowPublishDataProvider()
     {
         return [
             [true, 0, 0, true, 'statusの値がそのままかえってきません'],
@@ -170,18 +125,18 @@ class BcPageHelperTest extends BcTestCase
      */
     public function testGetPageList($id, $expects)
     {
-        $this->markTestIncomplete('このテストは、まだ実装されていません。');
+        $this->loadFixtureScenario(SmallSetContentsScenario::class);
         $result = $this->BcPage->GetPageList($id);
-        $result = Hash::extract($result, '{n}.Content.type');
+        $result = Hash::extract($result->toArray(), '{n}.type');
         $this->assertEquals($expects, $result);
     }
 
-    public function getPageListDataProvider()
+    public static function getPageListDataProvider()
     {
         return [
-            [1, ['Page', 'Page', 'Page', 'Page', 'ContentFolder']],    // トップフォルダ
-            [21, ['Page', 'Page', 'Page', 'ContentFolder']],    // 下層フォルダ
-            [4, []]    // ターゲットがフォルダでない
+            [1, ['Page', 'ContentFolder']],    // トップフォルダ
+            [3, ['Page', 'Page']],    // 下層フォルダ
+            [2, []]    // ターゲットがフォルダでない
         ];
     }
 

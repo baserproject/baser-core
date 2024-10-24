@@ -31,6 +31,7 @@ class ContentsController extends BcAdminApiController
      * @param int $id
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function view(ContentsServiceInterface $service, int $id)
     {
@@ -89,6 +90,7 @@ class ContentsController extends BcAdminApiController
      * @return void
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function index(ContentsServiceInterface $service)
     {
@@ -121,12 +123,13 @@ class ContentsController extends BcAdminApiController
      * @return void
      * @checked
      * @noTodo
+     * @unitTest
      */
     public function index_trash(ContentsServiceInterface $service)
     {
         $entities = $this->paginate($service->getTrashIndex(
             $this->request->getQueryParams(), 'threaded'
-        )->order(['site_id', 'lft']));
+        )->orderBy(['site_id', 'lft']));
 
         $this->set(['contents' => $entities]);
         $this->viewBuilder()->setOption('serialize', ['contents']);
@@ -187,7 +190,7 @@ class ContentsController extends BcAdminApiController
     {
         $this->request->allowMethod(['post', 'delete']);
         try {
-            $trash = $service->getTrashIndex($this->request->getQueryParams())->order(['plugin', 'type']);
+            $trash = $service->getTrashIndex($this->request->getQueryParams())->orderBy(['plugin', 'type']);
             foreach ($trash as $entity) {
                 try {
                     $service->hardDeleteWithAssoc($entity->id);
@@ -493,29 +496,26 @@ class ContentsController extends BcAdminApiController
     {
         $this->request->allowMethod(['post', 'put', 'patch']);
         $url = $content = $errors = null;
-        if (!$service->isTreeModifiedByAnotherUser($this->getRequest()->getData('listDisplayed'))) {
-            try {
-                $beforeContent = $service->get($this->request->getData('origin.id'));
-                $beforeUrl = $beforeContent->url;
-                $content = $service->move($this->request->getData('origin'), $this->request->getData('target'));
-                $message = sprintf(
-                    __d('baser_core', "コンテンツ「%s」の配置を移動しました。\n%s > %s"),
-                    $content->title,
-                    rawurldecode($beforeUrl),
-                    rawurldecode($content->url)
-                );
-                $url = $service->getUrlById($content->id, true);
-                $this->BcMessage->setSuccess($message, true, false);
-            } catch (PersistenceFailedException $e) {
-                $errors = $e->getEntity()->getErrors();
-                $message = __d('baser_core', "入力エラーです。内容を修正してください。");
-                $this->setResponse($this->response->withStatus(400));
-            } catch (\Throwable $e) {
-                $message = __d('baser_core', 'データベース処理中にエラーが発生しました。' . $e->getMessage());
-                $this->setResponse($this->response->withStatus(500));
-            }
-        } else {
-            $message = __d('baser_core', 'コンテンツ一覧を表示後、他のログインユーザーがコンテンツの並び順を更新しました。<br>一度リロードしてから並び替えてください。');
+
+        try {
+            $beforeContent = $service->get($this->request->getData('origin.id'));
+            $beforeUrl = $beforeContent->url;
+            $content = $service->move($this->request->getData('origin'), $this->request->getData('target'));
+            $message = sprintf(
+                __d('baser_core', "コンテンツ「%s」の配置を移動しました。\n%s > %s"),
+                $content->title,
+                rawurldecode($beforeUrl),
+                rawurldecode($content->url)
+            );
+            $url = $service->getUrlById($content->id, true);
+            $this->BcMessage->setSuccess($message, true, false);
+        } catch (PersistenceFailedException $e) {
+            $errors = $e->getEntity()->getErrors();
+            $message = __d('baser_core', "入力エラーです。内容を修正してください。");
+            $this->setResponse($this->response->withStatus(400));
+        } catch (\Throwable $e) {
+            $message = __d('baser_core', 'データベース処理中にエラーが発生しました。' . $e->getMessage());
+            $this->setResponse($this->response->withStatus(500));
         }
 
         $this->set([

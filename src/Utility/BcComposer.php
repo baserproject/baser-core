@@ -12,7 +12,6 @@
 namespace BaserCore\Utility;
 
 use Cake\Core\Configure;
-use Cake\Filesystem\File;
 use Exception;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
@@ -39,6 +38,13 @@ class BcComposer
     public static $composerDir;
 
     /**
+     * 現在のディレクトリ
+     *
+     * @var string
+     */
+    public static $currentDir;
+
+    /**
      * export コマンド
      *
      * @var string
@@ -59,11 +65,17 @@ class BcComposer
      * @throws Exception
      * @checked
      * @noTodo
+     * @unitTest
      */
     public static function setup(string $php = '', $dir = '')
     {
         self::checkEnv();
-        self::$cd = ($dir)? "cd " . $dir . ';': "cd " . ROOT . DS . ';';
+        $dir = ($dir)? : ROOT . DS;
+        if(!preg_match('/\/$/', $dir)) {
+            $dir .= '/';
+        }
+        self::$currentDir = $dir;
+        self::$cd = "cd " . $dir . ';';
         self::$composerDir = ROOT . DS . 'composer' . DS;
         self::$export = "export HOME=" . self::$composerDir . ";";
         self::$php = ($php)?: 'php';
@@ -80,6 +92,7 @@ class BcComposer
      * @throws Exception
      * @checked
      * @noTodo
+     * @unitTest
      */
     public static function checkComposer()
     {
@@ -98,6 +111,7 @@ class BcComposer
      * @throws Exception
      * @checked
      * @noTodo
+     * @unitTest
      */
     public static function checkEnv()
     {
@@ -148,11 +162,14 @@ class BcComposer
      * @return array
      * @checked
      * @noTodo
-     * @checked
+     * @unitTest
      */
     public static function require(string $package, string $version)
     {
-        return self::execCommand("require baserproject/{$package}:{$version} --with-all-dependencies --ignore-platform-req=ext-xdebug");
+        if(strpos($package, '/') === false) {
+            $package = 'baserproject/' . $package;
+        }
+        return self::execCommand("require {$package}:{$version} --with-all-dependencies --ignore-platform-req=ext-xdebug");
     }
 
     /**
@@ -160,6 +177,7 @@ class BcComposer
      * @return array
      * @checked
      * @noTodo
+     * @unitTest
      */
     public static function update()
     {
@@ -172,10 +190,11 @@ class BcComposer
      * @return array
      * @checked
      * @noTodo
+     * @unitTest
      */
     public static function install()
     {
-        return self::execCommand('install --with-all-dependencies --ignore-platform-req=ext-xdebug');
+        return self::execCommand('install --ignore-platform-req=ext-xdebug');
     }
 
     /**
@@ -184,6 +203,7 @@ class BcComposer
      * @return array
      * @checked
      * @noTodo
+     * @unitTest
      */
     public static function selfUpdate()
     {
@@ -206,6 +226,7 @@ class BcComposer
      * @return array
      * @checked
      * @noTodo
+     * @unitTest
      */
     public static function execCommand(string $command)
     {
@@ -224,6 +245,7 @@ class BcComposer
      * @return string
      * @checked
      * @noTodo
+     * @unitTest
      */
     public static function createCommand(string $command)
     {
@@ -232,24 +254,62 @@ class BcComposer
 
     /**
      * 配布用に composer.json をセットアップする
-     * @param string $packagePath
-     * @return void
+     * @param string $version
+     * @return array
      * @noTodo
      * @checked
      * @unitTest
      */
-    public static function setupComposerForDistribution(string $packagePath)
+    public static function setupComposerForDistribution(string $version)
     {
-        $composer = $packagePath . 'composer.json';
-        $file = new File($composer);
-        $data = $file->read();
-        $regex = '/^(.+?)    "replace": {.+?},\n(.+?)/s';
-        $data = preg_replace($regex, "$1$2", $data);
-        $regex = '/^(.+?"cakephp\/cakephp": ".+?",)(.+?)$/s';
-        $setupVersion = Configure::read('BcApp.setupVersion');
-        $replace = "$1\n        \"baserproject/baser-core\": \"{$setupVersion}\",$2";
-        $data = preg_replace($regex, $replace, $data);
-        $file->write($data);
+        self::deleteReplace();
+        $result = self::require('baser-core', $version);
+        (new BcFolder(self::$currentDir . 'vendor'))->delete();
+        mkdir(self::$currentDir . 'vendor');
+        (new BcFile(self::$currentDir . 'vendor' . DS . '.gitkeep'))->create();
+        return $result;
+    }
+
+    /**
+     * changeMinimumStabilityToDev
+     *
+     * @return void
+     * @checked
+     * @noTodo
+     */
+    public static function changeMinimumStabilityToDev()
+    {
+        $file = new BcFile(self::$currentDir . 'composer.json');
+        $json = $file->read();
+
+        if(strpos($json, '"minimum-stability"') !== false) {
+            $json = preg_replace('/"minimum-stability"\s*:\s*".+?"/', '"minimum-stability": "dev"', $json);
+        } else {
+            $json = preg_replace('/"require"\s*:\s*{/', '"minimum-stability": "dev",' . "\n" . '    "require": {', $json);
+        }
+        if(strpos($json, '"prefer-stable"') !== false) {
+            $json = preg_replace('/"prefer-stable"\s*:\s*[a-zA-Z]+/', '"prefer-stable": true', $json);
+        } else {
+            $json = preg_replace('/"require"\s*:\s*{/', '"prefer-stable": true,' . "\n" . '    "require": {', $json);
+        }
+
+        $file->write($json);
+    }
+
+    /**
+     * replace を削除する
+     * @return void
+     */
+    public static function deleteReplace()
+    {
+        $file = new BcFile(self::$currentDir . 'composer.json');
+        $json = $file->read();
+        $data = json_decode($json, true);
+        if(isset($data['replace'])) {
+            unset($data['replace']);
+        }
+        $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $file->write($json);
     }
 
 }

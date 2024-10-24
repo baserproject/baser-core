@@ -99,7 +99,8 @@ class UsersAdminService extends UsersService implements UsersAdminServiceInterfa
      */
     public function isUserGroupEditable(?int $id): bool
     {
-        return ($id === null || BcUtil::isAdminUser() || !$this->isSelf($id));
+        $user = BcUtil::loginUser();
+        return ($id === null || $user->isSuper());
     }
 
     /**
@@ -174,7 +175,7 @@ class UsersAdminService extends UsersService implements UsersAdminServiceInterfa
     public function getViewVarsForLogin(ServerRequest $request): array
     {
         return [
-            'savedEnable' => $request->is('ssl'),
+            'savedEnable' => $request->is('https'),
             'isEnableLoginCredit' => (bool) BcSiteConfig::get('login_credit')
         ];
     }
