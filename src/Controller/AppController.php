@@ -75,7 +75,7 @@ class AppController extends BaseController
         parent::__construct($request, $response, $name, $eventManager, $components);
 
         // CSRFトークンの場合は高速化のためここで処理を終了
-        if(!$request->is('requestview')) return;
+        if(!BcUtil::isConsole() && !$request->is('requestview')) return;
 
         $request->getSession()->start();
 
@@ -162,16 +162,19 @@ class AppController extends BaseController
             return;
         }
 
-        if (!$this->checkPermission()) {
+        if ($this->requirePermission($this->getRequest()) && !$this->checkPermission()) {
             $prefix = BcUtil::getRequestPrefix($this->getRequest());
             if ($prefix === 'Api/Admin') {
-                throw new ForbiddenException(__d('baser_core', '指定されたAPIエンドポイントへのアクセスは許可されていません。'));
+                throw new ForbiddenException(__d('baser_core', '指定されたAPIエンドポイントへのアクセスは許可されていません。必要な場合、システム管理者に「{0} {1}」へのアクセス許可を依頼してください。',
+                    [$this->getRequest()->getMethod(), $this->getRequest()->getPath()]));
             } else {
                 if (BcUtil::loginUser()) {
                     if ($this->getRequest()->getMethod() === 'GET') {
-                        $this->BcMessage->setError(__d('baser_core', '指定されたページへのアクセスは許可されていません。'));
+                        $this->BcMessage->setError(__d('baser_core', '指定されたページへのアクセスは許可されていません。必要な場合、システム管理者に「{0} {1}」へのアクセス許可を依頼してください。',
+                            [$this->getRequest()->getMethod(), $this->getRequest()->getPath()]));
                     } else {
-                        $this->BcMessage->setError(__d('baser_core', '実行した操作は許可されていません。'));
+                        $this->BcMessage->setError(__d('baser_core', '実行した操作は許可されていません。必要な場合、システム管理者に「{0} {1}」へのアクセス許可を依頼してください。',
+                            [$this->getRequest()->getMethod(), $this->getRequest()->getPath()]));
                     }
                     $url = Configure::read("BcPrefixAuth.{$prefix}.loginRedirect");
                 } else {
@@ -185,6 +188,25 @@ class AppController extends BaseController
         if ($this->request->is('ajax') || BcUtil::loginUser()) {
             $this->setResponse($this->getResponse()->withDisabledCache());
         }
+    }
+
+    /**
+     * パーミッションが必要かどうかを確認する
+     *
+     * デフォルトは true であるが、設定ファイルで明示的に false に
+     * 設定されている場合は false となる。
+     *
+     * @param ServerRequest $request
+     * @return bool
+     */
+    public function requirePermission(ServerRequest $request): bool
+    {
+        $prefix = BcUtil::getRequestPrefix($request);
+        $requirePermission = Configure::read("BcPrefixAuth.{$prefix}.requirePermission");
+        if($requirePermission !== false) {
+            $requirePermission = true;
+        }
+        return $requirePermission;
     }
 
     /**
