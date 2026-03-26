@@ -146,7 +146,7 @@ class BcComposer
      */
     public static function installComposer()
     {
-        $command = 'cd ' . self::$composerDir . '; ' . self::$export . ' curl -sS https://getcomposer.org/installer' . ' | ' . self::$php . ' 2>&1';
+        $command = 'cd ' . escapeshellarg(self::$composerDir) . '; ' . self::$export . ' curl -sS https://getcomposer.org/installer | ' . escapeshellarg(self::$php) . ' 2>&1';
         exec($command, $out, $code);
         return [
             'out' => $out,
@@ -169,7 +169,7 @@ class BcComposer
         if(strpos($package, '/') === false) {
             $package = 'baserproject/' . $package;
         }
-        return self::execCommand("require {$package}:{$version} --with-all-dependencies --ignore-platform-req=ext-xdebug");
+        return self::execCommand("require " . escapeshellarg("{$package}:{$version}") . " --with-all-dependencies --ignore-platform-req=ext-xdebug");
     }
 
     /**
@@ -249,7 +249,7 @@ class BcComposer
      */
     public static function createCommand(string $command)
     {
-        return self::$cd . ' ' . self::$export . ' echo y | ' . self::$php . ' ' . self::$composerDir . 'composer.phar ' . $command . ' 2>&1';
+        return self::$cd . ' ' . self::$export . ' echo y | ' . escapeshellarg(self::$php) . ' ' . escapeshellarg(self::$composerDir . 'composer.phar') . ' ' . $command . ' 2>&1';
     }
 
     /**
@@ -308,6 +308,24 @@ class BcComposer
         if(isset($data['replace'])) {
             unset($data['replace']);
         }
+        $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $file->write($json);
+    }
+
+    /**
+     * 脆弱パッケージの導入を禁止を解除する
+     * ユニットテストで過去バージョンのインストールテストがあるため、一時的に解除するのに利用する
+     * @return void
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public static function disableBlockInsecure()
+    {
+        $file = new BcFile(self::$currentDir . 'composer.json');
+        $json = $file->read();
+        $data = json_decode($json, true);
+        $data['config']['audit']['block-insecure'] = false;
         $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $file->write($json);
     }

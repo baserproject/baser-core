@@ -72,7 +72,7 @@ class BcComposerTest extends BcTestCase
             unlink(ROOT . DS . 'composer' . DS . 'composer.phar');
         }
 
-        BcComposer::$composerDir = '';
+        BcComposer::$composerDir = '/sys/';
         BcComposer::$export = '';
         BcComposer::installComposer();
         $this->assertFileDoesNotExist(BcComposer::$composerDir . 'composer.phar');
@@ -101,7 +101,7 @@ class BcComposerTest extends BcTestCase
      */
     public function testCheckComposerError()
     {
-        BcComposer::$composerDir = '';
+        BcComposer::$composerDir = '/sys/';
 
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('composer がインストールできません。All settings correct for using Composer');
@@ -128,10 +128,12 @@ class BcComposerTest extends BcTestCase
         $data = $file->read();
         $regex = '/("replace": {.+?},)/s';
         $data = str_replace('"cakephp/cakephp": "5.0.*"', '"cakephp/cakephp": "5.0.10"', $data);
+        $data = str_replace('"firebase/php-jwt": "7.0.2"', '"firebase/php-jwt": "6.1.0"', $data);
         $data = preg_replace($regex, '', $data);
         $file->write($data);
         BcComposer::setup('php');
         BcComposer::deleteReplace();
+        BcComposer::disableBlockInsecure();
         BcComposer::update();
 
         // インストール
@@ -190,10 +192,11 @@ class BcComposerTest extends BcTestCase
         $data = $file->read();
         $regex = '/("replace": {.+?},)/s';
         $data = str_replace('"cakephp/cakephp": "5.0.*"', '"cakephp/cakephp": "5.0.10"', $data);
+        $data = str_replace('"firebase/php-jwt": "7.0.2"', '"firebase/php-jwt": "6.1.0"', $data);
         $data = preg_replace($regex, '', $data);
         $file->write($data);
         BcComposer::setup('php');
-
+        BcComposer::disableBlockInsecure();
         $rs = BcComposer::update();
         //戻り値を確認
         $this->assertEquals(0, $rs['code']);
@@ -265,6 +268,7 @@ class BcComposerTest extends BcTestCase
 
         // 実行
         BcComposer::setup('', TMP_TESTS);
+        BcComposer::disableBlockInsecure();
         BcComposer::setupComposerForDistribution('5.2.0');
         $file = new BcFile($composerJson);
         $data = $file->read();
@@ -302,17 +306,54 @@ class BcComposerTest extends BcTestCase
         return [
             [
                 'self-update',
-                "cd /var/www/html/; export HOME=/var/www/html/composer/; echo y | php /var/www/html/composer/composer.phar self-update 2>&1"
+                "cd /var/www/html/; export HOME=/var/www/html/composer/; echo y | 'php' '/var/www/html/composer/composer.phar' self-update 2>&1"
             ],
             [
                 'install',
-                "cd /var/www/html/; export HOME=/var/www/html/composer/; echo y | php /var/www/html/composer/composer.phar install 2>&1"
+                "cd /var/www/html/; export HOME=/var/www/html/composer/; echo y | 'php' '/var/www/html/composer/composer.phar' install 2>&1"
             ],
             [
                 'require vendor/package',
-                "cd /var/www/html/; export HOME=/var/www/html/composer/; echo y | php /var/www/html/composer/composer.phar require vendor/package 2>&1"
+                "cd /var/www/html/; export HOME=/var/www/html/composer/; echo y | 'php' '/var/www/html/composer/composer.phar' require vendor/package 2>&1"
+            ],
+            [
+                'require "baserproject/baser-core:5.0.0; touch /tmp/rce_test;"',
+                "cd /var/www/html/; export HOME=/var/www/html/composer/; echo y | 'php' '/var/www/html/composer/composer.phar' require \"baserproject/baser-core:5.0.0; touch /tmp/rce_test;\" 2>&1"
             ],
         ];
+    }
+
+    /**
+     * test require の脆弱性回避
+     */
+    public function test_require_vulnerability()
+    {
+        $rceFile = TMP . 'rce_test_require';
+        if (file_exists($rceFile)) unlink($rceFile);
+
+        BcComposer::setup();
+        // 実際には実行されない（バージョン管理などが失敗するため）が、コマンドラインがエスケープされていることを間接的に確認
+        ob_start();
+        BcComposer::require('baser-core', '5.0.0; touch ' . $rceFile);
+        ob_get_clean();
+
+        $this->assertFalse(file_exists($rceFile), 'BcComposer::require でOSコマンドインジェクションが発生しました');
+    }
+
+    /**
+     * test installComposer の脆弱性回避
+     */
+    public function test_installComposer_vulnerability()
+    {
+        $rceFile = TMP . 'rce_test_installComposer';
+        if (file_exists($rceFile)) unlink($rceFile);
+
+        BcComposer::setup('php; touch ' . $rceFile);
+        ob_start();
+        BcComposer::installComposer();
+        ob_get_clean();
+
+        $this->assertFalse(file_exists($rceFile), 'BcComposer::installComposer でOSコマンドインジェクションが発生しました');
     }
 
     /**
@@ -337,6 +378,30 @@ class BcComposerTest extends BcTestCase
     }
 
     /**
+     * test disableBlockInsecure
+     * @return void
+     */
+    public function testDisableBlockInsecure()
+    {
+        $orgPath = ROOT . DS . 'composer.json';
+        $backupPath = ROOT . DS . 'composer.json.bak';
+
+        // バックアップ作成
+        copy($orgPath, $backupPath);
+
+        BcComposer::setup();
+        BcComposer::disableBlockInsecure();
+
+        $file = new BcFile($orgPath);
+        $data = json_decode($file->read(), true);
+
+        $this->assertFalse($data['config']['audit']['block-insecure']);
+
+        // バックアップ復元
+        rename($backupPath, $orgPath);
+    }
+
+    /**
      * test execCommand
      */
     public function testExecCommand()
@@ -353,5 +418,22 @@ class BcComposerTest extends BcTestCase
 
         $this->assertEquals(0, $rs['code']);
         $this->assertEquals("A script named install would override a Composer command and has been skipped", $rs['out'][0]);
+    }
+
+    /**
+     * test execCommand の脆弱性回避
+     */
+    public function test_execCommand_vulnerability()
+    {
+        $rceFile = TMP . 'rce_test_execCommand';
+        if (file_exists($rceFile)) unlink($rceFile);
+
+        BcComposer::setup();
+        // BcComposer::require のように、内部でエスケープされて渡されるケースを想定
+        ob_start();
+        BcComposer::execCommand('require ' . escapeshellarg("baserproject/baser-core:5.0.0; touch {$rceFile};"));
+        ob_get_clean();
+
+        $this->assertFalse(file_exists($rceFile), 'BcComposer::execCommand でOSコマンドインジェクションが発生しました');
     }
 }
