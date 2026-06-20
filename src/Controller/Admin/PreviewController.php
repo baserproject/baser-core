@@ -20,6 +20,7 @@ use BaserCore\Annotation\Checked;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Utility\BcContainerTrait;
 use Cake\Utility\Inflector;
+use Psr\Http\Message\ServerRequestInterface;
 use ReflectionClass;
 
 class PreviewController extends BcAdminAppController
@@ -85,15 +86,32 @@ class PreviewController extends BcAdminAppController
      * プレビュー用のリクエストを作成する
      *
      * @param ServerRequest $request
-     * @return ServerRequest
+     * @return ServerRequestInterface
      * @checked
      * @noTodo
      * @unitTest
      */
-    private function _createPreviewRequest($request)
+    private function _createPreviewRequest(ServerRequest $request): ServerRequest
     {
         $query = $request->getQueryParams();
         $url = $this->encodePath($query['url']);
+        $base = trim((string)$request->getAttribute('base'), '/');
+        if ($base) {
+            $base = '/' . $base;
+            $parseUrl = parse_url($url);
+            $path = $parseUrl['path'] ?? '/';
+            if ($path === $base || str_starts_with($path, $base . '/')) {
+                $path = substr($path, strlen($base));
+                if ($path === '') {
+                    $path = '/';
+                }
+                $url = $parseUrl['scheme'] . '://' . $parseUrl['host'] .
+                    (isset($parseUrl['port']) ? ':' . $parseUrl['port'] : '') . $path;
+                if (!empty($parseUrl['query'])) {
+                    $url .= '?' . $parseUrl['query'];
+                }
+            }
+        }
         unset($query['url']);
         $params = [];
         foreach($query as $key => $value) {
@@ -109,6 +127,7 @@ class PreviewController extends BcAdminAppController
                 'webroot' => $request->getAttribute('webroot'),
             ]
         );
+        /** @var ServerRequest $request */
         //========================================================================
         // 2022/12/02 by ryuring
         // メールフォームのフォームを生成する際、$this->>formProtector が存在しないとエラーとなる。
@@ -131,10 +150,8 @@ class PreviewController extends BcAdminAppController
         //========================================================================
         $session = $request->getSession();
         $startedProperty = (new ReflectionClass($session))->getProperty('_started');
-        $startedProperty->setAccessible(true);
         $startedProperty->setValue($session, true);
         $sessionProperty = (new ReflectionClass($request))->getProperty('session');
-        $sessionProperty->setAccessible(true);
         $sessionProperty->setValue($request, $session);
         return $request;
     }

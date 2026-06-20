@@ -198,7 +198,6 @@ class AppControllerTest extends BcTestCase
         $this->AppController->setTitle($template);
         $viewBuilder = new ReflectionClass($this->AppController->viewBuilder());
         $vars = $viewBuilder->getProperty('_vars');
-        $vars->setAccessible(true);
         $actual = $vars->getValue($this->AppController->viewBuilder())['title'];
         $this->assertEquals($template, $actual);
     }
@@ -337,7 +336,7 @@ class AppControllerTest extends BcTestCase
      * @return void
      * @dataProvider saveDblogDataProvider
      */
-    public function testSaveDblog(string $message, int $userId = null): void
+    public function testSaveDblog(string $message, ?int $userId = null): void
     {
         $request =$this->getRequest('/baser/admin/baser-core/users/');
         if (isset($userId)) $this->loginAdmin($request, $userId);
