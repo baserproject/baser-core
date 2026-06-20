@@ -12,11 +12,14 @@
 namespace BaserCore\Utility;
 
 use ArrayObject;
+use Cake\Core\Configure;
+use Cake\Core\Plugin;
 use Cake\Http\Session;
 use Cake\ORM\Entity;
 use Cake\ORM\Table;
 use Cake\Routing\Router;
 use Cake\Utility\Hash;
+use Cake\Utility\Inflector;
 use BaserCore\Vendor\Imageresizer;
 use Cake\Datasource\EntityInterface;
 use BaserCore\Annotation\Note;
@@ -609,8 +612,9 @@ class BcFileUploader
             default:
                 return false;
         }
-        imagedestroy($srcImage);
-        imagedestroy($rotate);
+        // PHP 8.5 で imagedestroy() は非推奨（8.0 以降 GdImage はオブジェクトで GC 管理）。参照を外して解放する
+        unset($srcImage);
+        unset($rotate);
         return true;
     }
 
@@ -742,10 +746,17 @@ class BcFileUploader
         $oldSaveDir = '';
         if (file_exists($saveDir . $oldName)) {
             $oldSaveDir = $saveDir;
-        } elseif (file_exists($saveDirInTheme . $oldName)) {
+        } elseif ($saveDirInTheme !== false && file_exists($saveDirInTheme . $oldName)) {
             $oldSaveDir = $saveDirInTheme;
+        } else {
+            // 管理画面からの操作時など getSaveDir(true) が正しいテーマを参照しない場合に
+            // コアフロントテーマの files ディレクトリも確認する（初期データ複製対応）
+            $coreFrontThemeSaveDir = $this->getCoreFrontThemeSaveDir();
+            if ($coreFrontThemeSaveDir && file_exists($coreFrontThemeSaveDir . $oldName)) {
+                $oldSaveDir = $coreFrontThemeSaveDir;
+            }
         }
-        if (!file_exists($oldSaveDir . $oldName)) {
+        if (!$oldSaveDir || !file_exists($oldSaveDir . $oldName)) {
             return '';
         }
         $newName = $this->getFieldBasename($setting, $file, $entity);
@@ -938,6 +949,42 @@ class BcFileUploader
     }
 
     /**
+     * コアフロントテーマの files 保存ディレクトリを取得する
+     *
+     * 管理画面からファイルを操作する場合など getSaveDir(true) が正しいテーマを
+     * 参照できないケースのフォールバックとして使用する
+     * （初期データのアイキャッチはコアフロントテーマ側に保存されているため）
+     *
+     * @return string|false
+     */
+    private function getCoreFrontThemeSaveDir(): string|false
+    {
+        $frontTheme = Configure::read('BcApp.coreFrontTheme');
+        if (!$frontTheme) return false;
+        $basePath = false;
+        $themeCandidates = array_unique([
+            $frontTheme,
+            Inflector::camelize($frontTheme, '-'),
+        ]);
+        foreach ($themeCandidates as $themeCandidate) {
+            try {
+                $candidatePath = Plugin::path($themeCandidate) . 'webroot' . DS . 'files' . DS;
+            } catch (\Throwable $e) {
+                continue;
+            }
+            if (is_dir($candidatePath)) {
+                $basePath = $candidatePath;
+                break;
+            }
+        }
+        if (!$basePath) return false;
+        if ($this->settings['saveDir']) {
+            return $basePath . $this->settings['saveDir'] . DS;
+        }
+        return $basePath;
+    }
+
+    /**
      * 保存先のフォルダを設定し、取得する
      * @param bool $isTheme
      * @param bool $limited
@@ -1064,7 +1111,8 @@ class BcFileUploader
      */
     public function setUploadingFiles(array $files, $bcUploadId): void
     {
-        $this->uploadingFiles[$bcUploadId] = $files;
+        // PHP 8.5 で null を配列オフセットに使うのは非推奨のため空文字に変換する（従来の暗黙変換と同等）
+        $this->uploadingFiles[$bcUploadId ?? ''] = $files;
     }
 
     /**
@@ -1075,7 +1123,8 @@ class BcFileUploader
      */
     public function getUploadingFiles($bcUploadId): array
     {
-        return $this->uploadingFiles[$bcUploadId] ?? [];
+        // PHP 8.5 で null を配列オフセットに使うのは非推奨のため空文字に変換する（setUploadingFiles と整合）
+        return $this->uploadingFiles[$bcUploadId ?? ''] ?? [];
     }
 
     /**

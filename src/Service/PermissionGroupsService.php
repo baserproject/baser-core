@@ -78,7 +78,7 @@ class PermissionGroupsService implements PermissionGroupsServiceInterface
      * @noTodo
      * @checked
      */
-    public function get(int $id, int $userGroupId = null)
+    public function get(int $id, ?int $userGroupId = null)
     {
         $options = ['contain' => []];
         if (!is_null($userGroupId)) {
@@ -168,7 +168,7 @@ class PermissionGroupsService implements PermissionGroupsServiceInterface
                     return $q->where(['Permissions.user_group_id' => $userGroupId]);
                 })
                 ->select(['amount' => $query->func()->count('Permissions.id')])
-                ->group(['PermissionGroups.id'])
+                ->groupBy(['PermissionGroups.id'])
                 ->enableAutoFields();
         }
         return $query;
