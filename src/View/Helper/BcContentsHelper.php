@@ -18,6 +18,7 @@ use BaserCore\Service\ContentsService;
 use Cake\Datasource\EntityInterface;
 use Cake\Datasource\Exception\RecordNotFoundException;
 use Cake\Datasource\ResultSetDecorator;
+use Cake\Datasource\ResultSetInterface;
 use Cake\Utility\Hash;
 use Cake\View\Helper;
 use Cake\Routing\Router;
@@ -103,7 +104,7 @@ class BcContentsHelper extends Helper
 
         $existsTitles = $this->_getExistsTitles();
         $user = BcUtil::loginUser();
-
+        $userGroupIds = $user ? Hash::extract($user->user_groups ?? [], '{n}.id') : [];
         foreach($items as $type => $item) {
 
             // title
@@ -146,10 +147,26 @@ class BcContentsHelper extends Helper
             }
             // disabled
             if (!empty($item['url']['add'])) {
-                $item['addDisabled'] = !($this->PermissionsService->check($item['permissionCheckUrl']['add'],
-                    Hash::extract($user->user_groups, '{n}.id')));
+                $item['addDisabled'] = !($this->PermissionsService->check($item['permissionCheckUrl']['add'], $userGroupIds));
             } else {
                 $item['addDisabled'] = true;
+            }
+
+            // 追加直後にフロント側でノードを動的生成する際にも権限状態を反映できるよう保持する
+            if (!empty($item['url']['edit'])) {
+                $item['editDisabled'] = !($this->PermissionsService->check($item['permissionCheckUrl']['edit'], $userGroupIds));
+            } else {
+                $item['editDisabled'] = true;
+            }
+            if (!empty($item['url']['manage'])) {
+                $item['manageDisabled'] = !($this->PermissionsService->check($item['permissionCheckUrl']['manage'], $userGroupIds));
+            } else {
+                $item['manageDisabled'] = true;
+            }
+            if (!empty($item['url']['delete'])) {
+                $item['deleteDisabled'] = !($this->PermissionsService->check($item['permissionCheckUrl']['delete'], $userGroupIds));
+            } else {
+                $item['deleteDisabled'] = true;
             }
             $items[$type] = $item;
         }
@@ -283,7 +300,7 @@ class BcContentsHelper extends Helper
      * @noTodo
      * @unitTest
      */
-    public function getTree(int $id = 1, ?int $level = null, array $options = []): ResultSetDecorator
+    public function getTree(int $id = 1, ?int $level = null, array $options = []): ResultSetInterface
     {
         $options = array_merge([
             'type' => '',

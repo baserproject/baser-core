@@ -121,7 +121,6 @@ class BcDatabaseService implements BcDatabaseServiceInterface
         // CakePHP5で pdo へのアクセスができなくなってしまったため
         // 仕方なく Reflection を利用
         $pdoProperty = new ReflectionProperty($db->getDriver(), 'pdo');
-        $pdoProperty->setAccessible(true);
         /* @var PDO $pdo */
         $pdo = $pdoProperty->getValue($db->getDriver());
         $adapter->setConnection($pdo);
@@ -718,13 +717,18 @@ class BcDatabaseService implements BcDatabaseServiceInterface
             return false;
         }
 
-        $head = fgetcsv($fp, 10240);
+        $head = fgetcsv($fp, null, ',', '"', '');
+        if ($head === false || $head === [null] || $head === []) {
+            fclose($fp);
+            return [];
+        }
         // UTF-8（BOM付）で何故か、配列の最初のキーに""が付加されてしまう
-        $head[0] = preg_replace('/^﻿(.+)$/', "$1", $head[0]);
-        $head[0] = preg_replace('/^"(.+)"$/', "$1", $head[0]);
-
+        $head[0] = preg_replace("/^\xEF\xBB\xBF(.+)$/", '$1', (string)$head[0]);
+        $head[0] = preg_replace('/^"(.+)"$/', "$1", (string)$head[0]);
         $records = [];
-        while(($record = BcUtil::fgetcsvReg($fp, 10240)) !== false) {
+        // length = null（行長制限なし） escape = 空文字（独自エスケープ無効）
+        while(($record = fgetcsv($fp, null, ',', '"', '')) !== false) {
+            if ($record === [null] || $record === []) continue;
             if ($encoding && $appEncoding != $encoding) {
                 mb_convert_variables($appEncoding, $encoding, $record);
             }
@@ -1158,7 +1162,8 @@ class BcDatabaseService implements BcDatabaseServiceInterface
      */
     private function isValidSchemaFile(string $filePath): bool
     {
-        $parser = (new ParserFactory)->create(ParserFactory::PREFER_PHP7);
+        // nikic/php-parser 5.x では create() / PREFER_PHP7 が廃止されたため、稼働中の PHP バージョン向けのパーサを生成する
+        $parser = (new ParserFactory)->createForHostVersion();
         $code = file_get_contents($filePath);
 
         try {

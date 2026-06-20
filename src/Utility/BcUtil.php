@@ -529,7 +529,7 @@ class BcUtil
      */
     public static function clearAllCache(): void
     {
-        Cache::clear('_cake_core_');
+        Cache::clear('_cake_translations_');
         self::clearModelCache();
         Cache::clear('_bc_env_');
         Cache::clear('_bc_update_');
@@ -572,8 +572,18 @@ class BcUtil
                 return false;
             }
         }
-        $adminPrefix = BcUtil::getPrefix(true);
-        return (boolean)(preg_match('/^(|\/)' . $adminPrefix . '\//', $url) || preg_match('/^(|\/)' . $adminPrefix . '$/', $url));
+        $baserCorePrefix = (string) BcUtil::getBaserCorePrefix();
+        $adminAlias = Configure::read('BcPrefixAuth.Admin.alias') ?: '/' . BcUtil::getAdminPrefix();
+        $apiAdminAlias = Configure::read('BcPrefixAuth.Api/Admin.alias')
+            ?: '/' . (string) Configure::read('BcApp.apiPrefix') . '/admin';
+
+        $prefixes = [
+            $baserCorePrefix . $adminAlias,
+            $baserCorePrefix . $apiAdminAlias,
+        ];
+        $prefixes = array_map(fn($prefix) => preg_quote(ltrim($prefix, '/'), '/'), $prefixes);
+
+        return (bool) preg_match('/^\/?(?:' . implode('|', $prefixes) . ')(?:$|\/)/', $url);
     }
 
     /**
@@ -1014,7 +1024,8 @@ class BcUtil
      */
     public static function getDomain($url)
     {
-        $mainUrlInfo = parse_url($url);
+        // PHP 8.1+ では parse_url() に null を渡すと非推奨警告となるため文字列にキャストする
+        $mainUrlInfo = parse_url((string)$url);
         $host = $mainUrlInfo['host'] ?? '';
         if (!empty($mainUrlInfo['port'])) {
             $host .= ':' . $mainUrlInfo['port'];
@@ -1347,7 +1358,8 @@ class BcUtil
      */
     public static function decodeContent($content, $fileName = null)
     {
-        if (isset(self::$contentsMaping[$content])) {
+        // PHP 8.5 で null を配列オフセットに使うのは非推奨のため null は未該当として扱う
+        if ($content !== null && isset(self::$contentsMaping[$content])) {
             return self::$contentsMaping[$content];
         } elseif ($fileName) {
             return self::getExtension($fileName);
@@ -1642,7 +1654,6 @@ class BcUtil
     {
         $reflection = new ReflectionClass($eventManager);
         $property = $reflection->getProperty('_isGlobal');
-        $property->setAccessible(true);
         if($property->getValue($eventManager)) {
             throw new BcException(__d('baser_core', 'グローバルイベントマネージャーからはイベントをオフにすることはできません。'));
         }
@@ -1682,7 +1693,6 @@ class BcUtil
     {
         $reflection = new ReflectionClass($eventManager);
         $property = $reflection->getProperty('_isGlobal');
-        $property->setAccessible(true);
         if($property->getValue($eventManager)) {
             throw new BcException(__d('baser_core', 'グローバルイベントマネージャーからはイベントをオンにすることはできません。'));
         }
@@ -1783,8 +1793,7 @@ class BcUtil
         // static プロパティで値が残ってしまうため
         $ref = new ReflectionClass($request);
         $detectors = $ref->getProperty('_detectors');
-        $detectors->setAccessible(true);
-        $detectors->setValue(self::$_detectors);
+        $detectors->setValue($request, self::$_detectors);
         $bcRequestFilter = new BcRequestFilterMiddleware();
         $request = $bcRequestFilter->addDetectors($request);
         return $request;
@@ -2245,8 +2254,8 @@ class BcUtil
     public static function triggerDeprecatedError(
         string $target,
         string $since,
-        string $remove = null,
-        string $note = null
+        ?string $remove = null,
+        ?string $note = null
     ): void
     {
         if (!Configure::read('debug')) return;
@@ -2268,8 +2277,8 @@ class BcUtil
     public static function getDeprecatedMessage(
         string $target,
         string $since,
-        string $remove = null,
-        string $note = null
+        ?string $remove = null,
+        ?string $note = null
     ): string
     {
         $message = sprintf(__d('baser_core', '%s は、バージョン %s より非推奨となりました。'), $target, $since);
@@ -2315,6 +2324,36 @@ class BcUtil
     public static function isDevelopmentVersion(): bool
     {
         return is_dir(ROOT . DS . 'plugins' . DS . 'baser-core');
+    }
+
+    /**
+     * locale から言語コードを取得する
+     *
+     * @param string|null $locale
+     * @param string $default
+     * @return string
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public static function getLocaleLanguageCode(?string $locale = null, string $default = 'ja'): string
+    {
+        $locale = strtolower((string) ($locale ?? \Cake\I18n\I18n::getLocale()));
+        return preg_replace('/[_-].*$/', '', $locale) ?: $default;
+    }
+
+    /**
+     * 現在の locale が日本語かどうか判定する
+     *
+     * @param string|null $locale
+     * @return bool
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public static function isJapaneseLocale(?string $locale = null): bool
+    {
+        return self::getLocaleLanguageCode($locale) === 'ja';
     }
 
 }
