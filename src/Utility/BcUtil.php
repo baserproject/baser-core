@@ -529,7 +529,9 @@ class BcUtil
      */
     public static function clearAllCache(): void
     {
-        Cache::clear('_cake_core_');
+        if (in_array('_cake_translations_', Cache::configured(), true)) {
+            Cache::clear('_cake_translations_');
+        }
         self::clearModelCache();
         Cache::clear('_bc_env_');
         Cache::clear('_bc_update_');
@@ -1024,7 +1026,8 @@ class BcUtil
      */
     public static function getDomain($url)
     {
-        $mainUrlInfo = parse_url($url);
+        // PHP 8.1+ では parse_url() に null を渡すと非推奨警告となるため文字列にキャストする
+        $mainUrlInfo = parse_url((string)$url);
         $host = $mainUrlInfo['host'] ?? '';
         if (!empty($mainUrlInfo['port'])) {
             $host .= ':' . $mainUrlInfo['port'];
@@ -1357,7 +1360,8 @@ class BcUtil
      */
     public static function decodeContent($content, $fileName = null)
     {
-        if (isset(self::$contentsMaping[$content])) {
+        // PHP 8.5 で null を配列オフセットに使うのは非推奨のため null は未該当として扱う
+        if ($content !== null && isset(self::$contentsMaping[$content])) {
             return self::$contentsMaping[$content];
         } elseif ($fileName) {
             return self::getExtension($fileName);
@@ -1652,7 +1656,6 @@ class BcUtil
     {
         $reflection = new ReflectionClass($eventManager);
         $property = $reflection->getProperty('_isGlobal');
-        $property->setAccessible(true);
         if($property->getValue($eventManager)) {
             throw new BcException(__d('baser_core', 'グローバルイベントマネージャーからはイベントをオフにすることはできません。'));
         }
@@ -1692,7 +1695,6 @@ class BcUtil
     {
         $reflection = new ReflectionClass($eventManager);
         $property = $reflection->getProperty('_isGlobal');
-        $property->setAccessible(true);
         if($property->getValue($eventManager)) {
             throw new BcException(__d('baser_core', 'グローバルイベントマネージャーからはイベントをオンにすることはできません。'));
         }
@@ -1793,8 +1795,7 @@ class BcUtil
         // static プロパティで値が残ってしまうため
         $ref = new ReflectionClass($request);
         $detectors = $ref->getProperty('_detectors');
-        $detectors->setAccessible(true);
-        $detectors->setValue(self::$_detectors);
+        $detectors->setValue($request, self::$_detectors);
         $bcRequestFilter = new BcRequestFilterMiddleware();
         $request = $bcRequestFilter->addDetectors($request);
         return $request;
@@ -2090,7 +2091,7 @@ class BcUtil
      * @checked
      * @noTodo
      * @unitTest
-     * @deprecated 5.2.x ホスト名を前方一致で比較しスキームも検証しないため、なりすまし（CWE-290）に
+     * @deprecated 5.3.0 Referer のみに依存しスキーム・ポートを検証しないため、なりすまし（CWE-290）に
      *   弱い。同一オリジン判定には {@see BcUtil::isSameOriginAsCurrent()} を使用すること。
      *   後方互換のため残置しているが、新規コードでは利用しないこと。
      */
@@ -2101,7 +2102,9 @@ class BcUtil
             return false;
         }
         $refererDomain = BcUtil::getDomain($_SERVER['HTTP_REFERER']);
-        if (!preg_match('/^' . preg_quote($siteDomain, '/') . '/', $refererDomain)) {
+        // GHSA-gwfr-7r8h-c5mp: 前方一致（末尾アンカー無し）だと `example.com.attacker.test` のような
+        // lookalike ドメインが通ってしまう（CWE-290 / CWE-625）ため、ホストを完全一致で比較する。
+        if ($refererDomain !== $siteDomain) {
             return false;
         }
         return true;

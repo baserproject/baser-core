@@ -43,8 +43,8 @@ class PluginsController extends BcAdminAppController
      */
     public function beforeFilter(EventInterface $event)
     {
-        $response = parent::beforeFilter($event);
-        if($response) return $response;
+        parent::beforeFilter($event);
+        if ($event->getResult()) return;
         $this->FormProtection->setConfig('unlockedActions', ['reset_db', 'update_sort', 'batch']);
     }
 
@@ -327,7 +327,7 @@ class PluginsController extends BcAdminAppController
             $service->resetDb($this->request->getData('name'), $this->request->getData('connection') ?? 'default');
             $usersService->reLogin($this->request, $this->response);
             $this->BcMessage->setSuccess(
-                __d('baser_core', '{0} プラグインのデータを初期化しました。', $plugin->title)
+                __d('baser_core', 'プラグイン「{0}」のデータを初期化しました。', $plugin->title)
             );
         } catch(\Exception $e) {
             $this->BcMessage->setError(__d('baser_core', 'リセット処理中にエラーが発生しました。') . $e->getMessage());
