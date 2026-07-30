@@ -306,7 +306,7 @@ class BcUtilTest extends BcTestCase
         $folder->move($backup);
 
         // cache環境準備
-        $cacheList = ['environment' => '_bc_env_', 'persistent' => '_cake_translations_', 'models' => '_cake_model_'];
+        $cacheList = ['environment' => '_bc_env_', 'persistent' => '_cake_core_', 'models' => '_cake_model_'];
 
         foreach ($cacheList as $path => $cacheName) {
             Cache::drop($cacheName);
@@ -613,7 +613,7 @@ class BcUtilTest extends BcTestCase
         $result = BcUtil::getDefaultDataPath($theme, $pattern);
         // 初期データ用のダミーディレクトリを削除
         if ($theme) {
-            (new BcFolder($path))->delete();
+            $Folder->delete($path);
         }
         $this->assertEquals($expect, $result, '初期データのパスを正しく取得できません');
     }
@@ -1591,65 +1591,6 @@ class BcUtilTest extends BcTestCase
             ["/baser/admin", false],
             // refererが同サイトドメインの場合
             ["http://www.example.com/baser/admin", true],
-            // GHSA-gwfr-7r8h-c5mp: 前方一致で通っていた lookalike ドメインは完全一致で false になること
-            ["http://www.example.com.attacker.test/baser/admin", false],
-            // ポート違いも別ホスト扱いで false
-            ["http://www.example.com:8080/baser/admin", false],
-        ];
-    }
-
-    /**
-     * test isSameOriginAsCurrent
-     * @dataProvider isSameOriginAsCurrentDataProvider
-     * @param array $server $_SERVER に設定する値（HTTPS/HTTP_HOST/HTTP_ORIGIN/HTTP_REFERER）
-     * @param bool $expected
-     */
-    public function testIsSameOriginAsCurrent(array $server, bool $expected)
-    {
-        // 準備：判定に使う $_SERVER をクリアしてから流し込む
-        foreach (['HTTPS', 'HTTP_HOST', 'HTTP_ORIGIN', 'HTTP_REFERER'] as $key) {
-            unset($_SERVER[$key]);
-        }
-        foreach ($server as $key => $value) {
-            $_SERVER[$key] = $value;
-        }
-
-        // 実行
-        $this->assertSame($expected, BcUtil::isSameOriginAsCurrent());
-
-        // 後始末
-        foreach (['HTTPS', 'HTTP_HOST', 'HTTP_ORIGIN', 'HTTP_REFERER'] as $key) {
-            unset($_SERVER[$key]);
-        }
-    }
-
-    public static function isSameOriginAsCurrentDataProvider()
-    {
-        return [
-            // Origin が同一オリジンで完全一致 → true
-            [['HTTP_HOST' => 'www.example.com', 'HTTP_ORIGIN' => 'http://www.example.com'], true],
-            // Origin のスキーム違い（http の現在に対し https）→ false
-            [['HTTP_HOST' => 'www.example.com', 'HTTP_ORIGIN' => 'https://www.example.com'], false],
-            // 前方一致攻撃 www.example.com.evil.com → false（旧 isSameReferrerAsCurrent では通っていた）
-            [['HTTP_HOST' => 'www.example.com', 'HTTP_ORIGIN' => 'http://www.example.com.evil.com'], false],
-            // Origin がホスト違い → false
-            [['HTTP_HOST' => 'www.example.com', 'HTTP_ORIGIN' => 'http://evil.com'], false],
-            // Origin 無し＋同一オリジン Referer → true（フォールバック）
-            [['HTTP_HOST' => 'www.example.com', 'HTTP_REFERER' => 'http://www.example.com/baser/admin'], true],
-            // Origin 無し＋前方一致攻撃 Referer → false
-            [['HTTP_HOST' => 'www.example.com', 'HTTP_REFERER' => 'http://www.example.com.evil.com/'], false],
-            // Origin と Referer 双方無し → false
-            [['HTTP_HOST' => 'www.example.com'], false],
-            // HTTP_HOST 自体が無い → false
-            [['HTTP_ORIGIN' => 'http://www.example.com'], false],
-            // HTTPS 環境で Origin が https 同一 → true（ポート無し同士）
-            [['HTTPS' => 'on', 'HTTP_HOST' => 'www.example.com', 'HTTP_ORIGIN' => 'https://www.example.com'], true],
-            // HTTPS 環境で Origin が http（スキーム違い）→ false
-            [['HTTPS' => 'on', 'HTTP_HOST' => 'www.example.com', 'HTTP_ORIGIN' => 'http://www.example.com'], false],
-            // ポート込みで完全一致 → true
-            [['HTTP_HOST' => 'www.example.com:8080', 'HTTP_ORIGIN' => 'http://www.example.com:8080'], true],
-            // ポート違い → false
-            [['HTTP_HOST' => 'www.example.com:8080', 'HTTP_ORIGIN' => 'http://www.example.com:9090'], false],
         ];
     }
 

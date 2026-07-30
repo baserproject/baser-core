@@ -384,8 +384,7 @@ class BcTextHelper extends TextHelper
         if (is_numeric($key)) {
             $key = (int)$key;
         }
-        // PHP 8.5 で null を配列オフセットに使うのは非推奨のため null は未該当として扱う
-        if ($key !== null && isset($array[$key])) {
+        if (isset($array[$key])) {
             return $array[$key];
         }
         return $noValue;

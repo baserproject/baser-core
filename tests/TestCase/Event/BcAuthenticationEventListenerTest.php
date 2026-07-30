@@ -162,7 +162,7 @@ class BcAuthenticationEventListenerTest extends BcTestCase
 
         // - 成功
         $twoFactorAuthentication = $this->TwoFactorAuthentications->find()
-            ->orderByDesc('modified')
+            ->orderDesc('modified')
             ->first();
         $request = $this->getRequest('/baser/api/admin/baser-core/users/login.json',
             ['code' => $twoFactorAuthentication->code]);

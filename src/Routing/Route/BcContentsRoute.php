@@ -295,11 +295,10 @@ class BcContentsRoute extends Route
             if ($contentId) {
                 $conditions = ['Contents.id' => $contentId];
             } else {
-                // CakePHP 5.2 では配列条件に null 値を直接渡すと例外となるため、null 安全な IS 演算子を利用する
                 $conditions = [
                     'Contents.plugin' => $plugin,
                     'Contents.type' => $type,
-                    'Contents.entity_id IS' => $entityId
+                    'Contents.entity_id' => $entityId
                 ];
             }
             $strUrl = $contents->find()->where($conditions)->first()->url;

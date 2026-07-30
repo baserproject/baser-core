@@ -90,12 +90,6 @@ class UserGroupsTable extends AppTable
                     'provider' => 'bc',
                     'message' => __d('baser_core', 'ユーザーグループ名は半角のみで入力してください。')
                 ],
-                'noWhitespace' => [
-                    'rule' => function ($value) {
-                        return !preg_match('/[ 　]/u', $value);
-                    },
-                    'message' => __d('baser_core', 'ユーザーグループ名にスペースは使用できません。')
-                ],
                 'name_unique' => [
                     'rule' => 'validateUnique',
                     'provider' => 'table',
@@ -160,7 +154,7 @@ class UserGroupsTable extends AppTable
         }
 
         if ($result = $this->save($entity)) {
-            $permissions = $this->Permissions->find()->where(['user_group_id' => $id])->orderBy(['sort'])->all();
+            $permissions = $this->Permissions->find()->where(['user_group_id' => $id])->order(['sort'])->all();
             if ($permissions) {
                 foreach($permissions as $permission) {
                     $permission->user_group_id = $result->id;

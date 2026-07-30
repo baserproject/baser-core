@@ -20,11 +20,11 @@ interface BcCaptchaServiceInterface
 {
 
     /**
-     * キャプチャ画像を生成して画像データを返す
+     * キャプチャ画象を表示する
      *
-     * @return string 画像のバイナリデータ
+     * @return void
      */
-    public function render(ServerRequest $request, string $token): string;
+    public function render(ServerRequest $request, string $token): void;
 
     /**
      * 認証を行う

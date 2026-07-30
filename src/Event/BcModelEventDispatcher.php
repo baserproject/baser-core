@@ -60,73 +60,67 @@ class BcModelEventDispatcher implements EventListenerInterface
      * beforeFind
      *
      * @param Event $event
-     * @return void
+     * @return array|true
      * @checked
      * @noTodo
      * @unitTest
      */
-    public function beforeFind(Event $event): void
+    public function beforeFind(Event $event)
     {
         if (!method_exists($event->getSubject(), 'dispatchLayerEvent')) {
-            $event->setResult($event->getData(0));
-            return;
+            return $event->getData(0);
         }
         $currentEvent = $event->getSubject()->dispatchLayerEvent('beforeFind', $event->getData());
         if ($currentEvent) {
             $event->setData($currentEvent->getData());
-            $event->setResult(true);
-            return;
+            return true;
         }
-        $event->setResult($event->getData(0));
+        return $event->getData(0);
     }
 
     /**
      * afterFind
      *
      * @param Event $event
-     * @return void
+     * @return array|true
      * @checked
      * @noTodo
      * @unitTest
      */
-    public function afterFind(Event $event): void
+    public function afterFind(Event $event)
     {
         if (!method_exists($event->getSubject(), 'dispatchLayerEvent')) {
-            $event->setResult($event->getData(0));
-            return;
+            return $event->getData(0);
         }
         $currentEvent = $event->getSubject()->dispatchLayerEvent('afterFind', $event->getData());
         if ($currentEvent) {
             $event->setData($currentEvent->getData());
-            $event->setResult(true);
-            return;
+            return true;
         }
-        $event->setResult($event->getData(0));
+        return $event->getData(0);
     }
 
     /**
      * beforeMarshal
      *
      * @param Event $event
-     * @return void
+     * @return boolean
      * @checked
      * @noTodo
      * @unitTest
      */
-    public function beforeMarshal(Event $event): void
+    public function beforeMarshal(Event $event): bool
     {
         if (!method_exists($event->getSubject(), 'dispatchLayerEvent')) {
-            $event->setResult(true);
-            return;
+            return true;
         }
         $currentEvent = $event->getSubject()->dispatchLayerEvent('beforeMarshal', $event->getData());
         if ($currentEvent) {
             if ($currentEvent->isStopped()) {
-                $event->setResult(false);
-                return;
+                return false;
             }
         }
-        $event->setResult(true);
+        return true;
     }
 
     /**
@@ -150,25 +144,23 @@ class BcModelEventDispatcher implements EventListenerInterface
      * beforeSave
      *
      * @param Event $event
-     * @return void
+     * @return boolean
      * @checked
      * @noTodo
      * @unitTest
      */
-    public function beforeSave(Event $event): void
+    public function beforeSave(Event $event): bool
     {
         if (!method_exists($event->getSubject(), 'dispatchLayerEvent')) {
-            $event->setResult(true);
-            return;
+            return true;
         }
         $currentEvent = $event->getSubject()->dispatchLayerEvent('beforeSave', $event->getData());
         if ($currentEvent) {
             if (!$currentEvent->getResult()) {
-                $event->setResult(false);
-                return;
+                return false;
             }
         }
-        $event->setResult(true);
+        return true;
     }
 
     /**
@@ -192,25 +184,23 @@ class BcModelEventDispatcher implements EventListenerInterface
      * beforeDelete
      *
      * @param Event $event
-     * @return void
+     * @return boolean
      * @checked
      * @noTodo
      * @unitTest
      */
-    public function beforeDelete(EventInterface $event): void
+    public function beforeDelete(EventInterface $event): bool
     {
         if (!method_exists($event->getSubject(), 'dispatchLayerEvent')) {
-            $event->setResult(true);
-            return;
+            return true;
         }
         $currentEvent = $event->getSubject()->dispatchLayerEvent('beforeDelete', $event->getData());
         if ($currentEvent) {
             if ($event->isStopped()) {
-                $event->setResult(false);
-                return;
+                return false;
             }
         }
-        $event->setResult(true);
+        return true;
     }
 
     /**

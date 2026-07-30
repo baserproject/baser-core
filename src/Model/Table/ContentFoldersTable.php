@@ -123,6 +123,7 @@ class ContentFoldersTable extends AppTable
             $searchIndexService = $this->getService(SearchIndexesServiceInterface::class);
             $searchIndexService->reconstruct($entity->content->id);
         }
+        return true;
     }
 
     /**

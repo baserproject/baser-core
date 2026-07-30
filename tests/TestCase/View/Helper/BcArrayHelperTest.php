@@ -63,9 +63,12 @@ class BcArrayHelperTest extends BcTestCase
 
     public function testFirstWithQuery()
     {
-        // CakePHP 5.2 で ResultSet はクローン不可のため、first() は Query を toArray() で配列化して判定する
+        $mockResultSet = $this->createMock(ResultSetInterface::class);
+        $mockResultSet->method('first')->willReturn([1 => 'a', 2 => 'b', 3 => 'c']);
+        $mockResultSet->method('key')->willReturn(1);
+
         $mockQuery = $this->createMock(Query::class);
-        $mockQuery->method('toArray')->willReturn([1 => 'a', 2 => 'b', 3 => 'c']);
+        $mockQuery->method('getIterator')->willReturn($mockResultSet);
 
         $this->assertTrue($this->Helper->first($mockQuery, 1));
         $this->assertFalse($this->Helper->first($mockQuery, 2));

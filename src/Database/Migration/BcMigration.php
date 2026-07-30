@@ -11,18 +11,17 @@
 
 namespace BaserCore\Database\Migration;
 
-use Migrations\BaseMigration;
-use Migrations\Db\Table;
+use Migrations\AbstractMigration;
+use Migrations\Table;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
 use BaserCore\Annotation\UnitTest;
+use Cake\Datasource\ConnectionManager;
 
 /**
  * BcMigration
- *
- * CakePHP Migrations 4.5 以降、AbstractMigration は非推奨となり BaseMigration が推奨されたため移行。
  */
-class BcMigration extends BaseMigration
+class BcMigration extends AbstractMigration
 {
 
     /**
@@ -39,9 +38,13 @@ class BcMigration extends BaseMigration
      */
     public function table(string $tableName, array $options = []): Table
     {
-        // BaseMigration では $this->input が無いため、実行中アダプターの接続からプレフィックスを取得する
-        $prefix = $this->getAdapter()->getConnection()->config()['prefix'] ?? '';
-        return parent::table($prefix . $tableName, $options);
+        if($this->input->hasParameterOption('--connection')) {
+            $connection = $this->input->getParameterOption('--connection');
+        } else {
+            $connection = 'default';
+        }
+        $prefix = ConnectionManager::get($connection)->config()['prefix'];
+        return parent::table($prefix . $tableName);
     }
 
 }

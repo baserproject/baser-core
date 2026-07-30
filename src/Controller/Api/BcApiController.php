@@ -47,7 +47,7 @@ class BcApiController extends AppController
      * Before Filter
      *
      * @param EventInterface $event
-     * @return void
+     * @return \Cake\Http\Response|void
      * @noTodo
      * @checked
      * @unitTest
@@ -62,7 +62,7 @@ class BcApiController extends AppController
                 throw new ForbiddenException(__d('baser_core', 'baser APIは許可されていません。'));
             }
         }
-        parent::beforeFilter($event);
+        return parent::beforeFilter($event);
     }
 
     /**

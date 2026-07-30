@@ -132,15 +132,15 @@ class AppController extends BaseController
     /**
      * Before Filter
      * @param EventInterface $event
-     * @return void
+     * @return Response|void
      * @checked
      * @noTodo
      * @unitTest
      */
     public function beforeFilter(EventInterface $event)
     {
-        parent::beforeFilter($event);
-        if ($event->getResult()) return;
+        $response = parent::beforeFilter($event);
+        if ($response) return $response;
 
         // index.php をつけたURLの場合、base の値が正常でなくなり、
         // 内部リンクが影響を受けておかしくなってしまうため強制的に Not Found とする
@@ -151,10 +151,7 @@ class AppController extends BaseController
         if (!$this->getRequest()->is('requestview')) return;
 
         $response = $this->redirectIfIsRequireMaintenance();
-        if ($response) {
-            $event->setResult($response);
-            return;
-        }
+        if ($response) return $response;
 
         $this->__cleanupQueryParams();
 
@@ -184,8 +181,7 @@ class AppController extends BaseController
                     $url = Router::url(Configure::read("BcPrefixAuth.{$prefix}.loginAction"), true)
                         . '?redirect=' . rawurlencode($this->getRequest()->getPath());
                 }
-                $event->setResult($this->redirect($url));
-                return;
+                return $this->redirect($url);
             }
         }
 

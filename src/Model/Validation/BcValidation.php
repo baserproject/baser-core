@@ -48,22 +48,22 @@ class BcValidation extends Validation
      * @noTodo
      * @unitTest
      */
-    public static function alphaNumericPlus($value, $addChars = null)
+    public static function alphaNumericPlus($value, $context = null)
     {
         if (!$value) {
             return true;
         }
-        if (!is_null($addChars)) {
-            if (is_array($addChars)) {
-                if (array_key_exists('data', $addChars)) {
-                    $addChars = [];
+        if (!is_null($context)) {
+            if (is_array($context)) {
+                if (array_key_exists('data', $context)) {
+                    $context = [];
                 }
             } else {
-                $addChars = [$addChars];
+                $context = [$context];
             }
-            $addChars = preg_quote(implode('', $addChars), '/');
+            $context = preg_quote(implode('', $context), '/');
         }
-        if (preg_match("/^[a-zA-Z0-9\-_" . $addChars . "]+$/", $value)) {
+        if (preg_match("/^[a-zA-Z0-9\-_" . $context . "]+$/", $value)) {
             return true;
         } else {
             return false;

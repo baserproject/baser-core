@@ -316,7 +316,7 @@ class ContentsTable extends AppTable
      * @param EventInterface $event
      * @param ArrayObject $content
      * @param ArrayObject $options
-     * @return void
+     * @return array $content
      * @checked
      * @noTodo
      * @unitTest
@@ -376,6 +376,7 @@ class ContentsTable extends AppTable
             }
             $content['name'] = $this->getUniqueName($content['name'], $content['parent_id'] ?? null, $contentId);
         }
+        return (array)$content;
     }
 
     /**
@@ -918,7 +919,7 @@ class ContentsTable extends AppTable
                     ->select(['name', 'plugin', 'type'])
                     ->from($prefix . 'contents')
                     ->where(['lft <=' => $content['lft'], 'rght >=' => $content['rght'], 'deleted_date IS' => null])
-                    ->orderBy(['lft' => 'ASC'])
+                    ->order(['lft' => 'ASC'])
                     ->execute()
                     ->fetchAll('assoc');
                 unset($parents[0]);

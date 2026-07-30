@@ -24,7 +24,6 @@ use Cake\Event\EventManagerInterface;
 use Cake\Http\Response;
 use Cake\Http\ServerRequest;
 use Cake\ORM\TableRegistry;
-use Throwable;
 
 /**
  * BcErrorController
@@ -109,18 +108,6 @@ class BcErrorController extends BcFrontAppController
         $this->viewBuilder()->setTemplatePath('Error');
         // プラグイン等のイベントが残っているとエラー画面が正常に表示されない場合があるため、イベントを削除する
         EventManager::instance()->off('View.beforeRender');
-    }
-
-    /**
-     * NotFoundException のエラーページを描画する
-     *
-     * @param Throwable|null $error
-     * @return void
-     * @noTodo
-     */
-    public function notFound(?Throwable $error = null): void
-    {
-        $this->viewBuilder()->setTemplate('error400');
     }
 
 }

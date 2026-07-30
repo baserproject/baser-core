@@ -43,11 +43,13 @@ class BcArrayHelper extends Helper
     public function first($array, int $key)
     {
         if($array instanceof Query) {
-            // CakePHP 5.2 で ResultSet はクローン不可のため配列化して扱う
-            $array = $array->toArray();
+            $iterator = clone $array->getIterator();
+            $iterator->first();
+            $first = $iterator->key();
+        } else {
+            reset($array);
+            $first = key($array);
         }
-        reset($array);
-        $first = key($array);
         if ($key === $first) {
             return true;
         } else {

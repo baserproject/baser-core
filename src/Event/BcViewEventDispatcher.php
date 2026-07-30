@@ -75,25 +75,23 @@ class BcViewEventDispatcher implements EventListenerInterface
      * afterRenderFile
      *
      * @param Event $event
-     * @return void
+     * @return string
      * @checked
      * @noTodo
      * @unitTest
      */
-    public function afterRenderFile(Event $event): void
+    public function afterRenderFile(Event $event): string
     {
         if ($event->getSubject()->getName() != 'CakeError' && $event->getSubject()->getName() != '') {
             if (!method_exists($event->getSubject(), 'dispatchLayerEvent')) {
-                $event->setResult($event->getData(1));
-                return;
+                return $event->getData(1);
             }
             $currentEvent = $event->getSubject()->dispatchLayerEvent('afterRenderFile', $event->getData());
             if ($currentEvent) {
-                $event->setResult($currentEvent->getData(1));
-                return;
+                return $currentEvent->getData(1);
             }
         }
-        $event->setResult($event->getData(1));
+        return $event->getData(1);
     }
 
     /**

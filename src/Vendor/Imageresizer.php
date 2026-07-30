@@ -124,8 +124,7 @@ class Imageresizer
 
         // 画像をコピーし、リサイズする
         $newImage = $this->_copyAndResize($srcImage, $newImage, $srcWidth, $srcHeight, $newWidth, $newHeight, $trimming);
-        // PHP 8.5 で imagedestroy() は非推奨（8.0 以降 GdImage はオブジェクトで GC 管理）。参照を外して解放する
-        unset($srcImage);
+        imagedestroy($srcImage);
 
         if ($savePath && file_exists($savePath)) {
             @unlink($savePath);
@@ -153,8 +152,7 @@ class Imageresizer
                 return false;
         }
 
-        // PHP 8.5 で imagedestroy() は非推奨。参照を外して解放する
-        unset($newImage);
+        imagedestroy($newImage);
         if ($savePath) {
             chmod($savePath, 0666);
         }

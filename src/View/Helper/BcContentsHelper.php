@@ -18,7 +18,6 @@ use BaserCore\Service\ContentsService;
 use Cake\Datasource\EntityInterface;
 use Cake\Datasource\Exception\RecordNotFoundException;
 use Cake\Datasource\ResultSetDecorator;
-use Cake\Datasource\ResultSetInterface;
 use Cake\Utility\Hash;
 use Cake\View\Helper;
 use Cake\Routing\Router;
@@ -300,7 +299,7 @@ class BcContentsHelper extends Helper
      * @noTodo
      * @unitTest
      */
-    public function getTree(int $id = 1, ?int $level = null, array $options = []): ResultSetInterface
+    public function getTree(int $id = 1, ?int $level = null, array $options = []): ResultSetDecorator
     {
         $options = array_merge([
             'type' => '',

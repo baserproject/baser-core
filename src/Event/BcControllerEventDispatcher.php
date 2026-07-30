@@ -112,25 +112,25 @@ class BcControllerEventDispatcher implements EventListenerInterface
      * beforeRedirect
      *
      * @param Event $event
-     * @return void
+     * @return \Cake\Http\Response|null
      * @checked
      * @noTodo
      * @unitTest
      */
-    public function beforeRedirect(Event $event): void
+    public function beforeRedirect(Event $event)
     {
         if ($event->getSubject()->getName() != 'Error' && $event->getSubject()->getName() != '') {
             if (!method_exists($event->getSubject(), 'dispatchLayerEvent')) {
-                return;
+                return null;
             }
             /* @var Event $currentEvent */
             $currentEvent = $event->getSubject()->dispatchLayerEvent('beforeRedirect', $event->getData());
             if ($currentEvent) {
                 $event->setData($currentEvent->getData());
-                $event->setResult($currentEvent->getResult());
-                return;
+                return $currentEvent->getResult();
             }
         }
+        return null;
     }
 
     /**

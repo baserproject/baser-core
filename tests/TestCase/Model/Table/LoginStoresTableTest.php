@@ -116,6 +116,7 @@ class LoginStoresTableTest extends BcTestCase
         // キー長を変更し衝突データを発生させた場合Exeptionが発生
         $reflection = new \ReflectionClass($this->LoginStores);
         $property = $reflection->getProperty('keyLength');
+        $property->setAccessible(true);
         $property->setValue($this->LoginStores, 1);
         $errorMesage = "";
         try {

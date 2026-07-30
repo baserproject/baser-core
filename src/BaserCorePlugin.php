@@ -177,7 +177,7 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
             return;
         }
 
-        if (BcUtil::isTest() && !$app->getPlugins()->has('CakephpFixtureFactories')) $app->addPlugin('CakephpFixtureFactories');
+        if (BcUtil::isTest()) $app->addPlugin('CakephpFixtureFactories');
 
         // 利用可能なテーマを取得
         $themes = $this->getAvailableThemes();
@@ -217,8 +217,8 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
      */
     public function addPlugin(PluginApplicationInterface $app): void
     {
-        if (!$app->getPlugins()->has('Authentication')) $app->addPlugin('Authentication');
-        if (!$app->getPlugins()->has('Migrations')) $app->addPlugin('Migrations');
+        $app->addPlugin('Authentication');
+        $app->addPlugin('Migrations');
 
         $plugins = BcUtil::getEnablePlugins();
         if (!$plugins) return;
@@ -237,18 +237,11 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
      */
     public function addTheme(PluginApplicationInterface $application, array $themes): void
     {
-        $coreAdminTheme = Inflector::camelize(Configure::read('BcApp.coreAdminTheme'), '-');
-        if (!$application->getPlugins()->has($coreAdminTheme)) {
-            $application->addPlugin($coreAdminTheme);
-        }
-        $coreFrontTheme = Inflector::camelize(Configure::read('BcApp.coreFrontTheme'), '-');
-        if (!$application->getPlugins()->has($coreFrontTheme)) {
-            $application->addPlugin($coreFrontTheme);
-        }
+        $application->addPlugin(Inflector::camelize(Configure::read('BcApp.coreAdminTheme'), '-'));
+        $application->addPlugin(Inflector::camelize(Configure::read('BcApp.coreFrontTheme'), '-'));
         if (!BcUtil::isInstalled()) return;
 
         foreach($themes as $theme) {
-            if ($application->getPlugins()->has($theme)) continue;
             if (!BcUtil::includePluginClass($theme)) continue;
             try {
                 $application->addPlugin($theme);
@@ -356,7 +349,6 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
      */
     function loadPlugin(PluginApplicationInterface $application, $plugin, $priority)
     {
-        if ($application->getPlugins()->has($plugin)) return true;
         try {
             $application->addPlugin($plugin);
         } catch (MissingPluginException $e) {
@@ -388,6 +380,7 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
         // APIへのアクセスの場合、セッションによる認証以外は、CSRFを利用しない設定とする
         $ref = new ReflectionClass($middlewareQueue);
         $queue = $ref->getProperty('queue');
+        $queue->setAccessible(true);
 
         foreach($queue->getValue($middlewareQueue) as $middleware) {
             if ($middleware instanceof CsrfProtectionMiddleware) {
@@ -704,13 +697,10 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
 
         /**
          * /config/routes.php を無効化する
-         * DebugKit・実コンソールコマンドでは実行しない。
-         * ただしユニットテスト時は実行する。コンソールを一律除外すると、テストでのみ
-         * config/routes.php の fallbacks() が残り、本番と挙動が乖離して 404 となるため、
-         * テスト（isTest）のみコンソールでも実行して本番と挙動を一致させる。
+         * ユニットテストや DebugKit では実行しない
          */
         if (!Configure::read('BcApp.enableRootRoutes')
-            && (!BcUtil::isConsole() || BcUtil::isTest())
+            && !BcUtil::isConsole()
             && !preg_match('/^\/debug-kit\//', $request->getPath())
         ) {
             $this->disableRootRoutes($routes);
@@ -769,39 +759,25 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
     }
 
     /**
-     * config/routes.php の fallbacks() が追加する汎用ルートを無効化する
-     *
-     * baserCMS はコンテンツルーティング（BcContentsRoute）で URL を解決するため、
-     * fallbacks() の /{controller}/... がそれを隠さないよう取り除く。
-     *
+     * /config/routes.php を無効化する
      * @param RouteBuilder $routes
      * @throws \ReflectionException
      */
     public function disableRootRoutes(RouteBuilder $routes): void
     {
+        // ユニットテストでは実行しない
         $property = new ReflectionProperty(get_class($routes), '_collection');
+        $property->setAccessible(true);
         $collection = $property->getValue($routes);
-
-        // config/routes.php の fallbacks() が追加する汎用ルート（/{controller}/index,
-        // /{controller}/{action}/*）のみを取り除く。これらは BcContentsRoute（/*）より
-        // 先にマッチし、ブログのアーカイブ等のコンテンツルーティングを隠してしまうため。
-        //
-        // 以前はコレクションを全 wipe していたが、テスト環境ではルートがリクエストを跨いで
-        // 蓄積され、2回目以降のビルドで API ルート等まで巻き込んで消えてしまう問題があった。
-        // そこで fallback パターンのルートだけを除外してコレクションを再構築する。
-        $kept = [];
-        foreach ($collection->routes() as $route) {
-            // fallbacks() 由来（ルート直下の /{controller} 始まり）は除外
-            if (str_starts_with($route->template, '/{controller}')) continue;
-            $kept[] = $route;
-        }
-        foreach (['_routeTable', '_paths', 'staticPaths'] as $prop) {
-            $p = new ReflectionProperty(get_class($collection), $prop);
-            $p->setValue($collection, []);
-        }
-        foreach ($kept as $route) {
-            $collection->add($route);
-        }
+        $property = new ReflectionProperty(get_class($collection), '_routeTable');
+        $property->setAccessible(true);
+        $property->setValue($collection, []);
+        $property = new ReflectionProperty(get_class($collection), '_paths');
+        $property->setAccessible(true);
+        $property->setValue($collection, []);
+        $property = new ReflectionProperty(get_class($collection), 'staticPaths');
+        $property->setAccessible(true);
+        $property->setValue($collection, []);
     }
 
     /**

@@ -166,7 +166,7 @@ class PermissionsServiceTest extends BcTestCase
     {
         $permissions = $this->getTableLocator()->get('Permissions');
 
-        $permission = $permissions->find()->orderBy(['id' => 'DESC'])->first();
+        $permission = $permissions->find()->order(['id' => 'DESC'])->first();
         $copyPermission = $this->PermissionsService->copy($permission->id);
 
         $this->assertGreaterThan($permission->no, $copyPermission->no);
@@ -187,11 +187,11 @@ class PermissionsServiceTest extends BcTestCase
     {
         $permissions = $this->getTableLocator()->get('Permissions');
 
-        $permission = $permissions->find()->orderBy(['id' => 'ASC'])->first();
+        $permission = $permissions->find()->order(['id' => 'ASC'])->first();
         $beforeId = $permission->id;
         $this->PermissionsService->delete($beforeId);
 
-        $permission = $permissions->find()->orderBy(['id' => 'ASC'])->first();
+        $permission = $permissions->find()->order(['id' => 'ASC'])->first();
         $this->assertNotEquals($beforeId, $permission->id);
     }
 
@@ -204,7 +204,7 @@ class PermissionsServiceTest extends BcTestCase
     {
         $permissions = $this->getTableLocator()->get('Permissions');
 
-        $permission = $permissions->find()->orderBy(['id' => 'ASC'])->first();
+        $permission = $permissions->find()->order(['id' => 'ASC'])->first();
         $permission->status = false;
         $permissions->save($permission);
 
@@ -223,7 +223,7 @@ class PermissionsServiceTest extends BcTestCase
     {
         $permissions = $this->getTableLocator()->get('Permissions');
 
-        $permission = $permissions->find()->orderBy(['id' => 'ASC'])->first();
+        $permission = $permissions->find()->order(['id' => 'ASC'])->first();
         $permission->status = true;
         $permissions->save($permission);
 
@@ -273,6 +273,7 @@ class PermissionsServiceTest extends BcTestCase
     {
         $reflection = new \ReflectionClass($this->PermissionsService);
         $method = $reflection->getMethod('autoFillRecord');
+        $method->setAccessible(true);
 
         $data = $method->invokeArgs($this->PermissionsService, [[]]);
         $this->assertGreaterThan(0, $data['no']);
@@ -407,7 +408,7 @@ class PermissionsServiceTest extends BcTestCase
         $permissions = $this->getTableLocator()->get('Permissions');
         $permissionList = $permissions
             ->find()
-            ->orderBy(['sort' => 'ASC'])
+            ->order(['sort' => 'ASC'])
             ->limit(3)
             ->all();
         $beforeOrderId = [];
@@ -420,7 +421,7 @@ class PermissionsServiceTest extends BcTestCase
 
         $permissionList = $permissions
             ->find()
-            ->orderBy(['sort' => 'ASC'])
+            ->order(['sort' => 'ASC'])
             ->limit(3)
             ->all();
         $afterOrderId = [];
@@ -434,7 +435,7 @@ class PermissionsServiceTest extends BcTestCase
         $this->PermissionsService->changeSort($beforeOrderId[0], -2, $conditions);
         $permissionList = $permissions
             ->find()
-            ->orderBy(['sort' => 'ASC'])
+            ->order(['sort' => 'ASC'])
             ->limit(3)
             ->all();
         $afterOrderId2 = [];

@@ -475,8 +475,7 @@ class BcFormHelperTest extends BcTestCase
     {
         $this->attachEvent(['Helper.Form.after' . $type . 'Form' => ['callable' => function(Event $event) use ($fields, $res) {
             $event->setData('fields', $fields);
-            // CakePHP 5 ではイベントリスナーからの戻り値は非推奨のため setResult() を使う
-            $event->setResult($res);
+            return $res;
         }]]);
         $result = $this->BcForm->dispatchAfterForm($type);
         $this->assertMatchesRegularExpression('/' . $expected . '/s', $result);

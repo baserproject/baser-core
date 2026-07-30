@@ -65,8 +65,8 @@ class BcFrontAppController extends AppController
             I18n::setLocale($lang['langs'][0]);
         }
 
-        parent::beforeFilter($event);
-        if ($event->getResult()) return;
+        $response = parent::beforeFilter($event);
+        if($response) return $response;
     }
 
     /**

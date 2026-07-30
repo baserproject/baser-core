@@ -1143,6 +1143,7 @@ class BcFileUploaderTest extends BcTestCase
             }
             $reflection = new ReflectionClass($this->BcFileUploader);
             $property = $reflection->getProperty('savePath');
+            $property->setAccessible(true);
             $property->setValue($this->BcFileUploader, []);
         }
     }
@@ -1295,7 +1296,7 @@ class BcFileUploaderTest extends BcTestCase
         $entity = new Entity($originalData);
         $entity->clean();
         //Set new data
-        $entity->patch($initialData);
+        $entity->set($initialData);
 
         //set errors
         if (isset($errors['image'])) {
@@ -1355,7 +1356,7 @@ class BcFileUploaderTest extends BcTestCase
         $entity = new Entity($originalData);
         $entity->clean();
         //set new data
-        $entity->patch($initialData);
+        $entity->set($initialData);
 
         //check has error
         $this->assertFalse($entity->hasErrors());

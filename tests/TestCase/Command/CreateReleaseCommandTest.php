@@ -167,7 +167,7 @@ class CreateReleaseCommandTest extends BcTestCase
         $this->assertDirectoryExists($pluginsPath . 'plugins' . DS . 'BcColumn');
 
         //clean up
-        (new BcFolder($pluginsPath))->delete();
+        $folder->delete($pluginsPath);
     }
 
     /**
