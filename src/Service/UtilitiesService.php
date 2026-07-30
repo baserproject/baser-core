@@ -124,6 +124,10 @@ class UtilitiesService implements UtilitiesServiceInterface
             $errors[] = ['node', $node->{$primaryKey}, 'left greater than right.'];
         }
 
+        // CakePHP 5.2 では同名アソシエーションの再設定が例外となるため、既存があれば削除してから設定する
+        if ($table->associations()->has('VerifyParent')) {
+            $table->associations()->remove('VerifyParent');
+        }
         $table->belongsTo('VerifyParent', [
             'className' => $plugin . '.' . $table->getAlias(),
             'propertyName' => 'VerifyParent',
@@ -419,10 +423,9 @@ class UtilitiesService implements UtilitiesServiceInterface
 
         $tmpPath = TMP . 'schema' . DS;
         if(!is_dir($tmpPath)) {
-            (new BcFolder())->create($tmpPath);
+            (new BcFolder($tmpPath))->create();
         }
-        // パストラバーサル対策: クライアント提供のファイル名から basename() でディレクトリ要素を除去する
-        $name = basename($uploaded['backup']->getClientFileName());
+        $name = $uploaded['backup']->getClientFileName();
         $uploaded['backup']->moveTo($tmpPath . $name);
         $bcZip = new BcZip();
         if (!$bcZip->extract($tmpPath . $name, $tmpPath)) {

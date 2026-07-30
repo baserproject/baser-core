@@ -529,7 +529,7 @@ class BcUtil
      */
     public static function clearAllCache(): void
     {
-        Cache::clear('_cake_core_');
+        Cache::clear('_cake_translations_');
         self::clearModelCache();
         Cache::clear('_bc_env_');
         Cache::clear('_bc_update_');
@@ -1024,7 +1024,8 @@ class BcUtil
      */
     public static function getDomain($url)
     {
-        $mainUrlInfo = parse_url($url);
+        // PHP 8.1+ では parse_url() に null を渡すと非推奨警告となるため文字列にキャストする
+        $mainUrlInfo = parse_url((string)$url);
         $host = $mainUrlInfo['host'] ?? '';
         if (!empty($mainUrlInfo['port'])) {
             $host .= ':' . $mainUrlInfo['port'];
@@ -1357,7 +1358,8 @@ class BcUtil
      */
     public static function decodeContent($content, $fileName = null)
     {
-        if (isset(self::$contentsMaping[$content])) {
+        // PHP 8.5 で null を配列オフセットに使うのは非推奨のため null は未該当として扱う
+        if ($content !== null && isset(self::$contentsMaping[$content])) {
             return self::$contentsMaping[$content];
         } elseif ($fileName) {
             return self::getExtension($fileName);
@@ -1652,7 +1654,6 @@ class BcUtil
     {
         $reflection = new ReflectionClass($eventManager);
         $property = $reflection->getProperty('_isGlobal');
-        $property->setAccessible(true);
         if($property->getValue($eventManager)) {
             throw new BcException(__d('baser_core', 'グローバルイベントマネージャーからはイベントをオフにすることはできません。'));
         }
@@ -1692,7 +1693,6 @@ class BcUtil
     {
         $reflection = new ReflectionClass($eventManager);
         $property = $reflection->getProperty('_isGlobal');
-        $property->setAccessible(true);
         if($property->getValue($eventManager)) {
             throw new BcException(__d('baser_core', 'グローバルイベントマネージャーからはイベントをオンにすることはできません。'));
         }
@@ -1793,8 +1793,7 @@ class BcUtil
         // static プロパティで値が残ってしまうため
         $ref = new ReflectionClass($request);
         $detectors = $ref->getProperty('_detectors');
-        $detectors->setAccessible(true);
-        $detectors->setValue(self::$_detectors);
+        $detectors->setValue($request, self::$_detectors);
         $bcRequestFilter = new BcRequestFilterMiddleware();
         $request = $bcRequestFilter->addDetectors($request);
         return $request;
@@ -2090,9 +2089,6 @@ class BcUtil
      * @checked
      * @noTodo
      * @unitTest
-     * @deprecated 5.2.x ホスト名を前方一致で比較しスキームも検証しないため、なりすまし（CWE-290）に
-     *   弱い。同一オリジン判定には {@see BcUtil::isSameOriginAsCurrent()} を使用すること。
-     *   後方互換のため残置しているが、新規コードでは利用しないこと。
      */
     public static function isSameReferrerAsCurrent()
     {
@@ -2105,66 +2101,6 @@ class BcUtil
             return false;
         }
         return true;
-    }
-
-    /**
-     * リクエスト元が現在のサイトと同一オリジンかどうかを判定する
-     *
-     * なりすましに弱い {@see BcUtil::isSameReferrerAsCurrent()}（ホスト前方一致・スキーム未検証）の
-     * 堅牢版。ブラウザが設定し JavaScript から偽造できない `Origin` ヘッダを優先し、scheme + host + port
-     * の完全一致で判定する。`Origin` が存在しない場合（同一オリジン GET 等）のみ `Referer` に
-     * フォールバックし、同様に scheme + host + port の完全一致で判定する。
-     *
-     * 前方一致を廃止することで `example.com.evil.com` のような攻撃者ドメインを排除し、http/https の
-     * スキーム差も検出する。
-     *
-     * @return bool
-     * @noTodo
-     * @unitTest
-     */
-    public static function isSameOriginAsCurrent()
-    {
-        $https = !empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off';
-        $host = $_SERVER['HTTP_HOST'] ?? '';
-        if ($host === '') {
-            return false;
-        }
-        $current = self::normalizeOrigin(($https? 'https' : 'http') . '://' . $host);
-        if ($current === '') {
-            return false;
-        }
-        // ブラウザが付与する Origin ヘッダを優先（JS から偽造不可）
-        if (!empty($_SERVER['HTTP_ORIGIN'])) {
-            return self::normalizeOrigin($_SERVER['HTTP_ORIGIN']) === $current;
-        }
-        // Origin 不在時（同一オリジン GET 等）は Referer に完全一致でフォールバック
-        if (!empty($_SERVER['HTTP_REFERER'])) {
-            return self::normalizeOrigin($_SERVER['HTTP_REFERER']) === $current;
-        }
-        return false;
-    }
-
-    /**
-     * URL／オリジン文字列を scheme://host[:port] の正規形へ変換する
-     *
-     * scheme と host を欠く場合は空文字を返す。isSameOriginAsCurrent() の比較用。
-     *
-     * @param string $url
-     * @return string
-     * @noTodo
-     * @unitTest
-     */
-    protected static function normalizeOrigin(string $url): string
-    {
-        $parts = parse_url($url);
-        if (empty($parts['scheme']) || empty($parts['host'])) {
-            return '';
-        }
-        $origin = strtolower($parts['scheme']) . '://' . strtolower($parts['host']);
-        if (!empty($parts['port'])) {
-            $origin .= ':' . $parts['port'];
-        }
-        return $origin;
     }
 
     /**

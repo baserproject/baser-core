@@ -158,7 +158,7 @@ class PermissionsTable extends AppTable
      * @param EventInterface $event
      * @param EntityInterface $entity
      * @param ArrayObject $options
-     * @return boolean
+     * @return void
      * @checked
      * @noTodo
      * @unitTest
@@ -170,7 +170,6 @@ class PermissionsTable extends AppTable
         if ($url && preg_match('/^[^\/]/is', $url)) {
             $data["entity"]->set("url", '/' . $url);
         }
-        return true;
     }
 
     /**

@@ -13,6 +13,8 @@ namespace BaserCore\Service;
 
 use PhpParser\ParserFactory;
 use PhpParser\Node;
+use PhpParser\NodeTraverser;
+use PhpParser\NodeVisitorAbstract;
 use PhpParser\Error;
 use BaserCore\Database\Schema\BcSchema;
 use BaserCore\Error\BcException;
@@ -119,7 +121,6 @@ class BcDatabaseService implements BcDatabaseServiceInterface
         // CakePHP5で pdo へのアクセスができなくなってしまったため
         // 仕方なく Reflection を利用
         $pdoProperty = new ReflectionProperty($db->getDriver(), 'pdo');
-        $pdoProperty->setAccessible(true);
         /* @var PDO $pdo */
         $pdo = $pdoProperty->getValue($db->getDriver());
         $adapter->setConnection($pdo);
@@ -1158,11 +1159,9 @@ class BcDatabaseService implements BcDatabaseServiceInterface
      */
     private function isValidSchemaFile(string $filePath): bool
     {
-        $parser = (new ParserFactory)->create(ParserFactory::PREFER_PHP7);
+        // nikic/php-parser 5.x では create() / PREFER_PHP7 が廃止されたため、稼働中の PHP バージョン向けのパーサを生成する
+        $parser = (new ParserFactory)->createForHostVersion();
         $code = file_get_contents($filePath);
-        if ($code === false) {
-            return false;
-        }
 
         try {
             $ast = $parser->parse($code);
@@ -1173,59 +1172,83 @@ class BcDatabaseService implements BcDatabaseServiceInterface
             return false;
         }
 
-        // RCE対策(GHSA-cg65-f2m7-9fqj / GHSA-5hvm-279m-gg7r):
-        // スキーマファイルは require され、さらにインスタンス化されるため、
-        // クラス外のトップレベルコードやコンストラクタ等のメソッド本体が実行され得る。
-        // drop/create のオーバーライド検査だけでは防ぎ切れないため、スキーマファイルに
-        // 含められる構文をホワイトリストで厳格に制限する。
-        // 許可するのは use / declare（ブロックなし）/ namespace（1階層のみ）と、
-        // BcSchema を継承しメソッドを一切持たないクラス1つのみ。
-
-        // namespace は1階層だけ許可し、その中身を検査対象に展開する
-        $stmts = [];
-        foreach ($ast as $stmt) {
-            if ($stmt instanceof Node\Stmt\Namespace_) {
-                foreach ((array)$stmt->stmts as $inner) {
-                    $stmts[] = $inner;
-                }
-            } else {
-                $stmts[] = $stmt;
-            }
-        }
-
-        $validClassCount = 0;
-        foreach ($stmts as $stmt) {
-            if ($stmt instanceof Node\Stmt\Use_
-                || $stmt instanceof Node\Stmt\GroupUse
-                || $stmt instanceof Node\Stmt\Nop) {
-                continue;
-            }
-            if ($stmt instanceof Node\Stmt\Declare_) {
-                // declare(...) { ... } のブロック形式は内部にコードを持てるため不許可
-                if (!empty($stmt->stmts)) {
-                    return false;
-                }
-                continue;
-            }
-            if ($stmt instanceof Node\Stmt\Class_) {
-                // BcSchema を継承していること
-                if (!$stmt->extends || $stmt->extends->toString() !== 'BcSchema') {
-                    return false;
-                }
-                // メソッドを一切持たないこと（コンストラクタや drop/create 等で
-                // 任意コードが実行されるのを防ぐ）
-                if (!empty($stmt->getMethods())) {
-                    return false;
-                }
-                $validClassCount++;
-                continue;
-            }
-            // 上記以外のトップレベル文（関数定義・関数呼び出し・echo・if 等）は不許可
+        // トップレベル文が Class_ / Use_ / Namespace_ / Declare_ 以外の任意コード（関数呼び出し等）を
+        // 含む場合は拒否する。クラス内容の検証だけでは、クラス定義外に置かれた文が
+        // require_once 時に無条件で実行されてしまうため（GHSA-cg65-f2m7-9fqj）。
+        if (!$this->hasOnlyAllowedTopLevelStatements($ast)) {
             return false;
         }
 
-        // BcSchema を継承した適切なクラスがちょうど1つだけ存在すること
-        return $validClassCount === 1;
+        $result = [
+            'extendsBcSchema' => false,
+            'hasDangerousOverride' => false,
+            'classCount' => 0
+        ];
+
+        $traverser = new NodeTraverser();
+        $traverser->addVisitor(new class($result) extends NodeVisitorAbstract {
+            public $result;
+            public function __construct(&$result) {
+                $this->result = &$result;
+            }
+
+            public function enterNode(Node $node) {
+                if ($node instanceof Node\Stmt\Class_) {
+                    $this->result['classCount']++;
+                    // 短縮名 'BcSchema' に加え、完全修飾名 'BaserCore\Database\Schema\BcSchema' も受理する
+                    // （BcDbMigrator 等が FQN で extends を生成するケースに対応。判定対象は同一クラスであり検証意図は変わらない）
+                    $extendsName = $node->extends ? ltrim($node->extends->toString(), '\\') : null;
+                    if ($extendsName === 'BcSchema' || $extendsName === BcSchema::class) {
+                        $this->result['extendsBcSchema'] = true;
+                        foreach ($node->getMethods() as $method) {
+                            $methodName = $method->name->toString();
+                            if (in_array($methodName, ['drop', 'create'])) {
+                                $this->result['hasDangerousOverride'] = true;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        $traverser->traverse($ast);
+        return $result['classCount'] === 1
+            && $result['extendsBcSchema']
+            && !$result['hasDangerousOverride'];
+    }
+
+    /**
+     * トップレベル文が Class_ / Use_ / Namespace_ / Declare_ のみで構成されているかを検証する
+     * （Namespace_ ブロック直下も同じホワイトリストで1段だけ検証する）
+     *
+     * @param Node\Stmt[] $stmts
+     * @return bool
+     */
+    private function hasOnlyAllowedTopLevelStatements(array $stmts): bool
+    {
+        $allowed = [
+            Node\Stmt\Declare_::class,
+            Node\Stmt\Use_::class,
+            Node\Stmt\Class_::class,
+        ];
+        foreach ($stmts as $stmt) {
+            if ($stmt instanceof Node\Stmt\Namespace_) {
+                if (!$this->hasOnlyAllowedTopLevelStatements($stmt->stmts ?? [])) {
+                    return false;
+                }
+                continue;
+            }
+            $isAllowed = false;
+            foreach ($allowed as $allowedClass) {
+                if ($stmt instanceof $allowedClass) {
+                    $isAllowed = true;
+                    break;
+                }
+            }
+            if (!$isAllowed) {
+                return false;
+            }
+        }
+        return true;
     }
 
 
@@ -1249,7 +1272,7 @@ class BcDatabaseService implements BcDatabaseServiceInterface
 
         $filePath = $options['path'] . $options['file'];
         if (!$this->isValidSchemaFile($filePath)) {
-            throw new \Exception("\r\n無効なスキーマファイル: BcSchema を継承したクラス定義のみが許可されており、クラス外のコードやメソッド定義を含めることはできません。");
+            throw new \Exception("\r\n無効なスキーマファイル: BcSchema を継承し、drop/create メソッドをオーバーライドしてはいけません");
         }
         $schemaName = basename($options['file'], '.php');
 

@@ -718,8 +718,7 @@ class PluginsService implements PluginsServiceInterface
             }
             throw new BcException($message);
         }
-        // パストラバーサル対策: クライアント提供のファイル名から basename() でディレクトリ要素を除去する
-        $name = basename($postData['file']->getClientFileName());
+        $name = $postData['file']->getClientFileName();
         $postData['file']->moveTo(TMP . $name);
         $zip = new BcZip();
         if (!$zip->extract(TMP . $name, TMP)) {

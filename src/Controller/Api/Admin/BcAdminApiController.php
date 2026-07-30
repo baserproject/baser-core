@@ -11,10 +11,10 @@
 namespace BaserCore\Controller\Api\Admin;
 
 use Authentication\Authenticator\JwtAuthenticator;
-use Authentication\Authenticator\SessionAuthenticator;
 use BaserCore\Controller\Api\BcApiController;
 use BaserCore\Error\BcException;
 use BaserCore\Utility\BcContainerTrait;
+use BaserCore\Utility\BcUtil;
 use Cake\Core\Configure;
 use Cake\Event\EventInterface;
 use Cake\Http\Exception\ForbiddenException;
@@ -63,20 +63,17 @@ class BcAdminApiController extends BcApiController
         }
 
         // 管理画面APIが許可されていない場合は弾く
-        // ただし、Webブラウザの管理画面 SPA（セッション認証）からのAJAXは通す。
-        // GHSA-wgvx-x5g3-9v29: なりすまし可能な Referer 一致判定（CWE-290）に代えて、
-        // 認証 provider が SessionAuthenticator かどうかで「ブラウザ管理画面か外部クライアントか」を判定する。
-        // （JWT 認証や未認証は SessionAuthenticator にならないため 403 となる）
+        // ただし、同じリファラからのアクセスは、Webブラウザの管理画面からのAJAXとして通す
         if (!filter_var(env('USE_CORE_ADMIN_API', false), FILTER_VALIDATE_BOOLEAN)) {
-            $provider = $this->Authentication->getAuthenticationService()->getAuthenticationProvider();
-            if (!($provider instanceof SessionAuthenticator)) {
+            if (!BcUtil::isSameReferrerAsCurrent()) {
                 throw new ForbiddenException(__d('baser_core', 'baser Admin APIは許可されていません。'));
             }
         }
 
         // ユーザーの有効チェック
         if (!$this->isAvailableUser()) {
-            return $this->response->withStatus(401);
+            $event->setResult($this->response->withStatus(401));
+            return;
         }
 
         // トークンタイプチェック
@@ -84,12 +81,13 @@ class BcAdminApiController extends BcApiController
         if ($auth instanceof JwtAuthenticator) {
             $payload = $auth->getPayload();
             if ($payload->token_type !== 'access_token' && $this->getRequest()->getParam('action') !== 'refresh_token') {
-                return $this->response->withStatus(401);
+                $event->setResult($this->response->withStatus(401));
+                return;
             }
         }
 
         // 親の beforeFilter で認可チェックが入るので一番最後とする
-        return parent::beforeFilter($event);
+        parent::beforeFilter($event);
     }
 
     /**
