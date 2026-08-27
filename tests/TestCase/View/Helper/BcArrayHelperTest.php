@@ -63,15 +63,14 @@ class BcArrayHelperTest extends BcTestCase
 
     public function testFirstWithQuery()
     {
-        $mockResultSet = $this->createMock(ResultSetInterface::class);
-        $mockResultSet->method('first')->willReturn([1 => 'a', 2 => 'b', 3 => 'c']);
-        $mockResultSet->method('key')->willReturn(1);
-
+        // Query の反復は 0 起点の連番キーとなる。
+        // ここで Query を実行してしまうと呼び出し元の foreach が
+        // 2件目以降を取得できなくなるため、実行せずにキーのみで判定する。
         $mockQuery = $this->createMock(Query::class);
-        $mockQuery->method('getIterator')->willReturn($mockResultSet);
+        $mockQuery->expects($this->never())->method('toArray');
 
-        $this->assertTrue($this->Helper->first($mockQuery, 1));
-        $this->assertFalse($this->Helper->first($mockQuery, 2));
+        $this->assertTrue($this->Helper->first($mockQuery, 0));
+        $this->assertFalse($this->Helper->first($mockQuery, 1));
     }
 
     /**

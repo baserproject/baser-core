@@ -640,8 +640,9 @@ class BcFileUploader
             default:
                 return false;
         }
-        imagedestroy($srcImage);
-        imagedestroy($rotate);
+        // PHP 8.5 で imagedestroy() は非推奨（8.0 以降 GdImage はオブジェクトで GC 管理）。参照を外して解放する
+        unset($srcImage);
+        unset($rotate);
         return true;
     }
 
@@ -1138,7 +1139,8 @@ class BcFileUploader
      */
     public function setUploadingFiles(array $files, $bcUploadId): void
     {
-        $this->uploadingFiles[$bcUploadId] = $files;
+        // PHP 8.5 で null を配列オフセットに使うのは非推奨のため空文字に変換する（従来の暗黙変換と同等）
+        $this->uploadingFiles[$bcUploadId ?? ''] = $files;
     }
 
     /**
@@ -1149,7 +1151,8 @@ class BcFileUploader
      */
     public function getUploadingFiles($bcUploadId): array
     {
-        return $this->uploadingFiles[$bcUploadId] ?? [];
+        // PHP 8.5 で null を配列オフセットに使うのは非推奨のため空文字に変換する（setUploadingFiles と整合）
+        return $this->uploadingFiles[$bcUploadId ?? ''] ?? [];
     }
 
     /**

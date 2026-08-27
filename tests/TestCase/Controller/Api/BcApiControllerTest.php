@@ -66,14 +66,59 @@ class BcApiControllerTest extends BcTestCase
      */
     public function testBeforeFilter()
     {
-        // API ON
+        // API ON（コアプラグインでも通過）
         $this->get('/baser/api/baser-core/contents/index.json');
         $this->assertResponseCode(200);
-        // API OFF
+
+        // GHSA-wgvx-x5g3-9v29: API OFF（USE_CORE_API=false）時のコアプラグイン公開APIゲート
         $_SERVER['USE_CORE_API'] = 'false';
+
+        // (1) 同一オリジン（Origin と HTTP_HOST が一致）→ 通過
+        $_SERVER['HTTP_HOST'] = 'localhost';
+        $_SERVER['HTTP_ORIGIN'] = 'http://localhost';
+        $this->get('/baser/api/baser-core/contents/index.json');
+        $this->assertResponseCode(200);
+
+        // (2) 非同一オリジン（前方一致攻撃ドメイン）→ 403
+        $_SERVER['HTTP_ORIGIN'] = 'http://localhost.evil.com';
         $this->get('/baser/api/baser-core/contents/index.json');
         $this->assertResponseCode(403);
+
+        // (3) Origin/Referer 無し → 403
+        unset($_SERVER['HTTP_ORIGIN']);
+        $this->get('/baser/api/baser-core/contents/index.json');
+        $this->assertResponseCode(403);
+
+        // 初期化
+        unset($_SERVER['HTTP_HOST']);
         $_SERVER['USE_CORE_API'] = 'true';
+    }
+
+    /**
+     * test restrictNonPublicAccess
+     * 公開APIでは preview パラメータを拒否（Forbidden）することを検証する
+     */
+    public function test_restrictNonPublicAccess()
+    {
+        // preview 無し：例外は発生しない
+        $controller = new BcApiController($this->getRequest('/baser/api/baser-core/contents/index.json'));
+        $this->execPrivateMethod($controller, 'restrictNonPublicAccess');
+        $this->assertTrue(true);
+
+        // preview あり：ForbiddenException
+        $this->expectException(\Cake\Http\Exception\ForbiddenException::class);
+        $controller = new BcApiController($this->getRequest('/baser/api/baser-core/contents/index.json?preview=1'));
+        $this->execPrivateMethod($controller, 'restrictNonPublicAccess');
+    }
+
+    /**
+     * test restrictNonPublicAccess（amp; プレフィックスによる正規化バイパス対策）
+     */
+    public function test_restrictNonPublicAccess_ampBypass()
+    {
+        $this->expectException(\Cake\Http\Exception\ForbiddenException::class);
+        $controller = new BcApiController($this->getRequest('/baser/api/baser-core/contents/index.json?amp;preview=1'));
+        $this->execPrivateMethod($controller, 'restrictNonPublicAccess');
     }
 
     /**

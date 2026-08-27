@@ -132,15 +132,18 @@ class AppController extends BaseController
     /**
      * Before Filter
      * @param EventInterface $event
-     * @return Response|void
+     * @return void
      * @checked
      * @noTodo
      * @unitTest
      */
     public function beforeFilter(EventInterface $event)
     {
-        $response = parent::beforeFilter($event);
-        if ($response) return $response;
+        parent::beforeFilter($event);
+        if ($event->getResult()) return;
+
+        // 未認証ユーザーによる非公開データ（preview / status）へのアクセスを制限する
+        $this->restrictNonPublicAccess();
 
         // index.php をつけたURLの場合、base の値が正常でなくなり、
         // 内部リンクが影響を受けておかしくなってしまうため強制的に Not Found とする
@@ -151,7 +154,10 @@ class AppController extends BaseController
         if (!$this->getRequest()->is('requestview')) return;
 
         $response = $this->redirectIfIsRequireMaintenance();
-        if ($response) return $response;
+        if ($response) {
+            $event->setResult($response);
+            return;
+        }
 
         $this->__cleanupQueryParams();
 
@@ -181,13 +187,43 @@ class AppController extends BaseController
                     $url = Router::url(Configure::read("BcPrefixAuth.{$prefix}.loginAction"), true)
                         . '?redirect=' . rawurlencode($this->getRequest()->getPath());
                 }
-                return $this->redirect($url);
+                $event->setResult($this->redirect($url));
+                return;
             }
         }
 
         if ($this->request->is('ajax') || BcUtil::loginUser()) {
             $this->setResponse($this->getResponse()->withDisabledCache());
         }
+    }
+
+    /**
+     * 未認証ユーザーによる非公開データへのアクセスを制限する
+     *
+     * 未認証ユーザーが preview / status を利用して非公開データを閲覧することを防ぐ。
+     * デフォルト（フロント・管理画面）では、未認証時にこれらのパラメータを除去し、
+     * 公開データのみに強制する。認証済み（正規のプレビュー機能を含む）はそのまま許可する。
+     * API では BcApiController でオーバーライドし、preview を拒否（Forbidden）する。
+     *
+     * @return void
+     * @noTodo
+     * @checked
+     * @unitTest
+     */
+    protected function restrictNonPublicAccess(): void
+    {
+        $request = $this->getRequest();
+        $query = $request->getQueryParams();
+        // preview / status が指定されていなければ何もしない（不要な認証判定を避ける）
+        // __cleanupQueryParams() による amp; 正規化を悪用したバイパスを防ぐため、
+        // amp; プレフィックス付きのキーも対象にする
+        $targets = array_flip(['preview', 'status', 'amp;preview', 'amp;status']);
+        if (!array_intersect_key($query, $targets)) {
+            return;
+        }
+        // 認証済み（正規のプレビュー機能を含む）はそのまま許可する
+        if (BcUtil::loginUser()) return;
+        $this->setRequest($request->withQueryParams(array_diff_key($query, $targets)));
     }
 
     /**

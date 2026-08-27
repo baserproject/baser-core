@@ -352,6 +352,15 @@ return [];
     public function test_getSkipCsrfUrl()
     {
         $rs = $this->execPrivateMethod($this->Plugin, 'getSkipCsrfUrl', []);
-        $this->assertEquals(['/baser-core/users/login.json', '/baser-core/users/refresh_token.json'], $rs);
+        $this->assertEquals([
+            '/baser-core/users/login.json',
+            '/baser-core/users/refresh_token.json',
+            '/bc-mcp',
+            '/bc-mcp/oauth2/token',
+            '/bc-mcp/oauth2/register',
+            '/bc-mcp/oauth2/register/*',
+            '/bc-mcp/oauth2/verify',
+            '/bc-mcp/oauth2/client-info'
+        ], $rs);
     }
 }

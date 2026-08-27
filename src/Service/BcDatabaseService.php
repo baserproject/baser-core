@@ -119,7 +119,6 @@ class BcDatabaseService implements BcDatabaseServiceInterface
         // CakePHP5で pdo へのアクセスができなくなってしまったため
         // 仕方なく Reflection を利用
         $pdoProperty = new ReflectionProperty($db->getDriver(), 'pdo');
-        $pdoProperty->setAccessible(true);
         /* @var PDO $pdo */
         $pdo = $pdoProperty->getValue($db->getDriver());
         $adapter->setConnection($pdo);
@@ -1158,7 +1157,8 @@ class BcDatabaseService implements BcDatabaseServiceInterface
      */
     private function isValidSchemaFile(string $filePath): bool
     {
-        $parser = (new ParserFactory)->create(ParserFactory::PREFER_PHP7);
+        // nikic/php-parser 5.x では create() / PREFER_PHP7 が廃止されたため、稼働中の PHP バージョン向けのパーサを生成する
+        $parser = (new ParserFactory)->createForHostVersion();
         $code = file_get_contents($filePath);
         if ($code === false) {
             return false;
@@ -1173,10 +1173,10 @@ class BcDatabaseService implements BcDatabaseServiceInterface
             return false;
         }
 
-        // RCE対策(GHSA-cg65-f2m7-9fqj / GHSA-5hvm-279m-gg7r):
-        // スキーマファイルは require され、さらにインスタンス化されるため、
-        // クラス外のトップレベルコードやコンストラクタ等のメソッド本体が実行され得る。
-        // drop/create のオーバーライド検査だけでは防ぎ切れないため、スキーマファイルに
+        // RCE対策(GHSA-5hvm-279m-gg7r / GHSA-cg65-f2m7-9fqj):
+        // スキーマファイルは require され、さらにインスタンス化されるため、クラス外のトップレベルコードや
+        // コンストラクタ等のメソッド本体が実行され得る。drop/create のオーバーライド検査だけでは
+        // 防ぎ切れない（トップレベルコードやコンストラクタで RCE 可能）ため、スキーマファイルに
         // 含められる構文をホワイトリストで厳格に制限する。
         // 許可するのは use / declare（ブロックなし）/ namespace（1階層のみ）と、
         // BcSchema を継承しメソッドを一切持たないクラス1つのみ。
@@ -1208,8 +1208,11 @@ class BcDatabaseService implements BcDatabaseServiceInterface
                 continue;
             }
             if ($stmt instanceof Node\Stmt\Class_) {
-                // BcSchema を継承していること
-                if (!$stmt->extends || $stmt->extends->toString() !== 'BcSchema') {
+                // BcSchema を継承していること。
+                // 短縮名 'BcSchema' に加え、完全修飾名 'BaserCore\Database\Schema\BcSchema' も受理する
+                // （BcDbMigrator 等が FQN で extends を生成する正規ケースを壊さないため）。
+                $extendsName = $stmt->extends ? ltrim($stmt->extends->toString(), '\\') : null;
+                if ($extendsName !== 'BcSchema' && $extendsName !== BcSchema::class) {
                     return false;
                 }
                 // メソッドを一切持たないこと（コンストラクタや drop/create 等で

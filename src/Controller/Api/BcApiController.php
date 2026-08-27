@@ -47,7 +47,7 @@ class BcApiController extends AppController
      * Before Filter
      *
      * @param EventInterface $event
-     * @return \Cake\Http\Response|void
+     * @return void
      * @noTodo
      * @checked
      * @unitTest
@@ -62,7 +62,28 @@ class BcApiController extends AppController
                 throw new ForbiddenException(__d('baser_core', 'baser APIは許可されていません。'));
             }
         }
-        return parent::beforeFilter($event);
+        parent::beforeFilter($event);
+    }
+
+    /**
+     * 未認証ユーザーによる非公開データへのアクセスを制限する（API 版）
+     *
+     * 公開APIでは preview は認証済みのプレビュー機能でのみ利用可能なため、
+     * preview パラメータが指定された場合は拒否する。
+     *
+     * @return void
+     * @noTodo
+     * @checked
+     * @unitTest
+     */
+    protected function restrictNonPublicAccess(): void
+    {
+        // __cleanupQueryParams() による amp; 正規化を悪用したバイパスを防ぐため、
+        // amp; プレフィックス付きのキーも拒否する
+        $query = $this->getRequest()->getQueryParams();
+        if (array_key_exists('preview', $query) || array_key_exists('amp;preview', $query)) {
+            throw new ForbiddenException();
+        }
     }
 
     /**

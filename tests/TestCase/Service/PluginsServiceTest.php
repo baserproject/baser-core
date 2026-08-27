@@ -106,7 +106,7 @@ class PluginsServiceTest extends BcTestCase
         }
         //期待されるプラグインを含むか
         $this->assertContains($expectedPlugin, $pluginNames);
-        $folder->delete($pluginPath);
+        (new BcFolder($pluginPath))->delete();
         if ($sortMode) {
             // フォルダ内プラグインが含まれてないか
             $this->assertNotContains('BcTest', $pluginNames);
@@ -147,7 +147,7 @@ class PluginsServiceTest extends BcTestCase
         } catch (\Exception $e) {
             $this->assertEquals("プラグインに Plugin クラスが存在しません。src ディレクトリ配下に作成してください。", $e->getMessage());
         }
-        $folder->delete($pluginPath);
+        (new BcFolder($pluginPath))->delete();
     }
 
     /**
@@ -821,6 +821,41 @@ EOF;
     }
 
     /**
+     * updateCore は PHP 以外の任意バイナリパスを拒否する（任意バイナリ実行対策）
+     * @dataProvider provideNonPhpBinaryPath
+     */
+    public function test_updateCore_rejectsNonPhpBinary(string $php): void
+    {
+        $pluginsService = $this->getMockBuilder(PluginsService::class)
+            ->onlyMethods(['updateCoreFiles'])
+            ->getMock();
+        // updateCoreFiles が呼ばれる前に検証で弾かれること
+        $pluginsService->expects($this->never())->method('updateCoreFiles');
+        $this->expectException('BaserCore\Error\BcException');
+        $pluginsService->updateCore($php);
+    }
+
+    /**
+     * rollbackCore は PHP 以外の任意バイナリパスを拒否する（任意バイナリ実行対策）
+     * @dataProvider provideNonPhpBinaryPath
+     */
+    public function test_rollbackCore_rejectsNonPhpBinary(string $php): void
+    {
+        $this->expectException('BaserCore\Error\BcException');
+        $this->Plugins->rollbackCore('5.0.15', $php);
+    }
+
+    public static function provideNonPhpBinaryPath(): array
+    {
+        return [
+            'curlバイナリ' => ['/usr/bin/curl'],
+            'pythonバイナリ' => ['/usr/bin/python3'],
+            'bashバイナリ' => ['bash'],
+            'php偽装ディレクトリ配下の他バイナリ' => ['/usr/bin/php/../sh'],
+        ];
+    }
+
+    /**
      * test getCoreUpdate の脆弱性回避
      */
     public function test_getCoreUpdate_vulnerability()
@@ -841,5 +876,40 @@ EOF;
         ob_get_clean();
 
         $this->assertFalse(file_exists($rceFile), 'getCoreUpdate でOSコマンドインジェクションが発生しました');
+    }
+
+    /**
+     * test add ZIP以外のファイルをアップロードした場合
+     * @return void
+     */
+    public function test_addRejectsNonZipFile()
+    {
+        $zipSrcPath = TMP . 'zip' . DS;
+        $folder = new BcFolder($zipSrcPath);
+        $folder->create();
+        //架空のプラグイン名を指定して、ZIP以外のファイルを作成
+        $plugin = 'NotZipPlugin';
+        $testFile = $zipSrcPath . $plugin . '.zip';
+        file_put_contents($testFile, 'This is not a zip file.');
+        $size = filesize($testFile);
+
+        $this->setUploadFileToRequest('file', $testFile);
+        $files = new UploadedFile(
+            $testFile,
+            $size,
+            UPLOAD_ERR_OK,
+            $plugin . '.zip',
+            'text/plain'
+        );
+
+        $this->expectException("BaserCore\Error\BcException");
+        $this->expectExceptionMessage("ZIPファイルをアップロードしてください。");
+        try {
+            $this->Plugins->add(["file" => $files]);
+        } finally {
+            // アップロードされた一時ファイルが削除されていること
+            $this->assertFileDoesNotExist(TMP . $plugin . '.zip');
+            $folder->delete();
+        }
     }
 }
