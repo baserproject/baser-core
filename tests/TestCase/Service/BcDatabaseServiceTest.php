@@ -979,7 +979,6 @@ class UserActionsFqnSchema extends \\BaserCore\\Database\\Schema\\BcSchema
             'BcEditorTemplate',
             'BcFavorite',
             'BcMail',
-            'BcMcp',
             'BcSearchIndex',
             'BcThemeConfig',
             'BcThemeFile',
