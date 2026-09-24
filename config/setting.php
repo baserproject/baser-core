@@ -327,12 +327,14 @@ return [
             'BcEditorTemplate',
             'BcFavorite',
             'BcMail',
+            'BcMcp',
             'BcSeo',
             'BcSearchIndex',
             'BcThemeConfig',
             'BcThemeFile',
             'BcUploader',
             'BcWidgetArea',
+            'BcBurgerEditor',
         ],
         'defaultInstallCorePlugins' => [
             'BcSearchIndex',
@@ -341,6 +343,7 @@ return [
             'BcThemeConfig',
             'BcWidgetArea',
             'BcUploader',
+            'BcBurgerEditor',
         ],
 
         /**
