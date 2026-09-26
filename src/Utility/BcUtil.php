@@ -2392,13 +2392,7 @@ class BcUtil
     }
 
     /**
-     * baserCMSコアが開発版かどうかを判定
-     *
-     * plugins フォルダに baser-core が存在する場合、開発版として判定する。
-     * 判定対象は baserCMSコアのみであり、個別のプラグインの状態は判定しない。
-     * そのため、プラグイン単位の画面や処理で利用する場合は、
-     * 対象がコアプラグインかどうかを別途判定した上で利用すること。
-     *
+     * 開発版かどうかを判定
      * @return bool
      */
     public static function isDevelopmentVersion(): bool
