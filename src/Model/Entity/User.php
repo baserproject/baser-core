@@ -53,7 +53,10 @@ class User extends Entity implements UserInterface
      * @var array
      */
     protected array $_hidden = [
-        'password'
+        'password',
+        // パスワード最終変更日時はAPI/JSON出力では露出させない（情報漏えい対策）。
+        // プロパティ/配列アクセスには影響しないため checkPasswordModified() 等の内部処理は従来どおり動作する。
+        'password_modified'
     ];
 
     /**
@@ -227,9 +230,9 @@ class User extends Entity implements UserInterface
         if(!$this->user_groups) return [];
         $prefixes = [];
         foreach($this->user_groups as $userGroup) {
-            $prefixes += explode(',', $userGroup->auth_prefix);
+            $prefixes = array_merge($prefixes, explode(',', $userGroup->auth_prefix));
         }
-        return $prefixes;
+        return array_values(array_unique($prefixes));
     }
 
 }
