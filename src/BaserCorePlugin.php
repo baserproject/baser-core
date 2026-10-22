@@ -18,6 +18,7 @@ use Authentication\Authenticator\SessionAuthenticator;
 use Authentication\Middleware\AuthenticationMiddleware;
 use BaserCore\Command\ComposerCommand;
 use BaserCore\Command\CreateJwtCommand;
+use BaserCore\Command\RestoreDbCommand;
 use BaserCore\Command\CreateReleaseCommand;
 use BaserCore\Command\SetupInstallCommand;
 use BaserCore\Command\SetupTestCommand;
@@ -103,7 +104,8 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
          * コンソール判定
          * BcUtil::isConsole で利用
          */
-        $_ENV['IS_CONSOLE'] = (substr(php_sapi_name(), 0, 3) === 'cli');
+        // 'cli-server'（PHP ビルトインサーバー）は Web リクエストなのでコンソール扱いにしない
+        $_ENV['IS_CONSOLE'] = (php_sapi_name() === 'cli');
 
         /**
          * 言語設定
@@ -173,7 +175,11 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
         }
 
         // CSRFトークンの場合は高速化のためここで処理を終了
-        if (!empty($_SERVER['REQUEST_URI']) && preg_match('/\?requestview=false$/', $_SERVER['REQUEST_URI'])) {
+        // BcRequestFilterMiddleware::isRequestView() と同じく、トークン取得の GET リクエストに限定する
+        // （この時点ではベースパスが確定しないため末尾で判定する）
+        if (!empty($_SERVER['REQUEST_URI'])
+            && ($_SERVER['REQUEST_METHOD'] ?? '') === 'GET'
+            && preg_match('/\/baser-core\/bc_form\/get_token\?requestview=false$/', $_SERVER['REQUEST_URI'])) {
             return;
         }
 
@@ -844,6 +850,7 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
         $commands->add('create release', CreateReleaseCommand::class);
         $commands->add('setup install', SetupInstallCommand::class);
         $commands->add('create jwt', CreateJwtCommand::class);
+        $commands->add('bc_utility restore_db', RestoreDbCommand::class);
         return $commands;
     }
 

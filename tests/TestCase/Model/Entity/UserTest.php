@@ -69,6 +69,18 @@ class UserTest extends BcTestCase
     }
 
     /**
+     * password / password_modified が JSON/配列出力で隠蔽されること（情報漏えい対策）
+     */
+    public function testHiddenFields()
+    {
+        $array = $this->User->toArray();
+        $this->assertArrayNotHasKey('password', $array);
+        $this->assertArrayNotHasKey('password_modified', $array);
+        // プロパティアクセスでは従来どおり取得できる（内部処理に影響しない）
+        $this->assertNotNull($this->User->password_modified);
+    }
+
+    /**
      * test isEditableUser
      */
     public function testIsEditableUser()
@@ -189,6 +201,13 @@ class UserTest extends BcTestCase
         //user group is not empty
         $user_groups = $this->User->getAuthPrefixes();
         $this->assertEquals([0 => 'Admin', 1 => 'Api/Admin'], $user_groups);
+
+        //複数のグループに所属する場合は、2つ目以降のグループの認証プレフィックスも含める
+        $user = new User(['user_groups' => [
+            new \BaserCore\Model\Entity\UserGroup(['auth_prefix' => 'Admin']),
+            new \BaserCore\Model\Entity\UserGroup(['auth_prefix' => 'Api/Admin']),
+        ]]);
+        $this->assertEquals(['Admin', 'Api/Admin'], $user->getAuthPrefixes());
     }
 
     public function test_isSuper()
