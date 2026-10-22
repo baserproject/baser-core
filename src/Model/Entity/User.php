@@ -230,9 +230,9 @@ class User extends Entity implements UserInterface
         if(!$this->user_groups) return [];
         $prefixes = [];
         foreach($this->user_groups as $userGroup) {
-            $prefixes = array_merge($prefixes, explode(',', $userGroup->auth_prefix));
+            $prefixes += explode(',', $userGroup->auth_prefix);
         }
-        return array_values(array_unique($prefixes));
+        return $prefixes;
     }
 
 }

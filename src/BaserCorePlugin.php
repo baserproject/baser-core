@@ -18,7 +18,6 @@ use Authentication\Authenticator\SessionAuthenticator;
 use Authentication\Middleware\AuthenticationMiddleware;
 use BaserCore\Command\ComposerCommand;
 use BaserCore\Command\CreateJwtCommand;
-use BaserCore\Command\RestoreDbCommand;
 use BaserCore\Command\CreateReleaseCommand;
 use BaserCore\Command\SetupInstallCommand;
 use BaserCore\Command\SetupTestCommand;
@@ -104,8 +103,7 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
          * コンソール判定
          * BcUtil::isConsole で利用
          */
-        // 'cli-server'（PHP ビルトインサーバー）は Web リクエストなのでコンソール扱いにしない
-        $_ENV['IS_CONSOLE'] = (php_sapi_name() === 'cli');
+        $_ENV['IS_CONSOLE'] = (substr(php_sapi_name(), 0, 3) === 'cli');
 
         /**
          * 言語設定
@@ -850,7 +848,6 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
         $commands->add('create release', CreateReleaseCommand::class);
         $commands->add('setup install', SetupInstallCommand::class);
         $commands->add('create jwt', CreateJwtCommand::class);
-        $commands->add('bc_utility restore_db', RestoreDbCommand::class);
         return $commands;
     }
 

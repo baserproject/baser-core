@@ -63,14 +63,12 @@ class BcArrayHelperTest extends BcTestCase
 
     public function testFirstWithQuery()
     {
-        // Query の反復は 0 起点の連番キーとなる。
-        // ここで Query を実行してしまうと呼び出し元の foreach が
-        // 2件目以降を取得できなくなるため、実行せずにキーのみで判定する。
+        // CakePHP 5.2 で ResultSet はクローン不可のため、first() は Query を toArray() で配列化して判定する
         $mockQuery = $this->createMock(Query::class);
-        $mockQuery->expects($this->never())->method('toArray');
+        $mockQuery->method('toArray')->willReturn([1 => 'a', 2 => 'b', 3 => 'c']);
 
-        $this->assertTrue($this->Helper->first($mockQuery, 0));
-        $this->assertFalse($this->Helper->first($mockQuery, 1));
+        $this->assertTrue($this->Helper->first($mockQuery, 1));
+        $this->assertFalse($this->Helper->first($mockQuery, 2));
     }
 
     /**

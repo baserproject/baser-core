@@ -67,16 +67,6 @@ class BcContentsHelper extends Helper
     ];
 
     /**
-     * isParentId で取得した祖先コンテンツ ID のキャッシュ
-     *
-     * グローバルメニューではメニュー項目ごとに同じコンテンツ ID で呼ばれるため、
-     * コンテンツ ID ごとに祖先 ID の配列を保持する。
-     *
-     * @var array<int, array<int>>
-     */
-    private array $parentIdsCache = [];
-
-    /**
      * initialize
      * @param array $config
      * @return void
@@ -582,35 +572,17 @@ class BcContentsHelper extends Helper
      */
     public function isParentId(int $id, int $parentId): bool
     {
-        if (!array_key_exists($id, $this->parentIdsCache)) {
-            $this->parentIdsCache[$id] = $this->getParentIds($id);
-        }
-        $parentIds = $this->parentIdsCache[$id];
-        return ($parentIds && in_array($parentId, $parentIds)) ? true : false;
-    }
-
-    /**
-     * 指定したコンテンツの祖先コンテンツ ID を取得する（自身は含まない）
-     *
-     * @param int $id
-     * @return array<int>
-     * @checked
-     * @noTodo
-     * @unitTest
-     */
-    private function getParentIds(int $id): array
-    {
         try {
-            $path = $this->_Contents->find('path', for: $id)
+            $parentIds = $this->_Contents->find('path', for: $id)
                 ->all()
                 ->toArray();
         } catch (RecordNotFoundException) {
-            return [];
+            return false;
         }
-        if (!$path) return [];
-        $parentIds = Hash::extract($path, '{n}.id');
+        if (!$parentIds) return false;
+        $parentIds = Hash::extract($parentIds, '{n}.id');
         unset($parentIds[count($parentIds) - 1]);
-        return $parentIds;
+        return ($parentIds && in_array($parentId, $parentIds)) ? true : false;
     }
 
     /**
