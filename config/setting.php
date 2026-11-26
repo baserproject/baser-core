@@ -28,6 +28,12 @@ use Cake\Log\Engine\FileLog;
  * @note(value="テーマ管理とユーティリティを実装してからメニューを表示する")
  */
 $baserCorePrefix = filter_var(env('BASER_CORE_PREFIX', 'baser'));
+// 空にすると管理画面のパスを正しく組み立てられず、ログイン画面が自分自身へ転送され続けるため設定できない
+if ($baserCorePrefix === '') {
+    throw new \Cake\Core\Exception\CakeException(
+        'BASER_CORE_PREFIX に空の値は設定できません。config/.env の BASER_CORE_PREFIX に値を設定するか、行を削除してください。'
+    );
+}
 $adminPrefix = filter_var(env('ADMIN_PREFIX', 'admin'));
 
 return [
@@ -338,6 +344,10 @@ return [
             'dangerousSchemes' => ['javascript', 'vbscript', 'livescript', 'mocha', 'data'],
             // purify で除去されても拒否理由としない属性（プレフィックス一致・data-* / aria-* / role は無害として許容）
             'safeRemovedAttributePrefixes' => ['data-', 'aria-', 'role'],
+            // 表示時に別の形式から復元されるHTMLを取り出す処理（'クラス名::メソッド名' の配列）
+            // 値を受け取り、取り出したHTMLの配列を返す。取り出したHTMLも同じ検査にかける。
+            // 安全に取り出せない場合は false を返し、その値を拒否する。プラグインの setting.php から追加する
+            'extractors' => [],
         ],
 
         /**
@@ -368,6 +378,20 @@ return [
         'customAdminTheme' => '',
 
         /**
+         * baserCMS が作るフォルダの権限
+         * 0777 は誰でも書き込めるため、サーバの方針に合わせて絞る場合は 0755 や 02770 等を指定する
+         * 8 進数のリテラル（0755）か、文字列（'0755'。8 進数として解釈する）で書く。10 進数の 755 は別の権限になる
+         */
+        'folderPermission' => 0777,
+
+        /**
+         * baserCMS が作るファイル（アップロードファイル等）の権限
+         * 0666 は誰でも書き換えられるため、サーバの方針に合わせて絞る場合は 0644 や 0660 等を指定する
+         * 8 進数のリテラル（0644）か、文字列（'0644'。8 進数として解釈する）で書く。10 進数の 644 は別の権限になる
+         */
+        'filePermission' => 0666,
+
+        /**
          * コアプラグイン
          */
         'corePlugins' => [
@@ -377,12 +401,14 @@ return [
             'BcEditorTemplate',
             'BcFavorite',
             'BcMail',
+            'BcMcp',
             'BcSeo',
             'BcSearchIndex',
             'BcThemeConfig',
             'BcThemeFile',
             'BcUploader',
             'BcWidgetArea',
+            'BcBurgerEditor',
         ],
         'defaultInstallCorePlugins' => [
             'BcSearchIndex',
@@ -391,6 +417,7 @@ return [
             'BcThemeConfig',
             'BcWidgetArea',
             'BcUploader',
+            'BcBurgerEditor',
         ],
 
         /**
@@ -411,10 +438,15 @@ return [
             '.gitattributes',
             '.gitignore',
             'monorepo-builder.php',
-            'phpdoc.dist.xml'.
+            'phpdoc.dist.xml',
             'phpstan.neon',
             'phpunit.xml.dist',
-            'phpdoc.dist.xml'
+            // AI エージェント向けの開発用ファイル
+            '.claude',
+            '.agents',
+            'CLAUDE.md',
+            'AGENTS.md',
+            'skills-lock.json'
         ],
 
         /**

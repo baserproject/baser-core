@@ -46,7 +46,7 @@ class PermissionGroupsController extends BcAdminAppController
             $userGroupId = $service->getAvailableMinUserGroupId();
             if(!$userGroupId) {
                 $this->BcMessage->setWarning(__d('baser_core', 'アクセスルールを設定できるユーザーグループがありません。'));
-                return $this->redirect('/baser/admin');
+                return $this->redirect(['plugin' => 'BaserCore', 'prefix' => 'Admin', 'controller' => 'Dashboard', 'action' => 'index']);
             }
         }
 
@@ -95,9 +95,12 @@ class PermissionGroupsController extends BcAdminAppController
                 $this->BcMessage->setError(__d('baser_core', 'データベース処理中にエラーが発生しました。') . $e->getMessage());
             }
         }
+        // prefix が無い場合は getNew() が TypeError になるため、一覧の初期値と同じ Admin にする
+        $prefix = $this->getRequest()->getQuery('prefix');
+        if (!is_string($prefix) || $prefix === '') $prefix = 'Admin';
         $this->set($service->getViewVarsForForm(
             $userGroupId,
-            $entity?? $service->getNew($this->getRequest()->getQuery('prefix'))
+            $entity?? $service->getNew($prefix)
         ));
     }
 

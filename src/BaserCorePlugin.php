@@ -18,6 +18,7 @@ use Authentication\Authenticator\SessionAuthenticator;
 use Authentication\Middleware\AuthenticationMiddleware;
 use BaserCore\Command\ComposerCommand;
 use BaserCore\Command\CreateJwtCommand;
+use BaserCore\Command\RestoreDbCommand;
 use BaserCore\Command\CreateReleaseCommand;
 use BaserCore\Command\SetupInstallCommand;
 use BaserCore\Command\SetupTestCommand;
@@ -29,6 +30,7 @@ use BaserCore\Event\BcModelEventDispatcher;
 use BaserCore\Event\BcViewEventDispatcher;
 use BaserCore\Middleware\BcAdminMiddleware;
 use BaserCore\Middleware\BcFrontMiddleware;
+use BaserCore\Middleware\BcRedirectMainSiteMiddleware;
 use BaserCore\Middleware\BcRedirectSubSiteMiddleware;
 use BaserCore\Middleware\BcRequestFilterMiddleware;
 use BaserCore\ServiceProvider\BcServiceProvider;
@@ -103,7 +105,8 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
          * コンソール判定
          * BcUtil::isConsole で利用
          */
-        $_ENV['IS_CONSOLE'] = (substr(php_sapi_name(), 0, 3) === 'cli');
+        // 'cli-server'（PHP ビルトインサーバー）は Web リクエストなのでコンソール扱いにしない
+        $_ENV['IS_CONSOLE'] = (php_sapi_name() === 'cli');
 
         /**
          * 言語設定
@@ -384,6 +387,7 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
     {
         $middlewareQueue
             ->insertBefore(RoutingMiddleware::class, new BcRequestFilterMiddleware())
+            ->insertBefore(RoutingMiddleware::class, new BcRedirectMainSiteMiddleware())
             ->insertBefore(CsrfProtectionMiddleware::class, new AuthenticationMiddleware($this))
             ->add(new BcAdminMiddleware())
             ->add(new BcFrontMiddleware())
@@ -848,6 +852,7 @@ class BaserCorePlugin extends BcPlugin implements AuthenticationServiceProviderI
         $commands->add('create release', CreateReleaseCommand::class);
         $commands->add('setup install', SetupInstallCommand::class);
         $commands->add('create jwt', CreateJwtCommand::class);
+        $commands->add('bc_utility restore_db', RestoreDbCommand::class);
         return $commands;
     }
 

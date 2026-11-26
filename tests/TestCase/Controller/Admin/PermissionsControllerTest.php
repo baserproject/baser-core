@@ -85,6 +85,9 @@ class PermissionsControllerTest extends BcTestCase
         PermissionGroupFactory::make(['id' => 1])->persist();
         $this->get('/baser/admin/baser-core/permissions/index/1');
         $this->assertResponseOk();
+        // 数字以外の ID は 404
+        $this->get('/baser/admin/baser-core/permissions/index/1abc');
+        $this->assertResponseCode(404);
     }
 
     /**
@@ -205,6 +208,30 @@ class PermissionsControllerTest extends BcTestCase
 
         $permission = $permissions->find()->where(['id' => $permissionId])->all()->last();
         $this->assertTrue($permission->status);
+    }
+
+    /**
+     * test edit
+     * 数字以外の ID は 404
+     */
+    public function testEdit_non_numeric_id()
+    {
+        $this->get('/baser/admin/baser-core/permissions/edit/' . urlencode("2'") . '/1');
+        $this->assertResponseCode(404);
+    }
+
+    /**
+     * test delete / copy / publish / unpublish
+     * 数字以外の ID は 404
+     */
+    public function testDeleteCopyPublishUnpublish_non_numeric_id()
+    {
+        $this->enableSecurityToken();
+        $this->enableCsrfToken();
+        foreach (['delete', 'copy', 'publish', 'unpublish'] as $action) {
+            $this->post('/baser/admin/baser-core/permissions/' . $action . '/' . urlencode("1'"));
+            $this->assertResponseCode(404);
+        }
     }
 
 }

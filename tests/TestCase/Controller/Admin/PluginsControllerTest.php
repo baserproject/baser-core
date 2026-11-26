@@ -211,6 +211,21 @@ class PluginsControllerTest extends BcTestCase
     }
 
     /**
+     * test update
+     *
+     * 「手動アップデート手順」は、baserCMSコアのアップデート画面の場合のみ表示する
+     */
+    public function test_update_manualUpdateGuide(): void
+    {
+        // テスト環境は plugins/baser-core が存在するため開発版として判定される
+        $this->assertTrue(BcUtil::isDevelopmentVersion());
+        PluginFactory::make(['name' => 'BcPluginSample', 'version' => '0.0.1'])->persist();
+        $this->get('/baser/admin/baser-core/plugins/update/BcPluginSample');
+        $this->assertResponseOk();
+        $this->assertResponseNotContains('手動アップデート手順');
+    }
+
+    /**
      * test update core
      */
     public function testUpdateCore(): void
@@ -391,6 +406,29 @@ class PluginsControllerTest extends BcTestCase
         // composer.json を元に戻す
         rename(ROOT . DS . 'composer.bak.json', ROOT . DS . 'composer.json');
         rename(ROOT . DS . 'composer.bak.lock', ROOT . DS . 'composer.lock');
+    }
+
+    /**
+     * test install
+     * 存在しないプラグイン名は 404
+     */
+    public function testInstall_not_exists()
+    {
+        $this->get('/baser/admin/baser-core/plugins/install/' . urlencode("BcBlog'"));
+        $this->assertResponseCode(404);
+    }
+
+    /**
+     * test reset_db
+     * PUT 以外は一覧へ戻す
+     */
+    public function testReset_db_not_put()
+    {
+        $this->enableSecurityToken();
+        $this->enableCsrfToken();
+        $this->post('/baser/admin/baser-core/plugins/reset_db', ['name' => 'BcBlog']);
+        $this->assertRedirect(['plugin' => 'BaserCore', 'prefix' => 'Admin', 'controller' => 'Plugins', 'action' => 'index']);
+        $this->assertFlashMessage('無効な処理です。');
     }
 
 }

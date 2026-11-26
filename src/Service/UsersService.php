@@ -159,6 +159,10 @@ class UsersService implements UsersServiceInterface
             'real_name' => null
         ], $params);
 
+        // 数値で指定する条件に数字以外が渡されると型変換できず例外になるため、条件にしない
+        if (!is_null($params['user_group_id']) && (!is_scalar($params['user_group_id']) || !ctype_digit((string)$params['user_group_id']))) {
+            $params['user_group_id'] = null;
+        }
         if (!is_null($params['user_group_id'])) {
             $query->matching('UserGroups', function($q) use ($params) {
                 return $q->where(['UserGroups.id' => $params['user_group_id']]);
@@ -191,6 +195,7 @@ class UsersService implements UsersServiceInterface
      */
     public function create(array $postData): ?EntityInterface
     {
+        $postData = $this->filterUserGroupIds($postData);
         $loginUser = BcUtil::loginUser();
         $postData = $this->normalizeUserGroups($postData);
         if(!empty($postData['user_groups']['_ids']) && in_array(Configure::read('BcApp.adminGroupId'), $postData['user_groups']['_ids'])) {
@@ -201,6 +206,32 @@ class UsersService implements UsersServiceInterface
         $user = $this->Users->newEmptyEntity();
         $user = $this->Users->patchEntity($user, $postData, ['validate' => 'new']);
         return $this->Users->saveOrFail($user);
+    }
+
+    /**
+     * 送信データのユーザーグループ ID から数字以外を取り除く
+     *
+     * patchEntity は user_groups._ids を使ってユーザーグループを検索するため、
+     * 数字以外が含まれると int に変換できず例外になる
+     *
+     * @param array $postData
+     * @return array
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function filterUserGroupIds(array $postData): array
+    {
+        if (!isset($postData['user_groups']['_ids'])) return $postData;
+        $ids = $postData['user_groups']['_ids'];
+        if (!is_array($ids)) {
+            $postData['user_groups']['_ids'] = [];
+            return $postData;
+        }
+        $postData['user_groups']['_ids'] = array_values(array_filter($ids, function ($id) {
+            return is_scalar($id) && ctype_digit((string)$id);
+        }));
+        return $postData;
     }
 
     /**

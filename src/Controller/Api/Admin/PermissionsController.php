@@ -13,6 +13,7 @@ namespace BaserCore\Controller\Api\Admin;
 
 use BaserCore\Service\PermissionsService;
 use BaserCore\Service\PermissionsServiceInterface;
+use BaserCore\Error\BcBadRequestException;
 use Cake\Datasource\Exception\RecordNotFoundException;
 use Cake\ORM\Exception\PersistenceFailedException;
 use BaserCore\Annotation\UnitTest;
@@ -43,8 +44,7 @@ class PermissionsController extends BcAdminApiController
             $this->setResponse($this->response->withStatus(404));
             $message = __d('baser_core', 'データが見つかりません。');
         } catch (\Throwable $e) {
-            $message = __d('baser_core', 'データベース処理中にエラーが発生しました。') . $e->getMessage();
-            $this->setResponse($this->response->withStatus(500));
+            $message = $this->handleThrowable($e);
         }
         $this->set([
             'permission' => $permission,
@@ -95,8 +95,7 @@ class PermissionsController extends BcAdminApiController
             $message = __d('baser_core', "入力エラーです。内容を修正してください。");
             $this->setResponse($this->response->withStatus(400));
         } catch (\Throwable $e) {
-            $message = __d('baser_core', 'データベース処理中にエラーが発生しました。') . $e->getMessage();
-            $this->setResponse($this->response->withStatus(500));
+            $message = $this->handleThrowable($e);
         }
         $this->set([
             'message' => $message,
@@ -128,8 +127,7 @@ class PermissionsController extends BcAdminApiController
             $this->setResponse($this->response->withStatus(404));
             $message = __d('baser_core', 'データが見つかりません。');
         } catch (\Throwable $e) {
-            $message = __d('baser_core', 'データベース処理中にエラーが発生しました。') . $e->getMessage();
-            $this->setResponse($this->response->withStatus(500));
+            $message = $this->handleThrowable($e);
         }
 
         $this->set([
@@ -168,8 +166,7 @@ class PermissionsController extends BcAdminApiController
             $this->setResponse($this->response->withStatus(404));
             $message = __d('baser_core', 'データが見つかりません。');
         } catch (\Throwable $e) {
-            $message = __d('baser_core', 'データベース処理中にエラーが発生しました。') . $e->getMessage();
-            $this->setResponse($this->response->withStatus(500));
+            $message = $this->handleThrowable($e);
         }
 
         $this->set([
@@ -206,8 +203,7 @@ class PermissionsController extends BcAdminApiController
             $this->setResponse($this->response->withStatus(404));
             $message = __d('baser_core', 'データが見つかりません。');
         } catch (\Throwable $e) {
-            $message = __d('baser_core', 'データベース処理中にエラーが発生しました。') . $e->getMessage();
-            $this->setResponse($this->response->withStatus(500));
+            $message = $this->handleThrowable($e);
         }
         $this->set([
             'message' => $message,
@@ -233,13 +229,8 @@ class PermissionsController extends BcAdminApiController
             'unpublish' => __d('baser_core', '無効化'),
             'delete' => __d('baser_core', '削除'),
         ];
-        // PHP 8.5 で null を配列オフセットに使うのは非推奨のため空文字に変換する
-        $method = $this->getRequest()->getData('batch') ?? '';
-        if (!isset($allowMethod[$method])) {
-            $this->setResponse($this->response->withStatus(500));
-            $this->viewBuilder()->setOption('serialize', []);
-            return;
-        }
+        if (!$this->validateBatchRequest($allowMethod)) return;
+        $method = $this->getRequest()->getData('batch');
         $errors = null;
         $targets = $this->getRequest()->getData('batch_targets');
         try {
@@ -252,8 +243,7 @@ class PermissionsController extends BcAdminApiController
             );
             $message = __d('baser_core', '一括処理が完了しました。');
         } catch (\Throwable $e) {
-            $message = __d('baser_core', 'データベース処理中にエラーが発生しました。') . $e->getMessage();
-            $this->setResponse($this->response->withStatus(500));
+            $message = $this->handleThrowable($e);
         }
         $this->set([
             'message' => $message,
@@ -278,13 +268,19 @@ class PermissionsController extends BcAdminApiController
         $conditions = [
             'user_group_id' => $userGroupId,
         ];
-        if ($this->request->getQuery('permission_group_id')) {
-            $conditions['permission_group_id'] = $this->request->getQuery('permission_group_id');
-        }
         $permission = null;
         try {
-            $permission = $service->get($this->request->getData('id'));
-            if (!$service->changeSort($this->request->getData('id'), $this->request->getData('offset'), $conditions)) {
+            $permissionGroupId = $this->request->getQuery('permission_group_id');
+            if ($permissionGroupId) {
+                if (!is_scalar($permissionGroupId) || !ctype_digit((string)$permissionGroupId)) {
+                    throw new BcBadRequestException(__d('baser_core', '{0} に不正な値が指定されています。', 'permission_group_id'));
+                }
+                $conditions['permission_group_id'] = $permissionGroupId;
+            }
+            $id = $this->getIntegerData('id');
+            $offset = $this->getIntegerData('offset', true, true);
+            $permission = $service->get($id);
+            if (!$service->changeSort($id, $offset, $conditions)) {
                 $this->setResponse($this->response->withStatus(400));
                 $message = __d('baser_core', '一度リロードしてから再実行してみてください。');
             } else {
@@ -295,8 +291,7 @@ class PermissionsController extends BcAdminApiController
             $this->setResponse($this->response->withStatus(404));
             $message = __d('baser_core', 'データが見つかりません。');
         } catch (\Throwable $e) {
-            $message = __d('baser_core', 'データベース処理中にエラーが発生しました。') . $e->getMessage();
-            $this->setResponse($this->response->withStatus(500));
+            $message = $this->handleThrowable($e);
         }
 
         $this->set([

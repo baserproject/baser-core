@@ -25,7 +25,6 @@ use Cake\Http\Exception\ForbiddenException;
 use Cake\Http\Exception\NotFoundException;
 use Cake\Http\Response;
 use Cake\ORM\Exception\PersistenceFailedException;
-use Cake\Routing\Router;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
 use BaserCore\Annotation\UnitTest;
@@ -129,7 +128,7 @@ class UsersController extends BcAdminAppController
      */
     public function login_code(UsersServiceInterface $usersService, TwoFactorAuthenticationsServiceInterface $twoFactorAuthenticationsService)
     {
-        $target = $this->Authentication->getLoginRedirect() ?? Router::url(Configure::read('BcPrefixAuth.Admin.loginRedirect'));
+        $target = $this->Authentication->getLoginRedirect() ?? Configure::read('BcPrefixAuth.Admin.loginRedirect');
 
         $session = $this->request->getSession();
 
@@ -204,7 +203,7 @@ class UsersController extends BcAdminAppController
      * @unitTest
      * @noTodo
      */
-    public function login_agent(UsersServiceInterface $service, $id): ?Response
+    public function login_agent(UsersServiceInterface $service, int $id): ?Response
     {
         // 特権確認
         if (BcUtil::isAdminUser() === false) {
@@ -353,7 +352,7 @@ class UsersController extends BcAdminAppController
      * @noTodo
      * @unitTest
      */
-    public function edit(UsersAdminServiceInterface $service, $id = null)
+    public function edit(UsersAdminServiceInterface $service, ?int $id = null)
     {
         if (!$id && empty($this->request->getData())) {
             $this->BcMessage->setError(__d('baser_core', '無効なIDです。'));
@@ -437,7 +436,7 @@ class UsersController extends BcAdminAppController
      * @unitTest
      * @noTodo
      */
-    public function delete(UsersServiceInterface $service, $id = null)
+    public function delete(UsersServiceInterface $service, ?int $id = null)
     {
         if (!$id) {
             $this->BcMessage->setError(__d('baser_core', '無効なIDです。'));

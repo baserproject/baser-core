@@ -240,6 +240,42 @@ class AppControllerTest extends BcTestCase
     }
 
     /**
+     * test restrictNonPublicAccess
+     * 未認証時は preview / status を除去し、認証済み時・パラメータ無し時は変更しないことを検証する
+     */
+    public function test_restrictNonPublicAccess()
+    {
+        // 未認証：preview / status が除去され、他のパラメータは保持される
+        $this->AppController->setRequest($this->getRequest('/news/archives/1?preview=1&status=0&keyword=abc'));
+        $this->execPrivateMethod($this->AppController, 'restrictNonPublicAccess');
+        $result = $this->AppController->getRequest()->getQueryParams();
+        $this->assertArrayNotHasKey('preview', $result);
+        $this->assertArrayNotHasKey('status', $result);
+        $this->assertArrayHasKey('keyword', $result);
+
+        // __cleanupQueryParams による正規化を悪用した amp; プレフィックス付きキーも除去される
+        $this->AppController->setRequest($this->getRequest('/news/archives/1?amp;preview=1&amp;status=0&keyword=abc'));
+        $this->execPrivateMethod($this->AppController, 'restrictNonPublicAccess');
+        $result = $this->AppController->getRequest()->getQueryParams();
+        $this->assertArrayNotHasKey('amp;preview', $result);
+        $this->assertArrayNotHasKey('amp;status', $result);
+        $this->assertArrayHasKey('keyword', $result);
+
+        // preview / status が無ければ何もしない
+        $this->AppController->setRequest($this->getRequest('/news/archives/1?keyword=abc'));
+        $this->execPrivateMethod($this->AppController, 'restrictNonPublicAccess');
+        $this->assertEquals(['keyword' => 'abc'], $this->AppController->getRequest()->getQueryParams());
+
+        // 認証済み：preview / status は保持される
+        $request = $this->loginAdmin($this->getRequest('/news/archives/1?preview=1&status=0'));
+        $this->AppController->setRequest($request);
+        $this->execPrivateMethod($this->AppController, 'restrictNonPublicAccess');
+        $result = $this->AppController->getRequest()->getQueryParams();
+        $this->assertArrayHasKey('preview', $result);
+        $this->assertArrayHasKey('status', $result);
+    }
+
+    /**
      * test removeOrmStructureFromRequest
      *
      * 管理画面・Admin API のリクエストから ORM 内部構造キー（contain / conditions /
@@ -425,7 +461,7 @@ class AppControllerTest extends BcTestCase
     public function testAjaxError($errorNo, $message, $expectedOutput)
     {
         ob_start();
-        $this->AppController->ajaxError($errorNo, $message);
+        $this->execPrivateMethod($this->AppController, 'ajaxError', [$errorNo, $message]);
         $output = ob_get_clean();
 
         $response = $this->AppController->getResponse();
@@ -440,7 +476,8 @@ class AppControllerTest extends BcTestCase
             [400, 'This is an error message.', "This is an error message."],
             [404, ['Error 1', 'Error 2'], "Error 1<br>Error 2"],
             [500, [['Error 1a', 'Error 1b'], 'Error 2'], "Error 1a<br />Error 1b<br>Error 2"],
-            [500, '', '']
+            [500, '', ''],
+            [500, ['<img src=x onerror=alert(1)>', ['<b>a</b>']], "&lt;img src=x onerror=alert(1)&gt;<br>&lt;b&gt;a&lt;/b&gt;"]
         ];
     }
 

@@ -257,8 +257,43 @@ class AppTable extends Table
      */
     public function getMax(string $field, array $conditions = []): int
     {
-        $max = $this->find()->where($conditions)->all()->max($field);
-        return $max->{$field} ?? 0;
+        $query = $this->find();
+        $max = $query
+            ->select(['max_value' => $query->func()->max($this->aliasField($field))])
+            ->where($conditions)
+            ->disableHydration()
+            ->first();
+        return (int)($max['max_value'] ?? 0);
+    }
+
+    /**
+     * ID の一覧から、数字で、かつ存在するものだけを返す
+     *
+     * 一括処理で、すでに削除済みの ID や数字以外の値が含まれていても
+     * 例外にせず飛ばすために利用する
+     *
+     * @param array $ids
+     * @return array
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    public function filterExistingIds(array $ids): array
+    {
+        $ids = array_values(array_filter($ids, function ($id) {
+            return is_scalar($id) && ctype_digit((string)$id);
+        }));
+        if (!$ids) return [];
+        $primaryKey = $this->aliasField((string)$this->getPrimaryKey());
+        $existing = $this->find()
+            ->select([$primaryKey])
+            ->where([$primaryKey . ' IN' => $ids])
+            ->all()
+            ->extract((string)$this->getPrimaryKey())
+            ->map(fn($id) => (string)$id)
+            ->toArray();
+        // 送信された順序を保つ
+        return array_values(array_filter($ids, fn($id) => in_array((string)$id, $existing, true)));
     }
 
     /**

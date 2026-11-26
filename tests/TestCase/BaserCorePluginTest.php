@@ -181,7 +181,11 @@ return [];
         $middleware->add(RoutingMiddleware::class);
         $middlewareQueue = $this->Plugin->middleware($middleware);
         $this->assertInstanceOf(AuthenticationMiddleware::class, $middlewareQueue->current());
-        $this->assertEquals(7, $middlewareQueue->count());
+        $this->assertEquals(8, $middlewareQueue->count());
+        $queue = (new \ReflectionProperty($middlewareQueue, 'queue'))->getValue($middlewareQueue);
+        // RoutingMiddleware の直前に BcRedirectMainSiteMiddleware を配置する
+        $this->assertInstanceOf(\BaserCore\Middleware\BcRedirectMainSiteMiddleware::class, $queue[3]);
+        $this->assertSame(RoutingMiddleware::class, $queue[4]);
     }
 
     /**
@@ -352,6 +356,15 @@ return [];
     public function test_getSkipCsrfUrl()
     {
         $rs = $this->execPrivateMethod($this->Plugin, 'getSkipCsrfUrl', []);
-        $this->assertEquals(['/baser-core/users/login.json', '/baser-core/users/refresh_token.json'], $rs);
+        $this->assertEquals([
+            '/baser-core/users/login.json',
+            '/baser-core/users/refresh_token.json',
+            '/bc-mcp',
+            '/bc-mcp/oauth2/token',
+            '/bc-mcp/oauth2/register',
+            '/bc-mcp/oauth2/register/*',
+            '/bc-mcp/oauth2/verify',
+            '/bc-mcp/oauth2/client-info'
+        ], $rs);
     }
 }

@@ -45,8 +45,7 @@ class PluginsController extends BcAdminApiController
             $this->setResponse($this->response->withStatus(404));
             $message = __d('baser_core', 'データが見つかりません');
         } catch (\Throwable $e) {
-            $message = __d('baser_core', 'データベース処理中にエラーが発生しました。') . $e->getMessage();
-            $this->setResponse($this->response->withStatus(500));
+            $message = $this->handleThrowable($e);
         }
         $this->set([
             'plugin' => $plugin,
@@ -99,8 +98,7 @@ class PluginsController extends BcAdminApiController
             $this->setResponse($this->response->withStatus(404));
             $message = __d('baser_core', 'データが見つかりません。');
         } catch (\Throwable $e) {
-            $message = __d('baser_core', 'データベース処理中にエラーが発生しました。') . $e->getMessage();
-            $this->setResponse($this->response->withStatus(500));
+            $message = $this->handleThrowable($e);
         }
 
         $this->set([
@@ -135,8 +133,7 @@ class PluginsController extends BcAdminApiController
             $this->setResponse($this->response->withStatus(404));
             $message = __d('baser_core', 'データが見つかりません');
         } catch (\Throwable $e) {
-            $message = __d('baser_core', 'データベース処理中にエラーが発生しました。') . $e->getMessage();
-            $this->setResponse($this->response->withStatus(500));
+            $message = $this->handleThrowable($e);
         }
         $this->set([
             'message' => $message,
@@ -170,8 +167,7 @@ class PluginsController extends BcAdminApiController
             $this->setResponse($this->response->withStatus(404));
             $message = __d('baser_core', 'データが見つかりません');
         } catch (\Throwable $e) {
-            $message = __d('baser_core', 'データベース処理中にエラーが発生しました。') . $e->getMessage();
-            $this->setResponse($this->response->withStatus(500));
+            $message = $this->handleThrowable($e);
         }
 
         $this->set([
@@ -202,8 +198,7 @@ class PluginsController extends BcAdminApiController
             $this->setResponse($this->response->withStatus(404));
             $message = __d('baser_core', 'データが見つかりません');
         } catch (\Throwable $e) {
-            $message = __d('baser_core', 'データベース処理中にエラーが発生しました。') . $e->getMessage();
-            $this->setResponse($this->response->withStatus(500));
+            $message = $this->handleThrowable($e);
         }
         $this->set([
             'message' => $message,
@@ -234,8 +229,7 @@ class PluginsController extends BcAdminApiController
             $this->setResponse($this->response->withStatus(404));
             $message = __d('baser_core', 'データが見つかりません');
         } catch (\Throwable $e) {
-            $message = __d('baser_core', 'データベース処理中にエラーが発生しました。') . $e->getMessage();
-            $this->setResponse($this->response->withStatus(500));
+            $message = $this->handleThrowable($e);
         }
         $this->set([
             'message' => $message,
@@ -265,8 +259,7 @@ class PluginsController extends BcAdminApiController
             $message = __d('baser_core', "入力エラーです。内容を修正してください。");
             $this->setResponse($this->response->withStatus(400));
         } catch (\Throwable $e) {
-            $message = __d('baser_core', 'データベース処理中にエラーが発生しました。') . $e->getMessage();
-            $this->setResponse($this->response->withStatus(500));
+            $message = $this->handleThrowable($e);
         }
         $this->set([
             'plugin' => $plugin,
@@ -289,8 +282,10 @@ class PluginsController extends BcAdminApiController
         $this->request->allowMethod(['post']);
         $plugin = null;
         try {
-            $plugin = $service->get($this->request->getData('id'));
-            if (!$service->changePriority($plugin->id, $this->request->getData('offset'))) {
+            $id = $this->getIntegerData('id');
+            $offset = $this->getIntegerData('offset', true, true);
+            $plugin = $service->get($id);
+            if (!$service->changePriority($plugin->id, $offset)) {
                 $this->setResponse($this->response->withStatus(400));
                 $message = __d('baser_core', '一度リロードしてから再実行してみてください。');
             } else {
@@ -298,8 +293,7 @@ class PluginsController extends BcAdminApiController
                 $this->BcMessage->setSuccess($message, true, false);
             }
         } catch (\Throwable $e) {
-            $message = __d('baser_core', 'データベース処理中にエラーが発生しました。') . $e->getMessage();
-            $this->setResponse($this->response->withStatus(500));
+            $message = $this->handleThrowable($e);
         }
 
         $this->set([
@@ -338,12 +332,8 @@ class PluginsController extends BcAdminApiController
         $allowMethod = [
             'detach' => __d('baser_core', '無効化')
         ];
+        if (!$this->validateBatchRequest($allowMethod)) return;
         $method = $this->getRequest()->getData('batch');
-        if (!isset($allowMethod[$method])) {
-            $this->setResponse($this->response->withStatus(500));
-            $this->viewBuilder()->setOption('serialize', []);
-            return;
-        }
         $targets = $this->getRequest()->getData('batch_targets');
         $errors = null;
         try {
@@ -356,8 +346,7 @@ class PluginsController extends BcAdminApiController
             );
             $message = __d('baser_core', '一括処理が完了しました。');
         } catch (\Throwable $e) {
-            $message = __d('baser_core', 'データベース処理中にエラーが発生しました。') . $e->getMessage();
-            $this->setResponse($this->response->withStatus(500));
+            $message = $this->handleThrowable($e);
         }
         $this->set([
             'message' => $message,

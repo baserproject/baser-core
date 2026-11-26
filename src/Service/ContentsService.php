@@ -246,8 +246,8 @@ class ContentsService implements ContentsServiceInterface
         if(!empty($params['type!'])) $conditions['Contents.type IS NOT'] = $params['type!'];
         // author_id
         if(!empty($params['parent_id'])) $conditions['Contents.parent_id'] = $params['parent_id'];
-        // author_id
-        if(!empty($params['author_id'])) $conditions['Contents.author_id'] = $params['author_id'];
+        // author_id（数字以外は型変換できず例外になるため条件にしない）
+        if(!empty($params['author_id']) && is_scalar($params['author_id']) && ctype_digit((string)$params['author_id'])) $conditions['Contents.author_id'] = $params['author_id'];
         // site_id
         if(!empty($params['site_id'])) $conditions['Contents.site_id'] = $params['site_id'];
         // title
@@ -271,10 +271,10 @@ class ContentsService implements ContentsServiceInterface
         }
 
         // folder_id
-        if (!is_null($params['folder_id']) && $params['folder_id']) {
+        if (!is_null($params['folder_id']) && $params['folder_id'] && is_scalar($params['folder_id']) && ctype_digit((string)$params['folder_id'])) {
             $folder = $this->Contents->find()->select(['lft', 'rght'])
-                 ->where(['Contents.id' => $queryParams['folder_id']])->first();
-            $conditions[] = ['Contents.rght <' => $folder->rght, 'Contents.lft >' => $folder->lft];
+                 ->where(['Contents.id' => $params['folder_id']])->first();
+            if ($folder) $conditions[] = ['Contents.rght <' => $folder->rght, 'Contents.lft >' => $folder->lft];
         }
 
         return $query->where($conditions);
@@ -1064,6 +1064,12 @@ class ContentsService implements ContentsServiceInterface
             }
             if(!$tables[$content->type]->save($entity)) {
                 $this->Contents->getConnection()->rollback();
+            }
+            // コンテンツに紐づく子データが独自に検索インデックスを持つ場合に備えた拡張点。
+            // ブログ記事のように Contents で管理されない子データは children では辿れないため、
+            // テーブル側に任せる。
+            if (method_exists($tables[$content->type], 'saveChildrenSearchIndex')) {
+                $tables[$content->type]->saveChildrenSearchIndex($entity);
             }
         }
         $this->Contents->getConnection()->commit();

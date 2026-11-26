@@ -13,6 +13,7 @@ namespace BaserCore\Controller\Admin;
 
 use BaserCore\Service\Admin\PermissionsAdminServiceInterface;
 use Cake\Event\EventInterface;
+use Cake\Http\Exception\NotFoundException;
 use BaserCore\Annotation\NoTodo;
 use BaserCore\Annotation\Checked;
 use BaserCore\Annotation\UnitTest;
@@ -72,6 +73,10 @@ class PermissionsController extends BcAdminAppController
 	    PermissionsAdminServiceInterface $service,
 	    $userGroupId = ''
 	) {
+        // 数字以外の ID は int 型の引数に渡せず TypeError になるため、存在しないページとして扱う
+        if (!ctype_digit((string)$userGroupId)) throw new NotFoundException();
+        $userGroupId = (int)$userGroupId;
+
         $this->request = $this->request->withQueryParams(array_merge(
             $this->getRequest()->getQueryParams(),
             ['user_group_id' => $userGroupId]
@@ -139,9 +144,9 @@ class PermissionsController extends BcAdminAppController
      */
 	public function edit(
 	    PermissionsAdminServiceInterface $service,
-	    $userGroupId,
-	    $permissionId,
-	    $permissionGroupId = null
+	    int $userGroupId,
+	    int $permissionId,
+	    ?int $permissionGroupId = null
 	) {
         $permission = $service->get($permissionId);
         if ($this->request->is(['patch', 'post', 'put'])) {
@@ -173,7 +178,7 @@ class PermissionsController extends BcAdminAppController
      * @noTodo
      * @unitTest
      */
-	public function delete(PermissionsServiceInterface $service, $permissionId)
+	public function delete(PermissionsServiceInterface $service, int $permissionId)
     {
         $permission = $service->get($permissionId);
         $permissionName = $permission->name;
@@ -195,7 +200,7 @@ class PermissionsController extends BcAdminAppController
      * @noTodo
      * @unitTest
      */
-	public function copy(PermissionsServiceInterface $service, $permissionId)
+	public function copy(PermissionsServiceInterface $service, int $permissionId)
     {
         $permission = $service->get($permissionId);
         $userGroupId = $permission->user_group_id;
@@ -219,7 +224,7 @@ class PermissionsController extends BcAdminAppController
      * @noTodo
      * @unitTest
      */
-	public function unpublish(PermissionsServiceInterface $service, $permissionId)
+	public function unpublish(PermissionsServiceInterface $service, int $permissionId)
     {
         $permission = $service->get($permissionId);
         $userGroupId = $permission->user_group_id;
@@ -241,7 +246,7 @@ class PermissionsController extends BcAdminAppController
      * @noTodo
      * @unitTest
      */
-	public function publish(PermissionsServiceInterface $service, $permissionId)
+	public function publish(PermissionsServiceInterface $service, int $permissionId)
     {
         $permission = $service->get($permissionId);
         $userGroupId = $permission->user_group_id;

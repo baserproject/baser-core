@@ -108,7 +108,7 @@ class UserGroupsController extends BcAdminAppController
      * @noTodo
      * @unitTest
      */
-    public function edit(UserGroupsServiceInterface $service, UsersServiceInterface $usersService, $id)
+    public function edit(UserGroupsServiceInterface $service, UsersServiceInterface $usersService, int $id)
     {
         $userGroup = $service->get($id);
         if ($this->request->is(['patch', 'post', 'put'])) {
@@ -139,7 +139,7 @@ class UserGroupsController extends BcAdminAppController
      * @noTodo
      * @unitTest
      */
-    public function delete(UserGroupsServiceInterface $service, $id)
+    public function delete(UserGroupsServiceInterface $service, int $id)
     {
         $this->request->allowMethod(['post', 'delete']);
         try {
@@ -170,7 +170,7 @@ class UserGroupsController extends BcAdminAppController
      * @noTodo
      * @unitTest
      */
-    public function copy(UserGroupsServiceInterface $service, $id)
+    public function copy(UserGroupsServiceInterface $service, int $id)
     {
         $this->request->allowMethod(['post']);
         $userGroup = $service->get($id);

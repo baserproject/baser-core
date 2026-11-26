@@ -13,11 +13,16 @@ namespace BaserCore\Controller\Api\Admin;
 use Authentication\Authenticator\JwtAuthenticator;
 use Authentication\Authenticator\SessionAuthenticator;
 use BaserCore\Controller\Api\BcApiController;
+use BaserCore\Error\BcBadRequestException;
 use BaserCore\Error\BcException;
 use BaserCore\Utility\BcContainerTrait;
 use Cake\Core\Configure;
+use Cake\Datasource\Exception\InvalidPrimaryKeyException;
+use Cake\Datasource\Exception\RecordNotFoundException;
 use Cake\Event\EventInterface;
 use Cake\Http\Exception\ForbiddenException;
+use Cake\Http\Exception\HttpException;
+use Cake\ORM\Exception\PersistenceFailedException;
 use Cake\ORM\TableRegistry;
 use BaserCore\Annotation\UnitTest;
 use BaserCore\Annotation\NoTodo;
@@ -164,6 +169,150 @@ class BcAdminApiController extends BcApiController
             }
         }
         throw new BcException(__d('baser_core', 'BcPrefixAuth の userModel にユーザーの存在確認メソッドが存在しません。'));
+    }
+
+    /**
+     * 一括処理の送信値を検証する
+     *
+     * 処理名（batch）が許可されたものか、対象（batch_targets）が配列で、
+     * ID を対象とする場合は数字のみで構成されているかを確認する。
+     * 不正な場合は 400 とメッセージを応答に設定して false を返す
+     *
+     * @param array $allowMethod 許可する処理名をキーとした配列
+     * @param bool $integerTargets 対象が ID（数字）の場合は true
+     * @return bool
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    protected function validateBatchRequest(array $allowMethod, bool $integerTargets = true): bool
+    {
+        $method = $this->getRequest()->getData('batch');
+        $targets = $this->getRequest()->getData('batch_targets');
+        $message = null;
+        if (!is_string($method) || !isset($allowMethod[$method])) {
+            $message = __d('baser_core', '一括処理の処理内容が不正です。');
+        } elseif (!is_array($targets) || !$targets) {
+            $message = __d('baser_core', '一括処理の対象を指定してください。');
+        } else {
+            foreach($targets as $target) {
+                if (!is_scalar($target) || (string)$target === '' || ($integerTargets && !ctype_digit((string)$target))) {
+                    $message = __d('baser_core', '一括処理の対象に不正な値が含まれています。');
+                    break;
+                }
+            }
+        }
+        if ($message === null) return true;
+        $this->setResponse($this->response->withStatus(400));
+        $this->set('message', $message);
+        $this->viewBuilder()->setOption('serialize', ['message']);
+        return false;
+    }
+
+    /**
+     * 処理中に受け止めた例外から、応答のステータスコードを設定し、メッセージを返す
+     *
+     * - 存在しないデータ（RecordNotFoundException / InvalidPrimaryKeyException）は 404
+     * - 入力の誤り（BcBadRequestException / PersistenceFailedException）は 400
+     * - HttpException は、その例外のステータスコード
+     * - BcException は 500 とし、baserCMS が書いたメッセージをそのまま返す
+     * - それ以外（PHP・CakePHP・DB が出す例外）は 500 とし、ログに記録する。
+     *   例外メッセージにはサーバーのパスや SQL 等の内部情報が含まれるため、
+     *   デバッグモードでない場合は応答に含めない
+     *
+     * @param \Throwable $e
+     * @param string|null $prefix 500 の場合にメッセージの先頭に付ける文言
+     * @return string
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    protected function handleThrowable(\Throwable $e, ?string $prefix = null): string
+    {
+        if ($e instanceof RecordNotFoundException || $e instanceof InvalidPrimaryKeyException) {
+            $this->setResponse($this->response->withStatus(404));
+            return __d('baser_core', 'データが見つかりません。');
+        }
+        if ($e instanceof BcBadRequestException) {
+            $this->setResponse($this->response->withStatus(400));
+            return $e->getMessage();
+        }
+        if ($e instanceof PersistenceFailedException) {
+            $this->setResponse($this->response->withStatus(400));
+            return __d('baser_core', '入力エラーです。内容を修正してください。');
+        }
+        if ($e instanceof HttpException) {
+            $this->setResponse($this->response->withStatus($e->getCode()));
+            return $e->getMessage();
+        }
+
+        $this->setResponse($this->response->withStatus(500));
+        if ($prefix === null) $prefix = __d('baser_core', 'データベース処理中にエラーが発生しました。');
+        if ($e instanceof BcException) {
+            return $prefix . $e->getMessage();
+        }
+        $this->log(sprintf(
+            "[%s] %s in %s on line %d\n%s",
+            get_class($e),
+            $e->getMessage(),
+            $e->getFile(),
+            $e->getLine(),
+            $e->getTraceAsString()
+        ));
+        if (Configure::read('debug')) {
+            return $prefix . $e->getMessage();
+        }
+        return $prefix;
+    }
+
+    /**
+     * 送信値から数字の項目を取得する
+     *
+     * 数字以外の値や配列が送られた場合、必須で未指定の場合は BcBadRequestException とする。
+     * 数字以外の値のまま検索条件やサービスの int 型の引数に渡すと、型変換の例外や TypeError となるため
+     *
+     * @param string $name 項目名（ドット区切りで階層を指定できる）
+     * @param bool $required 必須かどうか
+     * @param bool $allowNegative 負の数を許可するかどうか（並び替えの移動量など）
+     * @return int|null
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    protected function getIntegerData(string $name, bool $required = true, bool $allowNegative = false): ?int
+    {
+        $value = $this->getRequest()->getData($name);
+        if ($value === null || $value === '') {
+            if ($required) {
+                throw new BcBadRequestException(__d('baser_core', '{0} を指定してください。', $name));
+            }
+            return null;
+        }
+        $pattern = $allowNegative? '/\A-?[0-9]+\z/' : '/\A[0-9]+\z/';
+        if (!is_scalar($value) || !preg_match($pattern, (string)$value)) {
+            throw new BcBadRequestException(__d('baser_core', '{0} に不正な値が指定されています。', $name));
+        }
+        return (int)$value;
+    }
+
+    /**
+     * 送信値の項目が文字列（スカラー値）かどうかを確かめる
+     *
+     * 配列などが送られた場合は BcBadRequestException とする。
+     * 文字列として加工する処理に配列を渡すと TypeError となるため
+     *
+     * @param string $name 項目名（ドット区切りで階層を指定できる）
+     * @return void
+     * @checked
+     * @noTodo
+     * @unitTest
+     */
+    protected function assertScalarData(string $name): void
+    {
+        $value = $this->getRequest()->getData($name);
+        if ($value !== null && !is_scalar($value)) {
+            throw new BcBadRequestException(__d('baser_core', '{0} に不正な値が指定されています。', $name));
+        }
     }
 
 }
